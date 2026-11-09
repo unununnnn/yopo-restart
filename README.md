@@ -12,7 +12,10 @@ make venv                     # 一次（Python 3.12 + torch 2.4.1 CPU，uv）
 scripts/regress.sh            # 合 main 前回归：pytest + 批跑 + Markdown 表
 ```
 
-L0 默认 `upstream` + 影子盾开（`--policy hover|certified`、`--no-shadow` 可覆盖；影子盾真正记录留给票 03）。M0–M4 判据先报数后冻结（碰撞数如实报）。
+L0 默认 `upstream` + 影子盾开（`--policy hover|certified`、`--no-shadow` 可覆盖；影子盾真正记录留给票 03）。M0–M4 判据先报数后冻结（碰撞数如实报）。`upstream` 的终端规则是项目的 `stop_at_goal`（1.5 m）。上游 5 m `hold_here` 到不了 G2 oracle 的 0.4 m。
+
+决策记录见 [docs/adr/](docs/adr/README.md)。M0 样例表（commit、场景卡哈希、复现命令）见 [docs/results/m0-g2-pillar.md](docs/results/m0-g2-pillar.md)。
+
 YOPO 推理走 vendored `core/`（yopo-swarm core@00b85bf，见 core/VENDORED.md）：钉定上游 d5e1e60 + 权重 sha256 校验，CPU 单线程，与金样一致。
 
 接缝：场景卡（`scenes/*.json`）→ `yopo_l0.runner.run(card, RunConfig)` → 结果记录 + 逐 tick 日志。
