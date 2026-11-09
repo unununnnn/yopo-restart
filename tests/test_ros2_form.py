@@ -38,6 +38,7 @@ _DROP = set(WALL_FIELDS) | {"form"}
 _CONCLUSION = (
     "outcome", "reason", "arrived", "arrival_time_s", "n_drones",
     "min_obstacle_distance_m", "min_inter_drone_distance_m",
+    "shadow", "shadow_reject_rate",
 )
 
 
@@ -82,16 +83,17 @@ def _record(scene: str, policy: str, seed: int, proc: dict, ros: dict, nodes: li
     _COMPARE.parent.mkdir(parents=True, exist_ok=True)
     if not _COMPARE.exists():
         _COMPARE.write_text(
-            "| 场景 | seed | 形态 | outcome | reason | arrived | arrival_time_s | 碰撞 |\n"
-            "|---|---:|---|---|---|---:|---|---|\n"
+            "| 场景 | seed | 形态 | outcome | reason | arrived | arrival_time_s | 碰撞 | shadow_reject_rate |\n"
+            "|---|---:|---|---|---|---:|---|---|---:|\n"
         )
     lines = []
     for form, result in (("in-process", proc), ("ros2", ros)):
         collision = "是" if result["outcome"] == "COLLISION" else "否"
         arrived = result["arrival_time_s"]
+        rate = result["shadow_reject_rate"]
         lines.append(
             f"| {scene}@{policy} | {seed} | {form} | {result['outcome']} | {result['reason']} "
-            f"| {result['arrived']} | {arrived} | {collision} |\n"
+            f"| {result['arrived']} | {arrived} | {collision} | {rate} |\n"
         )
     lines.append(f"\n节点 {scene}@{policy}：`{nodes}`，use_sim_time 跟上 L0 tick：{clock_ok}\n\n")
     with _COMPARE.open("a") as f:
@@ -264,6 +266,9 @@ def test_ros2_matches_inprocess_arrival_and_collision(scene: Path, policy: str, 
     drone_ids = [d["id"] for d in json.loads(scene.read_text())["drones"]]
     assert info["nodes"][1:] == [f"/{i}/drone" for i in drone_ids]
     assert _conclusions(proc.result) == _conclusions(ros.result)
+    assert proc.result["shadow"] is True
+    assert proc.result["shadow_reject_rate"] is not None
+    assert proc.result["shadow_reject_rate"] == ros.result["shadow_reject_rate"]
     assert proc.result["outcome"] == expect_outcome
     assert proc.result["arrived"] == expect_arrived
     assert proc.result["outcome"] != "COLLISION"

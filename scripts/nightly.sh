@@ -6,7 +6,7 @@
 #   以及该组首个 seed 的 preview.mp4（俯视+侧视，播放 ≤60s）
 # 同一天重跑会先清空该目录。失败时 ticks.jsonl 仍留下，重放：
 #   python -m yopo_l0.render --log <ticks.jsonl> --scene <场景卡.json> --out preview.mp4
-# 影子拒绝率是占位（票 03）。合 main 前的门仍是 scripts/regress.sh（另含 certified 冒烟）。
+# 影子拒绝率读结果 JSON（默认盾开）。合 main 前的门仍是 scripts/regress.sh（另含 certified 冒烟）。
 # 用法：scripts/nightly.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."

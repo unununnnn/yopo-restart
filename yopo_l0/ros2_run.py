@@ -13,6 +13,7 @@ import sys
 
 from .bus import BusFaults
 from .policy import POLICIES
+from .run import _normalize_shadow
 from .runner import RunConfig, RunOutput, run, write
 from .scene import SceneCard, load_card
 
@@ -90,18 +91,23 @@ def main(argv=None) -> int:
     ap.add_argument("--scene", required=True, help="场景卡 JSON")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--policy", default="upstream", choices=sorted(POLICIES))
-    ap.add_argument("--shadow", dest="shadow", action="store_true", default=True)
-    ap.add_argument("--no-shadow", dest="shadow", action="store_false")
+    ap.add_argument("--shadow", choices=("on", "off"), default="on",
+                    help="影子盾记录：on（默认）或 off。只记录会否拒绝，不改批准动作")
+    ap.add_argument("--no-shadow", action="store_true", help="同 --shadow off")
     ap.add_argument("--duration", type=float, default=None, help="仿真秒数，默认取场景卡")
     ap.add_argument("--out", default=None, help="输出目录，默认 out/<scene>/seed<N>")
     ap.add_argument("--bus-drop", type=float, default=None, help="丢包概率，对齐 G3 FaultPlan.drop")
     ap.add_argument("--bus-duplicate", type=float, default=None, help="额外一份拷贝的概率，对齐 FaultPlan.duplicate")
     ap.add_argument("--bus-delay", default=None, help="时延秒数 lo,hi，对齐 FaultPlan.delay，例如 0,0.2")
     ap.add_argument("--bus-reorder", type=float, default=None, help="插到队首的概率，对齐 G3 explore 的 reorder")
-    a = ap.parse_args(argv)
+    a = ap.parse_args(_normalize_shadow(argv))
     card = load_card(a.scene)
     out = execute(card, RunConfig(
-        seed=a.seed, policy=a.policy, shadow=a.shadow, duration_s=a.duration, bus=_bus(a),
+        seed=a.seed,
+        policy=a.policy,
+        shadow=a.shadow == "on" and not a.no_shadow,
+        duration_s=a.duration,
+        bus=_bus(a),
     ))
     d = write(out, a.out or f"out/{card.name}/seed{a.seed}")
     print(json.dumps(out.result, ensure_ascii=False))
