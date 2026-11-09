@@ -24,7 +24,7 @@ frank 拍板卡片未回；父代理代定（仅 L0，L1 不动）：
 | 08 | 一种变阵（M3 前半） | 07 | todo |
 | 09 | L1 抽检通道（M3 后半，需 WSL/Orin 时段） | 03, 04 | todo |
 | 10 | ROS 2 形态 | 06 | done（M1 三机同 seed：到达/碰撞/队形误差 p95/机间距离/影子拒绝率与进程内一致；机间消息走 ROS 话题） |
-| 11 | 六机 + 故障注入（M4） | 07, 08, 10 | todo |
+| 11 | 六机 + 故障注入（M4） | 07, 08, 10 | in-progress（11a 开阔区楔形六机已进 `scenes/formation-6-open.json`，seeds 0–4；档位 `scenes/formation-6-tiers.json`；`python -m yopo_l0.batch scenes/formation-6-open.json@formation --form ros2 --tiers scenes/formation-6-tiers.json`。进程内零故障 seed 0 低于 60 s，已进 `suite.txt`。柱林六机 11b 仍等 07、08。丢 ACK 后的追赶是 06b，11a 不改 `formation.py`） |
 | 12 | 交付包（M5） | 09, 11 | todo |
 
 可并行前沿：01 → 02；02 后 03 / 04 / 05 可并行；06 后 07 / 10 可并行；09 在 03、04 完成后可与多机线并行。

@@ -7,3 +7,6 @@ scenes/pillar-forest.json@hover
 scenes/narrow-corridor.json@hover
 scenes/open-3drone.json@hover
 scenes/formation-hold.json@formation
+# 票 11a：六机开阔区楔形，进程内，零故障（档位 none）。seed 0 墙钟约 14 s，低于 60 s，所以进 regress。
+# 故障档位和 ROS 2 形态用 yopo_l0.batch --form ros2 --tiers，不进这条套件。柱林六机是票 11b。
+scenes/formation-6-open.json@formation

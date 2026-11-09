@@ -74,7 +74,18 @@ scripts/setup_ros2.sh    # Ubuntu 24.04 → Jazzy，22.04 → Humble；ros-*-ros
 
 输出和 `yopo_l0.run` 一样：`out/<场景>/seed<N>/{result.json,ticks.jsonl}`，结果里多一个 `"form": "ros2"`。`--policy`、`--seed`、`--shadow on|off` / `--no-shadow`、`--duration`、`--out`、`--bus-*` 与进程内启动器相同。`--policy formation` 只接受 `task.type` 为 `formation` 的卡。节点仍按卡里的 `drones` 建，id 即命名空间。
 
-`rclpy` 导入不了时，`tests/test_ros2_form.py` 和 `tests/test_ros2_formation.py` 里的 ROS 用例跳过，原因里写明要跑 `scripts/setup_ros2.sh`。进程内回归不依赖 ROS。自己开解释器时再 `source /opt/ros/<jazzy|humble>/setup.bash`；启动器会自己把已安装的发行版加进模块路径。
+## 六机开阔区 + 故障档位（票 11a，M4）
+
+楔形六机在开阔区保持队形。判据未冻结，表上只报数。柱林六机等票 07 / 08。丢包档里若有飞机停在起点，那是票 06b（收不齐 ACK 就不再追赶），本票不改 `formation.py`。
+
+```bash
+.venv/bin/python -m yopo_l0.batch scenes/formation-6-open.json@formation \
+  --form ros2 --tiers scenes/formation-6-tiers.json --out out/m4
+```
+
+每个档位一张表：到达率、碰撞、最小机间距离、队形误差 p95、影子拒绝率、单次墙钟。`--wall-cap` 默认 120 秒；某次超过上限时，分批方案写进该次结果和 `out/m4/batching_plan.json`，退出码不因此失败。进程内零故障（档位 none）的 seed 0 低于 60 秒，已在 `scenes/suite.txt`。档位清单：none、drop 5%、drop 20%、duplicate 10%、reorder+delay、combined。
+
+`rclpy` 导入不了时，`tests/test_ros2_form.py`、`tests/test_ros2_formation.py` 和 `tests/test_ros2_six.py` 里的 ROS 用例跳过，原因里写明要跑 `scripts/setup_ros2.sh`。进程内回归不依赖 ROS。自己开解释器时再 `source /opt/ros/<jazzy|humble>/setup.bash`；启动器会自己把已安装的发行版加进模块路径。
 
 批准计划对象留在本进程。动力学要 `sample` 策略交出来的那一个（上游偏航和 certified 运行时都挂在上面），ROS 消息里是观测和计划令牌。编队协议载荷用 `float.hex` 往返，计划哈希和占用规范形式不变。
 
@@ -86,6 +97,8 @@ scripts/setup_ros2.sh    # Ubuntu 24.04 → Jazzy，22.04 → Humble；ros-*-ros
 - `g2-pillar` @ `upstream`（票 02 的场景卡和策略；本票不改策略。判据未冻结，只报数）
 - `pillar-forest` / `narrow-corridor` @ `hover`（新几何，悬停占位）
 - `open-3drone` @ `hover`（票 05 的三机卡；几何是空的 `open-area.json`）
+- `formation-hold` @ `formation`（票 06）
+- `formation-6-open` @ `formation`（票 11a，进程内零故障。故障档位和 ROS 2 形态不进套件）
 
 G2 几何仍只在 `scenes/g2-scene.json`。柱林穿越是票 07，编队是票 06。
 
