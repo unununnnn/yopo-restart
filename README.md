@@ -13,7 +13,7 @@ make venv                     # 一次（Python 3.12 + torch 2.4.1 CPU，uv）
 scripts/regress.sh            # 合 main 前回归：pytest + 批跑 + Markdown 表
 ```
 
-L0 默认 `upstream` + 影子盾开（`--policy hover|certified`、`--no-shadow` 可覆盖；影子盾真正记录留给票 03）。M0–M4 判据先报数后冻结（碰撞数如实报）。
+L0 默认 `upstream` + 影子盾开（`--policy hover|certified`、`--shadow off` / `--no-shadow` 可覆盖）。影子盾只记录会否拒绝，不改批准动作。M0–M4 判据先报数后冻结（碰撞数如实报）。
 YOPO 推理走 vendored `core/`（yopo-swarm core@00b85bf，见 core/VENDORED.md）：钉定上游 d5e1e60 + 权重 sha256 校验，CPU 单线程，与金样一致。
 
 接缝：场景卡（`scenes/*.json`）→ `yopo_l0.runner.run(card, RunConfig)` → 结果记录 + 逐 tick 日志。
@@ -26,6 +26,30 @@ YOPO 推理走 vendored `core/`（yopo-swarm core@00b85bf，见 core/VENDORED.md
 
 结果记录里的 `tier` 总是 `L0`：这是假动力学，不是 PX4 结果。
 
+## 结果记录
+
+`result.json`（墙钟 `wall_time_s` 不参与确定性比较）：
+
+| 字段 | 开（默认，`--shadow on`） | 关（`--shadow off` 或 `--no-shadow`） |
+|---|---|---|
+| `shadow` | `true` | `false` |
+| `shadow_reject_rate` | 全体 tick 里会拒的比例。一步都不拒是 `0.0` | `null` |
+| `shadow_reject_histogram` | 全体拒绝码 → tick 次数。一 tick 多个码各计一次。不拒是 `{}` | `null` |
+| `shadow_drones` | 每机一行：`id`、`shadow_reject_rate`、`shadow_reject_histogram`。顺序与场景卡一致 | `null` |
+| `shadow_gates` | 四个门的 `wired` / `impl` / `note` | `null` |
+
+关的时候拒绝率是 `null` 而不是 `0`：`0.0` 只表示盾开着且没有会拒的 tick。拒绝不改 `outcome`。碰撞仍是硬失败，不进拒绝码。批跑表的「影子盾」列读 `shadow`，「影子拒绝率」列读 `shadow_reject_rate`（关着是 —）。
+
+`ticks.jsonl` 每行一个 tick：
+
+| 字段 | 含义 |
+|---|---|
+| `cmd_p` `cmd_v` `cmd_a` | 本 tick 批准计划的位置采样（不经 `sample`，所以不推进航向）。开/关逐位相同 |
+| `would_reject` | 开：`true`/`false`。关：`null` |
+| `reject_codes` | 开：拒绝码列表，空列表表示查了且不拒。关：`null` |
+
+每机一份影子记录。选择门（证据、计划契约、SafetyGate）在该机规划时刷新，并抄到它执行该选择的物理 tick 上。oracle 跟踪/落后用本 tick 实际交给动力学的批准计划（总线尚未投递时是原地保持）。码和缺口见 `yopo_l0/shadow.py`。
+
 ## 场景套件、视频、nightly（票 04）
 
 `scenes/suite.txt` 是 regress 与 nightly 共用的列表（`卡@策略`）：
@@ -35,7 +59,7 @@ YOPO 推理走 vendored `core/`（yopo-swarm core@00b85bf，见 core/VENDORED.md
 - `pillar-forest` / `narrow-corridor` @ `hover`（新几何，悬停占位）
 - `open-3drone` @ `hover`（票 05 的三机卡；几何是空的 `open-area.json`）
 
-G2 几何仍只在 `scenes/g2-scene.json`。影子拒绝率仍是占位（票 03）。柱林穿越是票 07，编队是票 06。
+G2 几何仍只在 `scenes/g2-scene.json`。柱林穿越是票 07，编队是票 06。
 
 ```bash
 .venv/bin/python -m yopo_l0.batch scenes/g2-pillar.json@upstream scenes/open-3drone.json@hover --jobs 4 --out out/suite
