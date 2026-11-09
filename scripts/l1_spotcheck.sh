@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# 票 09 L1 抽检运行手册。在 frank 的 WSL 或 Orin 上跑，本脚本不去连那些机器。
-# 启动的是 yopo-swarm 现有的 ros2 launch yopo_swarm_px4 uavs.launch.py。
+# 票 09b L1 抽检。Orin 上的驱动是 yopo-swarm 的 scripts/run_g2.sh nominal。
+# 不走 uavs.launch.py，不创建宿主虚拟环境，不安装 torch。
 # 不调用会改 PX4 参数的子命令，也不改 g2_run.py 和安全清单文件。
 # 跑前跑后各做一次只读 dump 和清单哈希，有差异就失败。
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT"
+# 只给本仓库的 export/import/collect 用。不要导出到 run_g2.sh，避免盖住 swarm 自己的包。
+L1_PYTHONPATH="$ROOT:$ROOT/core/src${PYTHONPATH:+:$PYTHONPATH}"
 
 # 这些子命令会改 PX4 参数。出现在 dump 命令里就拒绝执行。
 FORBIDDEN_PARAM_CMDS=(
@@ -20,18 +22,23 @@ FORBIDDEN_PARAM_CMDS=(
 usage() {
   cat <<'EOF'
 用法：
-  scripts/l1_spotcheck.sh --scene scenes/g2-pillar.json --seed 0 --out out/l1/g2-pillar
-  scripts/l1_spotcheck.sh --prepare-only --scene scenes/g2-pillar.json --out out/l1/bundle
+  scripts/l1_spotcheck.sh --prepare-only --scene scenes/g2-pillar.json --seed 0 --out out/l1/g2-pillar
+  YOPO_SWARM_ROOT=/path/to/yopo-swarm PX4_PARAM_DUMP_CMD='param show' \
+    scripts/l1_spotcheck.sh --scene scenes/g2-pillar.json --seed 0 --out out/l1/g2-pillar
   scripts/l1_spotcheck.sh --check-params before.txt after.txt
   scripts/l1_spotcheck.sh --check-safety before.sha after.sha
   scripts/l1_spotcheck.sh --dump-params out/params.txt
 
+--prepare-only 写 bundle/ 和 job-card.json。全量跑在 Orin 上执行
+  YOPO_SIM_SEED=<seed> bash "$YOPO_SWARM_ROOT/scripts/run_g2.sh" nominal
+种子只经 YOPO_SIM_SEED。不往 uavs.launch.py 传 scene/seed/policy/shadow/start/goal。
+
 全量抽检需要：
-  YOPO_SWARM_ROOT   yopo-swarm 检出（含 ros2_ws/src/yopo_swarm_px4/launch/uavs.launch.py）
-  PX4_PARAM_DUMP_CMD  只读，标准输出是参数表。例如已经连上的 pxh 里执行 param show。
+  YOPO_SWARM_ROOT     yopo-swarm 检出（含 scripts/run_g2.sh）
+  PX4_PARAM_DUMP_CMD  只读，标准输出是参数表
 可选：
-  L1_LAUNCH_FILE    用来对齐 DeclareLaunchArgument 的 launch 文件
-  L1_LOG_SRC        栈自己写日志的目录；结束后只复制 jsonl / flight.json，不改源文件
+  YOPO_L1_PYTHON      已能 import numpy 的解释器。不设置时用已有 .venv、python3，
+                      或镜像 yopo-swarm:orin-infer-cu13。不会去装依赖。
 EOF
 }
 
@@ -103,6 +110,52 @@ dump_params() {
   bash -o pipefail -c "$PX4_PARAM_DUMP_CMD" >"$dest"
 }
 
+py_ok() {
+  PYTHONPATH="$L1_PYTHONPATH" "$1" -c 'import numpy, yopo_l1' >/dev/null 2>&1
+}
+
+choose_py() {
+  if [[ -n "${YOPO_L1_PYTHON:-}" ]]; then
+    if py_ok "$YOPO_L1_PYTHON"; then
+      PY=$YOPO_L1_PYTHON
+      return
+    fi
+    echo "YOPO_L1_PYTHON=$YOPO_L1_PYTHON 不能 import numpy 和 yopo_l1。" >&2
+    exit 1
+  fi
+  if [[ -x "$ROOT/.venv/bin/python" ]] && py_ok "$ROOT/.venv/bin/python"; then
+    PY=$ROOT/.venv/bin/python
+    return
+  fi
+  if command -v python3 >/dev/null 2>&1 && py_ok python3; then
+    PY=python3
+    return
+  fi
+  if command -v docker >/dev/null 2>&1 && docker image inspect yopo-swarm:orin-infer-cu13 >/dev/null 2>&1; then
+    PY=docker-infer
+    return
+  fi
+  echo "没有可用的 Python。抽检不创建宿主虚拟环境，也不安装 torch。" >&2
+  echo "需要能 import numpy 的 python3，或已有镜像 yopo-swarm:orin-infer-cu13。" >&2
+  exit 1
+}
+
+run_py() {
+  if [[ "$PY" == "docker-infer" ]]; then
+    local -a mounts=(-v "$ROOT:$ROOT")
+    if [[ "$OUT" != "$ROOT" && "$OUT" != "$ROOT"/* ]]; then
+      mounts+=(-v "$OUT:$OUT")
+    fi
+    if [[ -n "${YOPO_SWARM_ROOT:-}" && "$YOPO_SWARM_ROOT" != "$ROOT" && "$YOPO_SWARM_ROOT" != "$ROOT"/* ]]; then
+      mounts+=(-v "$YOPO_SWARM_ROOT:$YOPO_SWARM_ROOT:ro")
+    fi
+    docker run --rm "${mounts[@]}" -w "$ROOT" -e PYTHONPATH="$ROOT:$ROOT/core/src" \
+      yopo-swarm:orin-infer-cu13 python3 "$@"
+  else
+    PYTHONPATH="$L1_PYTHONPATH" "$PY" "$@"
+  fi
+}
+
 SCENE=""
 SEED=0
 POLICY=upstream
@@ -151,11 +204,7 @@ if [[ "$OUT" != /* ]]; then
 fi
 mkdir -p "$OUT"
 
-if [[ -x "$ROOT/.venv/bin/python" ]]; then
-  PY=$ROOT/.venv/bin/python
-else
-  PY=python3
-fi
+choose_py
 
 launch_file_args=()
 if [[ -n "${L1_LAUNCH_FILE:-}" ]]; then
@@ -164,58 +213,49 @@ elif [[ -n "${YOPO_SWARM_ROOT:-}" && -f "$YOPO_SWARM_ROOT/ros2_ws/src/yopo_swarm
   launch_file_args=(--launch-file "$YOPO_SWARM_ROOT/ros2_ws/src/yopo_swarm_px4/launch/uavs.launch.py")
 fi
 
-"$PY" -m yopo_l1.export \
+run_py -m yopo_l1.export \
   --scene "$SCENE" --seed "$SEED" --policy "$POLICY" --shadow "$SHADOW" \
-  --out "$OUT/bundle" "${launch_file_args[@]}"
+  --backend run_g2 --spot "$OUT" --out "$OUT/bundle" "${launch_file_args[@]}"
 
-cmd="ros2 launch yopo_swarm_px4 uavs.launch.py $(paste -sd ' ' "$OUT/bundle/launch-args.txt")"
-echo "$cmd"
+cp "$OUT/bundle/job-card.json" "$OUT/job-card.json"
+echo "job-card $OUT/job-card.json"
+run_py -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["command"])' "$OUT/job-card.json"
 
 if [[ "$MODE" == prepare ]]; then
   exit 0
 fi
 
 if [[ -z "${YOPO_SWARM_ROOT:-}" ]]; then
-  echo "全量抽检需要 YOPO_SWARM_ROOT 指向 yopo-swarm 检出。box 上用 --prepare-only，不要去连 WSL 或 Orin。" >&2
+  echo "全量抽检需要 YOPO_SWARM_ROOT 指向 yopo-swarm 检出。box 上用 --prepare-only。" >&2
   exit 1
 fi
-if [[ ! -f "$YOPO_SWARM_ROOT/ros2_ws/src/yopo_swarm_px4/launch/uavs.launch.py" ]]; then
-  echo "没有找到 $YOPO_SWARM_ROOT/ros2_ws/src/yopo_swarm_px4/launch/uavs.launch.py" >&2
+if [[ ! -f "$YOPO_SWARM_ROOT/scripts/run_g2.sh" ]]; then
+  echo "没有找到 $YOPO_SWARM_ROOT/scripts/run_g2.sh" >&2
   exit 1
 fi
 
 mkdir -p "$OUT/guard" "$OUT/log"
 cp "$OUT/bundle/run.json" "$OUT/bundle/scene.json" "$OUT/log/"
+if git -C "$YOPO_SWARM_ROOT" rev-parse HEAD >/dev/null 2>&1; then
+  git -C "$YOPO_SWARM_ROOT" rev-parse HEAD >"$OUT/guard/swarm-sha.txt"
+fi
 hash_safety "$YOPO_SWARM_ROOT" "$OUT/guard/safety.before"
 dump_params "$OUT/guard/px4-params.before"
 
+printf '%s\n' "YOPO_SIM_SEED=$SEED bash \"$YOPO_SWARM_ROOT/scripts/run_g2.sh\" nominal" >"$OUT/log/command.txt"
+start_s=$(date +%s)
 set +e
-start_ns=$(date +%s%N)
 (
-  set +u
-  if [[ -f /opt/ros/humble/setup.bash ]]; then
-    # shellcheck disable=SC1091
-    source /opt/ros/humble/setup.bash
-  fi
-  if [[ -f "$YOPO_SWARM_ROOT/ros2_ws/install/setup.bash" ]]; then
-    # shellcheck disable=SC1091
-    source "$YOPO_SWARM_ROOT/ros2_ws/install/setup.bash"
-  fi
-  set -u
   cd "$YOPO_SWARM_ROOT"
-  mapfile -t LAUNCH_ARGS <"$OUT/bundle/launch-args.txt"
-  ros2 launch yopo_swarm_px4 uavs.launch.py "${LAUNCH_ARGS[@]}"
-) >"$OUT/log/launch.stdout" 2>"$OUT/log/launch.stderr"
+  export YOPO_SIM_SEED="$SEED"
+  bash "$YOPO_SWARM_ROOT/scripts/run_g2.sh" nominal
+) >"$OUT/log/run_g2.stdout" 2>"$OUT/log/run_g2.stderr"
 launch_rc=$?
+run_py -m yopo_l1.collect "$YOPO_SWARM_ROOT" "$OUT/log" --since "$start_s" >"$OUT/log/collect.json"
+collect_rc=$?
 end_ns=$(date +%s%N)
 set -e
-"$PY" -c 'import sys; print((int(sys.argv[1]) - int(sys.argv[2])) / 1e9)' "$end_ns" "$start_ns" >"$OUT/log/wall_time_s.txt"
-
-if [[ -n "${L1_LOG_SRC:-}" ]]; then
-  find "$L1_LOG_SRC" -type f \
-    \( -name '*.jsonl' -o -name '*.jsonl.gz' -o -name 'flight.json' -o -name 'l1-flight.json' -o -name 'ticks.jsonl' \) \
-    -exec cp -a {} "$OUT/log/" \;
-fi
+run_py -c 'import sys; print((int(sys.argv[1]) - int(sys.argv[2])) / 1e9)' "$end_ns" "$((start_s * 1000000000))" >"$OUT/log/wall_time_s.txt"
 
 dump_params "$OUT/guard/px4-params.after"
 hash_safety "$YOPO_SWARM_ROOT" "$OUT/guard/safety.after"
@@ -223,9 +263,13 @@ check_pair "$OUT/guard/px4-params.before" "$OUT/guard/px4-params.after" "PX4 参
 check_pair "$OUT/guard/safety.before" "$OUT/guard/safety.after" "安全清单"
 
 if [[ "$launch_rc" -ne 0 ]]; then
-  echo "ros2 launch 退出 ${launch_rc}。日志在 $OUT/log。参数和安全清单没有变。" >&2
+  echo "run_g2.sh 退出 ${launch_rc}。日志在 $OUT/log。参数和安全清单没有变。" >&2
   exit 4
 fi
+if [[ "$collect_rc" -ne 0 ]]; then
+  echo "没有收下本次 run_g2 的 result.json。日志在 $OUT/log。" >&2
+  exit 5
+fi
 
-"$PY" -m yopo_l1.importer "$OUT/log"
+run_py -m yopo_l1.importer "$OUT/log"
 echo "结果 $OUT/log/result.json"
