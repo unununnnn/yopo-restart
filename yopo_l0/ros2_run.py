@@ -1,7 +1,8 @@
 """ROS 2 形态启动器：python -m yopo_l0.ros2_run --scene <卡> --seed N
 
 写出和 `yopo_l0.run` 相同的 result.json / ticks.jsonl。结果多一个 `form: "ros2"`。
-参数与进程内启动器一致，编队场景卡以后直接换 `--scene` / `--policy`，不用改节点。
+参数与进程内启动器一致。编队卡用 `--policy formation`：机间协议消息走各机话题，
+不进进程内 MessageBus 队列。节点仍按场景卡里的 drones 建。
 """
 
 from __future__ import annotations
@@ -63,11 +64,20 @@ def _import_rclpy():
 
 
 def execute(card: SceneCard, cfg: RunConfig, *, inspect: dict | None = None) -> RunOutput:
-    """建世界节点和每机节点，跑与进程内相同的锁步，返回同一份 RunOutput。"""
+    """建世界节点和每机节点，跑与进程内相同的锁步，返回同一份 RunOutput。
+
+    formation 任务把 FormationFleet.transport_override 指到话题传输，exchange 因此不再
+    使用进程内队列。运行结束（含异常）后一定清回 None，避免漏到下一次进程内编队。
+    """
     rclpy = _import_rclpy()
+    from .formation import FormationFleet
+    from .ros2_bus import Ros2Transport
     from .ros2_nodes import L0WorldBridge, init_rclpy
 
-    bridge = L0WorldBridge(card)
+    transport = Ros2Transport() if card.card["task"]["type"] == "formation" else None
+    bridge = L0WorldBridge(card, transport=transport)
+    if transport is not None:
+        FormationFleet.transport_override = transport
     try:
         init_rclpy(rclpy)
         out = run(card, cfg, bridge=bridge)
@@ -77,8 +87,12 @@ def execute(card: SceneCard, cfg: RunConfig, *, inspect: dict | None = None) -> 
             inspect["clock_ok"] = bridge.clock_ok
             inspect["clock_error"] = bridge.clock_error
             inspect["clock_samples"] = bridge.clock_samples
+            inspect["bus_ros_deliveries"] = bridge.bus_ros_deliveries
+            inspect["bus_topics"] = list(bridge.bus_topics)
         return out
     finally:
+        if transport is not None:
+            FormationFleet.transport_override = None
         bridge.close()
         if rclpy.ok():
             rclpy.shutdown()
@@ -90,7 +104,10 @@ def main(argv=None) -> int:
     )
     ap.add_argument("--scene", required=True, help="场景卡 JSON")
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--policy", default="upstream", choices=sorted(POLICIES))
+    ap.add_argument(
+        "--policy", default="upstream", choices=sorted({*POLICIES, "formation"}),
+        help="hover、upstream、certified；formation 只用于 task.type 为 formation 的场景卡",
+    )
     ap.add_argument("--shadow", choices=("on", "off"), default="on",
                     help="影子盾记录：on（默认）或 off。只记录会否拒绝，不改批准动作")
     ap.add_argument("--no-shadow", action="store_true", help="同 --shadow off")
@@ -102,6 +119,8 @@ def main(argv=None) -> int:
     ap.add_argument("--bus-reorder", type=float, default=None, help="插到队首的概率，对齐 G3 explore 的 reorder")
     a = ap.parse_args(_normalize_shadow(argv))
     card = load_card(a.scene)
+    if a.policy == "formation" and card.card["task"]["type"] != "formation":
+        raise SystemExit("--policy formation 只适用于 task.type 为 formation 的场景卡")
     out = execute(card, RunConfig(
         seed=a.seed,
         policy=a.policy,
