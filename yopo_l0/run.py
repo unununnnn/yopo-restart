@@ -61,6 +61,10 @@ def main(argv=None):
     ap.add_argument("--bus-duplicate", type=float, default=None, help="额外一份拷贝的概率，对齐 FaultPlan.duplicate")
     ap.add_argument("--bus-delay", default=None, help="时延秒数 lo,hi，对齐 FaultPlan.delay，例如 0,0.2")
     ap.add_argument("--bus-reorder", type=float, default=None, help="插到队首的概率，对齐 G3 explore 的 reorder")
+    ap.add_argument(
+        "--safe-radius", type=float, default=None,
+        help="覆盖 upstream / crossing 的走廊准入半径（米）。缺省用场景卡，场景卡再缺省 0.05（上游 d5e1e60）",
+    )
     a = ap.parse_args(_normalize_shadow(argv))
     card = load_card(a.scene)
     out = run(card, RunConfig(
@@ -69,6 +73,7 @@ def main(argv=None):
         shadow=a.shadow == "on" and not a.no_shadow,
         duration_s=a.duration,
         bus=_bus(a),
+        safe_radius_m=a.safe_radius,
     ))
     d = write(out, a.out or f"out/{card.name}/seed{a.seed}")
     print(json.dumps(out.result, ensure_ascii=False))

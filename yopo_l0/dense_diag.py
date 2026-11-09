@@ -157,23 +157,24 @@ class _DiagFleet(CrossingFleet):
         from yopo_swarm_core.candidates import decode_params, minco_two_piece
 
         R = R_yaw(yaw)
+        dec = self.decoder
         params, score, radius = self.source.forward_raw(depth, head[1], head[2], goal, head[0], R)
-        inner_b, tail_b, durations = decode_params(params, UPSTREAM_DECODER)
+        inner_b, tail_b, durations = decode_params(params, dec)
         inner_w = inner_b @ R.T + head[0]
         tail_w = np.einsum("ij,nkj->nki", R, tail_b)
         tail_w[:, 0] += head[0]
-        ranking = rank_candidates(score, radius, UPSTREAM_DECODER, inner_w)
-        mu = corridor_mu_lo(radius, UPSTREAM_DECODER)
+        ranking = rank_candidates(score, radius, dec, inner_w)
+        mu = corridor_mu_lo(radius, dec)
         admitted = np.asarray(ranking.admitted, dtype=bool)
         n_adm = int(admitted.sum())
         selected = None if ranking.corridor_empty or not ranking.order else int(ranking.order[0])
         self._snap = {
-            "n_candidates": int(UPSTREAM_DECODER.count),
+            "n_candidates": int(dec.count),
             "n_admitted": n_adm,
             "corridor_empty": bool(ranking.corridor_empty),
             "mu_lo_selected": None if selected is None else float(mu[selected]),
             "mu_lo_min_admitted": None if n_adm == 0 else float(mu[admitted].min()),
-            "safe_mu": float(UPSTREAM_DECODER.safe_mu),
+            "safe_mu": float(dec.safe_mu),
         }
         # 下面与 CrossingFleet._yopo_options 相同，避免再跑一次网络。
         if ranking.corridor_empty:
@@ -208,7 +209,7 @@ class _DiagFleet(CrossingFleet):
             "mu_lo_selected": None,
             "mu_lo_min_admitted": None,
             "implied_r_m": None,
-            "safe_mu": float(UPSTREAM_DECODER.safe_mu),
+            "safe_mu": float(self.decoder.safe_mu),
             "p": None if pose is None else pose[0].tolist(),
             "yaw": None if pose is None else pose[1],
             "frame": None if pose is None else pose[2],

@@ -7,6 +7,7 @@
 退出码：hover 全部通过、确定性一致、单次墙钟 < 上限 时为 0；goto 的到达与碰撞不影响退出码（只报数）。
 结果表列出场景卡哈希、seed、层级、策略、影子盾、最小机间距离。影子拒绝率读结果里的 shadow_reject_rate（关着是 null，表中写 —）。单机的机间距离为 —。
 起飞交接和 RTF 是 L1 字段（票 09）；L0 结果里没有这两列，表上留空。
+safe_radius 是上游走廊准入半径。用了这条走廊的策略才填数；不是 0.05 m 时「偏离上游」列写「偏离上游」。
 """
 
 from __future__ import annotations
@@ -24,10 +25,20 @@ def _strip(r):
     return {k: v for k, v in r.items() if k not in WALL_FIELDS}
 
 
+def _radius_cells(r) -> str:
+    rad = r.get("safe_radius_m")
+    if rad is None:
+        return "— | —"
+    flag = "偏离上游" if r.get("upstream_deviation") else "否"
+    return f"{float(rad):.2f} | {flag}"
+
+
 def _one(job):
-    path, policy, seed, duration, out_dir, check, shadow = job
+    path, policy, seed, duration, out_dir, check, shadow, safe_radius = job
     card = load_card(path)
-    cfg = RunConfig(seed=seed, policy=policy, duration_s=duration, shadow=shadow)
+    cfg = RunConfig(
+        seed=seed, policy=policy, duration_s=duration, shadow=shadow, safe_radius_m=safe_radius,
+    )
     out = run(card, cfg)
     write(out, Path(out_dir) / f"{card.name}@{policy}" / f"seed{seed}")
     same = None
@@ -35,6 +46,14 @@ def _one(job):
         again = run(card, cfg)
         same = _strip(again.result) == _strip(out.result) and again.ticks == out.ticks
     return out.result, same
+
+
+def _radius_note(r) -> str:
+    rad = r.get("safe_radius_m")
+    if rad is None:
+        return ""
+    flag = "，偏离上游" if r.get("upstream_deviation") else ""
+    return f"，safe_radius {float(rad):.2f} m{flag}"
 
 
 def _fmt(x, nd=2):
@@ -61,6 +80,10 @@ def main(argv=None):
     ap.add_argument("--no-determinism", action="store_true", help="跳过首 seed 重跑")
     ap.add_argument("--wall-limit", type=float, default=60.0)
     ap.add_argument("--out", default="out/batch")
+    ap.add_argument(
+        "--safe-radius", type=float, default=None,
+        help="覆盖 upstream / crossing 的走廊准入半径（米）。缺省用场景卡，场景卡再缺省 0.05（上游 d5e1e60）",
+    )
     a = ap.parse_args(argv)
     jobs, groups = [], []
     for spec in a.specs:
@@ -76,7 +99,9 @@ def main(argv=None):
             seeds = card.card.get("seeds", [0])
         groups.append((card, policy, seeds))
         for i, seed in enumerate(seeds):
-            jobs.append((path, policy, seed, a.duration, a.out, i == 0 and not a.no_determinism, a.shadow))
+            jobs.append((
+                path, policy, seed, a.duration, a.out, i == 0 and not a.no_determinism, a.shadow, a.safe_radius,
+            ))
     if a.jobs > 1:
         with mp.get_context("spawn").Pool(a.jobs) as pool:
             res = pool.map(_one, jobs, chunksize=1)
@@ -88,8 +113,10 @@ def main(argv=None):
     lines = [f"commit `{rows[0]['commit'][:12]}`，层级 {rows[0]['tier']}", ""]
     gate_ok = True
     for card, policy, seeds in groups:
-        rs = [r for r in rows if r["scene"] == card.name and r["policy"] == policy]
         task = card.card["task"]["type"]
+        # crossing / formation / switch 由任务类型决定策略，结果里的 policy 是任务名。
+        label = task if task in ("crossing", "formation", "switch") else policy
+        rs = [r for r in rows if r["scene"] == card.name and r["policy"] == label]
         frozen = bool(card.card["criteria"].get("frozen", task == "hover"))
         n_col = sum(r["outcome"] == "COLLISION" for r in rs)
         walls = [r["wall_time_s"] for r in rs]
@@ -104,12 +131,12 @@ def main(argv=None):
                        f"（{'判据已冻结' if frozen else '未冻结 / report-only'}）")
         gate_ok &= max(walls) < a.wall_limit or task != "hover"
         lines += [
-            f"### {card.name} @ {policy}（{task}，层级 {rs[0]['tier']}，影子盾 {'开' if rs[0]['shadow'] else '关'}，"
-            f"场景卡 `{card.hash}`）：{verdict}",
+            f"### {card.name} @ {label}（{task}，层级 {rs[0]['tier']}，影子盾 {'开' if rs[0]['shadow'] else '关'}，"
+            f"场景卡 `{card.hash}`{_radius_note(rs[0])}）：{verdict}",
             f"墙钟 最大 {max(walls):.1f} s / 平均 {sum(walls) / len(walls):.1f} s",
             "",
-            "| seed | 层级 | 策略 | 影子盾 | 场景卡哈希 | 结果 | 到达时间 s | 最小障碍距离 m | 最小机间距离 m | 终点误差 m | 仿真 s | 墙钟 s | 影子拒绝率 | 主要拒绝码 | 规划码 | 起飞交接 s | RTF |",
-            "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+            "| seed | 层级 | 策略 | 影子盾 | 场景卡哈希 | 结果 | 到达时间 s | 最小障碍距离 m | 最小机间距离 m | 终点误差 m | 仿真 s | 墙钟 s | 影子拒绝率 | 主要拒绝码 | 规划码 | safe_radius m | 偏离上游 | 起飞交接 s | RTF |",
+            "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
         ]
         for r in rs:
             codes = ", ".join(f"{k}:{v}" for k, v in r["plan_codes"].items() if not k.startswith("cand:"))
@@ -119,6 +146,7 @@ def main(argv=None):
                 f"{_fmt(r.get('min_inter_drone_distance_m'), 3)} | {_fmt(r['final_goal_error_m'], 3)} | "
                 f"{r['sim_duration_s']:.1f} | {r['wall_time_s']:.1f} | "
                 f"{_fmt(r.get('shadow_reject_rate'), 3)} | {_reject_summary(r)} | {codes} | "
+                f"{_radius_cells(r)} | "
                 f"{_fmt(r.get('takeoff_handoff_s'), 3)} | {_fmt(r.get('rtf'), 3)} |"
             )
         cand = {}
@@ -147,6 +175,48 @@ def main(argv=None):
     (Path(a.out) / "results.json").write_text(json.dumps(rows, indent=2, ensure_ascii=False) + "\n")
     print(md)
     return 0 if gate_ok else 1
+
+
+def format_safe_radius_comparison(rows: list[dict]) -> str:
+    """疏/中/密 × safe_radius 的汇总。到达时间只含到达的 seed。最小净空取 crossing 块。"""
+    groups: dict[tuple, list] = {}
+    for r in rows:
+        key = (str(r.get("forest_density") or r.get("scene")), r.get("safe_radius_m"))
+        groups.setdefault(key, []).append(r)
+    lines = [
+        "| 档 | safe_radius m | 偏离上游 | 到达 | 撞树 | 最小净空 m | 无解次数 | 到达时间 s |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+
+    def _order(item):
+        (tier, rad), _rs = item
+        rank = {"sparse": 0, "medium": 1, "dense": 2}.get(tier, 9)
+        return (rank, tier, -1.0 if rad is None else float(rad))
+
+    for (tier, rad), rs in sorted(groups.items(), key=_order):
+        arrived = [r for r in rs if r.get("arrival_time_s") is not None]
+        trees = sum("TRUTH_POSITION" in str(r.get("reason")) for r in rs)
+        clears = [
+            float(block["min_obstacle_clearance_m"])
+            for r in rs
+            if (block := r.get("crossing")) and block.get("min_obstacle_clearance_m") is not None
+        ]
+        empty = sum(int(r.get("empty_solution_count") or 0) for r in rs)
+        if arrived:
+            times = [float(r["arrival_time_s"]) for r in arrived]
+            tcell = f"{sum(times) / len(times):.2f}（{min(times):.2f}–{max(times):.2f}）"
+        else:
+            tcell = "—"
+        if rad is None:
+            rad_cell, dev = "—", "—"
+        else:
+            rad_cell = f"{float(rad):.2f}"
+            dev = "偏离上游" if rs[0].get("upstream_deviation") else "否"
+        clear = "—" if not clears else f"{min(clears):.3f}–{max(clears):.3f}"
+        lines.append(
+            f"| {tier} | {rad_cell} | {dev} | {len(arrived)}/{len(rs)} | {trees} | {clear} | {empty} | {tcell} |"
+        )
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":

@@ -110,9 +110,9 @@ def test_adr_amendment_appended_not_superseding():
     assert text.index("## 修订（2026-10-24，ADR-0011）") < text.index(AMENDMENT)
 
 
-def test_fidelity_register_lists_exactly_a_to_g():
+def test_fidelity_register_lists_exactly_a_to_i():
     rows = re.findall(r"^\| \(([a-z])\) ", _amendment(), flags=re.MULTILINE)
-    assert rows == list("abcdefg")
+    assert rows == list("abcdefghi")
 
 
 def test_fidelity_register_tests_exist():

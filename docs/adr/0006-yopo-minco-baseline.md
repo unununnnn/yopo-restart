@@ -38,6 +38,8 @@ Status: accepted
 | (e) 命令按仿真时间采样，替代固定 dt 回放 | 确定性 | `test_uav.py::test_stale_frame_selects_future_approved_brake_and_samples_it_at_branch_time` |
 | (f) 目标高度可配置，不硬编码 2 m | 任务需要 | #34 |
 | (g) 可选的时长拉伸重定时，只在 D10 下启用 | 运动学可行性 | #38（D10） |
+| (h) L0 `upstream` 与 crossing 的走廊准入半径 `safe_radius` 可配置。默认 0.05 m，与上游 `test_yopo_ros.py` 的 `safe_radius` 相同，解码器仍是 `UPSTREAM_DECODER`。设成别的值才偏离；票 07d 把 0.35 m（机体半径）当作可选修法。结果表在非 0.05 m 时写「偏离上游」 | 密林里 0.05 m 会批准几何净空小于机体的候选。默认保持上游，修法必须显式打开 | `tests/test_l0_safe_radius.py` |
+| (i) 无解时与上游不一致。L0 `UpstreamPolicy` 在走廊为空时，本帧停在当前里程计（`hold_traj`，码 `CORRIDOR_EMPTY_HOVER`），下一帧重规划。上游 d5e1e60 的 `control_pub` 在 `self.brake` 时不采样这条新轨迹，重复上一条 `PositionCommand`，把 `trajectory_flag` 设成 `TRAJECTORY_STATUS_EMPTY` 并更新航向（日志称为 BRAKE）。crossing 无解且契约允许时提交一段运动学刹车（`BRAKE_ONLY`），否则留在上一条已提交计划。(b) 仍是认证规划器的刹车分支，和这两条都不是同一条路径 | 票 07d 要求如实登记。代码并不一致，所以不写成一致。本票不把 L0 改成按住上一条命令，也不改跟踪增益 | `yopo_l0/policy.py` 的 `CORRIDOR_EMPTY_HOVER`；`yopo_l0/crossing.py` 的 `BRAKE_ONLY`；上游 `test_yopo_ros.py` 的 `control_pub` |
 
 其余节点决策全部与上游一致：
 - 选择准入：μ_lo ≥ safe_mu，再取 argmax(score) 和 topk 连续性；
