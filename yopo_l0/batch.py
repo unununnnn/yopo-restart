@@ -393,6 +393,10 @@ def main(argv=None):
         from .crossing import format_report
 
         lines += ["", format_report(rows)]
+    if any(r.get("task") == "switch" for r in rows):
+        from .switch import format_report as switch_report
+
+        lines += ["", switch_report(rows)]
     md = "\n".join(lines)
     (out_dir / "summary.md").write_text(md + "\n")
     (out_dir / "results.json").write_text(json.dumps(rows, indent=2, ensure_ascii=False) + "\n")

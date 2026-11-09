@@ -1,0 +1,46 @@
+{
+  "name": "formation-switch",
+  "geometry": "formation-switch-scene.json",
+  "ground_z": 0.0,
+  "drones": [
+    {"id": "uav0", "slot_body": [0.0, 0.0, 0.0], "start_enu": [0.0, 0.0, 1.5]},
+    {"id": "uav1", "slot_body": [0.0, 2.0, 0.0], "start_enu": [0.0, 2.0, 1.5]},
+    {"id": "uav2", "slot_body": [0.0, -2.0, 0.0], "start_enu": [0.0, -2.0, 1.5]}
+  ],
+  "task": {
+    "type": "switch",
+    "duration_s": 32.0,
+    "window_len_s": 0.5,
+    "lookahead_m": 7.0,
+    "width_threshold_m": 5.0,
+    "open_width_m": 20.0,
+    "transition_s": 4.0,
+    "column_slots": {
+      "uav0": [0.0, 0.0, 0.0],
+      "uav1": [-2.4, 0.0, 0.0],
+      "uav2": [-4.8, 0.0, 0.0]
+    },
+    "virtual_center": {
+      "origin_enu": [0.0, 0.0, 1.5],
+      "length_m": 36.0,
+      "speed_mps": 1.5,
+      "accel_s": 2.0,
+      "brake_s": 2.0
+    }
+  },
+  "criteria": {
+    "body_radius_m": 0.35,
+    "goal_tolerance_m": 0.4,
+    "goal_speed_mps": 0.2,
+    "goal_hold_s": 1.0,
+    "frozen": false
+  },
+  "camera": {
+    "width": 160, "height": 96, "hfov_deg": 90.0, "vfov_deg": 60.0,
+    "min_range_m": 0.2, "max_range_m": 20.0, "noise_std_m": 0.02,
+    "mount_xyz_body": [0.13, 0.0, 0.02]
+  },
+  "dynamics": {"model": "point_mass_lag", "tau_s": 0.1, "kp": 4.0, "kd": 3.0, "a_max": 6.0},
+  "rates_hz": {"physics": 100, "camera": 30, "planner": 10},
+  "seeds": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+}

@@ -76,6 +76,7 @@ def test_suite_includes_g2_pillar_upstream_and_new_hover_cards():
         "scenes/open-3drone.json@hover",
         "scenes/formation-hold.json@formation",
         "scenes/crossing-pillars.json@crossing",
+        "scenes/formation-switch.json@switch",
         "scenes/formation-6-open.json@formation",
     ]
     for spec in specs:
