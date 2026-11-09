@@ -1,0 +1,16 @@
+{
+  "name": "formation-6-fault-tiers",
+  "note": "票 11a。六机开阔区编队的 BusFaults 档位。combined 叠的是 drop 5%、duplicate 10% 和 reorder+delay，不含单独的 drop 20%。reorder+delay 的时延是 G3 FaultPlan 默认 (0.01, 0.05) 秒，reorder=1 与进程内乱序用例相同。",
+  "tiers": [
+    {"id": "none", "label": "none", "bus": {}},
+    {"id": "drop-5", "label": "drop 5%", "bus": {"drop": 0.05}},
+    {"id": "drop-20", "label": "drop 20%", "bus": {"drop": 0.20}},
+    {"id": "duplicate-10", "label": "duplicate 10%", "bus": {"duplicate": 0.10}},
+    {"id": "reorder-delay", "label": "reorder+delay", "bus": {"delay": [0.01, 0.05], "reorder": 1.0}},
+    {
+      "id": "combined",
+      "label": "combined",
+      "bus": {"drop": 0.05, "duplicate": 0.10, "delay": [0.01, 0.05], "reorder": 1.0}
+    }
+  ]
+}
