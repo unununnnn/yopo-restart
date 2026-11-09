@@ -49,6 +49,41 @@ def _drop_departure_acks(monkeypatch, drone_id):
     monkeypatch.setattr(MessageBus, "publish", publish)
 
 
+def test_catchup_messages_go_through_transport_override(monkeypatch):
+    """票 10b 的话题传输要带上超时 RELEASE 和追赶提案，不能退回另一条总线。"""
+    card = load_card(CARD)
+    seen = []
+
+    class Transport:
+        def __init__(self):
+            self.bus = None
+
+        def carrying(self, bus):
+            if self.bus is not None:
+                return self.bus
+            orig = bus.publish
+
+            def publish(now, *, src, dest, topic, payload):
+                seen.append(payload.get("msg"))
+                return orig(now, src=src, dest=dest, topic=topic, payload=payload)
+
+            bus.publish = publish
+            self.bus = bus
+            return bus
+
+    FormationFleet.transport_override = Transport()
+    try:
+        _drop_departure_acks(monkeypatch, "uav0")
+        out = _run(card, seed=0, shadow=False)
+    finally:
+        FormationFleet.transport_override = None
+    assert out.result["outcome"] == "SUCCESS", out.result
+    assert out.result["arrived"] == 3
+    proposals = [m for m in seen if getattr(m, "kind", None) == "PROPOSE" and m.proposer_id == "uav0"]
+    assert any(m.plan_seq >= 2 and m.t_start > out.result["formation"]["t_go_s"] for m in proposals)
+    assert any(getattr(m, "kind", None) == "RELEASE" and m.ctx.sender_id == "uav0" for m in seen)
+
+
 @pytest.mark.parametrize("drone_id", DRONES)
 def test_dropped_departure_ack_rejoins(monkeypatch, drone_id):
     card = load_card(CARD)
