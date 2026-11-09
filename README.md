@@ -109,3 +109,19 @@ YOPO_SWARM_ROOT=/path/to/yopo-swarm PX4_PARAM_DUMP_CMD='param show' \
 ```
 
 `PX4_PARAM_DUMP_CMD` 必须是只读的（`param show` 可以，`param set` / `save` / `load` / `reset` / `import` 会被拒绝）。脚本在 launch 前后各 dump 一次参数，并给 `g2_run.py` 和文件名含 safety / checklist 的文本做 sha256；有差异就失败，不把这次写进成功结果。批跑表末尾两列是起飞交接和 RTF，L0 留空。RTF = 仿真秒 / 墙钟秒。
+
+## 合 main（premerge）
+
+不接 GitHub Actions。每个要进 main 的 PR 在本机跑：
+
+```bash
+scripts/premerge.sh 123            # 查 MERGEABLE，临时 worktree 里跑 regress.sh，查 Co-authored-by，在 PR 留一条评论
+scripts/premerge.sh 123 --merge    # 上面全部通过后：gh pr ready，再 gh pr merge --merge --match-head-commit <检验过的 sha>
+scripts/premerge.sh 123 --squash   # 同样只在全部通过后合并；说明由各提交拼成，并去掉 Co-authored-by 行
+```
+
+不可合并、regress 非 0、解析不到 pytest 计数或批跑表、任一提交带 `Co-authored-by` trailer、评论或合并失败，退出码都不是 0。评论里有 head sha、L0 与 core 的 passed/skipped、regress 退出码、总退出码，以及批跑 Markdown 表。
+
+不给 `--merge` / `--squash` 时脚本不合并。它不 `git push`，也不 force-push。worktree 用完即删。
+
+`make venv` 在 `.venv/bin/python` 已在、且 `requirements.txt` / `pyproject.toml` / `core/pyproject.toml` 的哈希未变时直接返回，避免 `uv venv` 报 virtual environment already exists。第三方装在 `~/.cache/yopo-restart/deps/<哈希>`（本目录只挂 editable）；wheel 走 uv 缓存，所以新 worktree 不重装 torch。
