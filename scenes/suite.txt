@@ -12,3 +12,4 @@ scenes/formation-drop.json@formation
 scenes/formation-duplicate.json@formation
 scenes/formation-delay.json@formation
 scenes/formation-reorder.json@formation
+scenes/crossing-pillars.json@crossing

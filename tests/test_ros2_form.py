@@ -83,17 +83,19 @@ def _record(scene: str, policy: str, seed: int, proc: dict, ros: dict, nodes: li
     _COMPARE.parent.mkdir(parents=True, exist_ok=True)
     if not _COMPARE.exists():
         _COMPARE.write_text(
-            "| 场景 | seed | 形态 | outcome | reason | arrived | arrival_time_s | 碰撞 | shadow_reject_rate |\n"
-            "|---|---:|---|---|---|---:|---|---|---:|\n"
+            "| 场景 | seed | 形态 | outcome | reason | arrived | arrival_time_s | 碰撞 | min_inter_drone_m | formation_error_p95_m | shadow_reject_rate |\n"
+            "|---|---:|---|---|---|---:|---|---|---:|---:|---:|\n"
         )
     lines = []
     for form, result in (("in-process", proc), ("ros2", ros)):
         collision = "是" if result["outcome"] == "COLLISION" else "否"
         arrived = result["arrival_time_s"]
         rate = result["shadow_reject_rate"]
+        p95 = result.get("formation_error_p95_m")
         lines.append(
             f"| {scene}@{policy} | {seed} | {form} | {result['outcome']} | {result['reason']} "
-            f"| {result['arrived']} | {arrived} | {collision} | {rate} |\n"
+            f"| {result['arrived']} | {arrived} | {collision} | {result['min_inter_drone_distance_m']!r} "
+            f"| {p95!r} | {rate!r} |\n"
         )
     lines.append(f"\n节点 {scene}@{policy}：`{nodes}`，use_sim_time 跟上 L0 tick：{clock_ok}\n\n")
     with _COMPARE.open("a") as f:

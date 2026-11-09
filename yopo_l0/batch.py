@@ -127,6 +127,10 @@ def main(argv=None):
     for name, policy, s, ok in det:
         lines.append(f"确定性（同 seed 重跑，墙钟除外）：{name}@{policy} seed{s} {'一致' if ok else '不一致'}")
         gate_ok &= ok
+    if any(r.get("task") == "crossing" for r in rows):
+        from .crossing import format_report
+
+        lines += ["", format_report(rows)]
     md = "\n".join(lines)
     Path(a.out).mkdir(parents=True, exist_ok=True)
     (Path(a.out) / "summary.md").write_text(md + "\n")
