@@ -23,10 +23,12 @@ frank 拍板卡片未回；父代理代定（仅 L0，L1 不动）：
 | 07 | 三机交叉避障（M2） | 06, 04 | done |
 | 07b | 不规则林（泊松盘、疏密档） | 07 | done |
 | 08 | 一种变阵（M3 前半） | 07 | done |
-| 09 | L1 抽检通道（M3 后半，需 WSL/Orin 时段） | 03, 04 | todo |
+| 09 | L1 抽检通道（M3 后半）。Orin 驱动是 `scripts/run_g2.sh nominal`，不是 `ros2 launch`。L1 策略记 `deployed-certified` | 03, 04 | in-progress |
 | 10 | ROS 2 形态 | 06 | done（M1 三机同 seed：到达/碰撞/队形误差 p95/机间距离/影子拒绝率与进程内一致；机间消息走 ROS 话题） |
 | 11 | 六机 + 故障注入（M4） | 07, 08, 10 | todo |
 | 12 | 交付包（M5） | 09, 11 | todo |
+
+09：Orin 工单由 `scripts/l1_spotcheck.sh --prepare-only --scene scenes/g2-pillar.json --seed 0 --out out/l1/g2-pillar` 写到 `out/l1/g2-pillar/job-card.json`（schema `yopo-restart/l1-job-card/1`）。全量命令是 `YOPO_SWARM_ROOT=<yopo-swarm> PX4_PARAM_DUMP_CMD='<只读 param show>' scripts/l1_spotcheck.sh --scene scenes/g2-pillar.json --seed 0 --out out/l1/g2-pillar`。脚本内部执行 `YOPO_SIM_SEED=<seed> bash "$YOPO_SWARM_ROOT/scripts/run_g2.sh" nominal`，超时 1800 s。产物是 `bundle/scene.json`、`bundle/run.json`、`log/orin-result.json`、`log/events/`、`log/result.json`、`guard/` 里的参数表和安全文件哈希。过：`run_g2.sh` 退出码 0，参数表和安全哈希前后一致，且收下了 `result.json`。不过：退出码非 0、参数或安全文件有差异、没有 `result.json`，或命令里出现 param set/save/load/reset/import。已知缺口：这条路径仍是已部署的 certified 栈，不接受 `--policy upstream`；对照表写 `policy=deployed-certified`。把 upstream 移植进 L1 要等以后的 yopo-swarm 票，本仓库不改那个仓库。宿主上不要 `make venv`（aarch64 没有 torch cpu wheel）；export/import/report 只用 numpy，缺解释器时用已有镜像 `yopo-swarm:orin-infer-cu13`。
 
 可并行前沿：01 → 02；02 后 03 / 04 / 05 可并行；06 后 07 / 10 可并行；09 在 03、04 完成后可与多机线并行。
 

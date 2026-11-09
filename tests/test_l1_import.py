@@ -60,6 +60,63 @@ def test_shadow_off_keeps_reject_rate_null(tmp_path):
     assert result["plan_codes"]["STALE_FRAME"] == 1
 
 
+def test_orin_result_is_deployed_certified_and_keeps_metrics(tmp_path):
+    card, log = _bundle(tmp_path, shadow=True)
+    (log / "px4_1.jsonl.gz").unlink()
+    (log / "orin-result.json").write_text(
+        json.dumps(
+            {
+                "outcome": "COLLISION",
+                "collisions": 1,
+                "tracking": {"error_m_max": 0.22, "error_m_p50": 0.05},
+                "wall_time_s": 40.0,
+                "takeoff_handoff_s": 7.0,
+                "sim_duration_s": 18.0,
+                "policy": "upstream",
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = import_l1(log)
+    assert result["policy"] == "deployed-certified"
+    assert result["policy_requested"] == "upstream"
+    assert "upstream" in result["policy_note"]
+    assert "yopo-swarm" in result["policy_note"]
+    assert result["outcome"] == "COLLISION"
+    assert result["collisions"] == 1
+    assert result["tracking_error_m"] == 0.22
+    assert result["wall_time_s"] == 40.0
+    assert result["takeoff_handoff_s"] == 7.0
+    assert result["rtf"] == 18.0 / 40.0
+    assert result["shadow"] is False
+    assert result["shadow_reject_rate"] is None
+    assert result["scene_card_hash"] == card.hash
+    assert result["tier"] == "L1"
+
+
+def test_orin_oracle_report_shape(tmp_path):
+    _card, log = _bundle(tmp_path, shadow=False)
+    (log / "px4_1.jsonl.gz").unlink()
+    (log / "g2-result.json").write_text(
+        json.dumps(
+            {
+                "outcome": "SUCCESS",
+                "reason": "GOAL_REACHED_AND_HELD",
+                "tracking_error_m_p50_max": [0.02, 0.11],
+                "wall_time_s": 30,
+                "takeoff_handoff": 4.5,
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = import_l1(log)
+    assert result["outcome"] == "SUCCESS"
+    assert "collisions" not in result
+    assert result["tracking_error_m"] == 0.11
+    assert result["takeoff_handoff_s"] == 4.5
+    assert result["policy"] == "deployed-certified"
+
+
 def test_synthetic_flight_overlay_keeps_real_reject_codes(tmp_path):
     raw = json.loads(SYNTHETIC.read_text())
     assert raw["label"] == "synthetic"
