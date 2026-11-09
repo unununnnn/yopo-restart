@@ -85,6 +85,21 @@ scripts/setup_ros2.sh    # Ubuntu 24.04 → Jazzy，22.04 → Humble；ros-*-ros
 
 每个档位一张表：到达率、碰撞、最小机间距离、队形误差 p95、影子拒绝率、单次墙钟。`--wall-cap` 默认 120 秒；某次超过上限时，分批方案写进该次结果和 `out/m4/batching_plan.json`，退出码不因此失败。进程内零故障（档位 none）的 seed 0 低于 60 秒，已在 `scenes/suite.txt`。档位清单：none、drop 5%、drop 20%、duplicate 10%、reorder+delay、combined。
 
+## 六机穿林（票 11b）
+
+同一只楔形穿过 07b 的 medium 林，sparse 用同一张规划参数再跑一遍。避障是上游 YOPO，队形只偏置目标，和票 07 同一套。seeds 0–9。判据未冻结。虚拟中心起点在 x=6 m，好让最后一排停在后墙前面。
+
+```bash
+.venv/bin/python -m yopo_l0.batch \
+  scenes/crossing-6-forest.json@crossing \
+  scenes/crossing-6-forest-sparse.json@crossing \
+  --jobs 4 --out out/m4b
+.venv/bin/python -m yopo_l0.batch scenes/formation-6-open.json@formation \
+  --form inprocess --tiers scenes/formation-6-tiers.json --jobs 4 --out out/m4b-open
+```
+
+第二行是 06b 合入之后重跑开阔区六档。ROS 2 对账用 medium 的 seed 0：`--form ros2 --seeds 0`。
+
 `rclpy` 导入不了时，`tests/test_ros2_form.py`、`tests/test_ros2_formation.py` 和 `tests/test_ros2_six.py` 里的 ROS 用例跳过，原因里写明要跑 `scripts/setup_ros2.sh`。进程内回归不依赖 ROS。自己开解释器时再 `source /opt/ros/<jazzy|humble>/setup.bash`；启动器会自己把已安装的发行版加进模块路径。
 
 批准计划对象留在本进程。动力学要 `sample` 策略交出来的那一个（上游偏航和 certified 运行时都挂在上面），ROS 消息里是观测和计划令牌。编队协议载荷用 `float.hex` 往返，计划哈希和占用规范形式不变。

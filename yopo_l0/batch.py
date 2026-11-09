@@ -246,9 +246,8 @@ def _tier_section(card, policy: str, tier: dict, rows: list[dict], form: str, wa
     if any(_hovering_without_commit(r) for r in rows):
         lines.append("")
         lines.append(
-            "有飞机的 `local_commits` 为 0，停在起点，队形误差因此变大。"
-            "同步出发那一轮收不齐 ACK 时，本机继续悬停已批准的计划，不再追赶虚拟中心"
-            "（票 06b；本票不改 `formation.py`）。丢包档在 06b 合入前会看到悬停。"
+            "有飞机的 `local_commits` 仍为 0，没有飞出起点，队形误差因此变大。"
+            "06b 会在后续窗口沿本槽追赶；这一档里这些飞机没有形成提交。"
         )
     over = [r for r in rows if r.get("batching_plan")]
     if over:
