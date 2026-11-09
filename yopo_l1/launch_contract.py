@@ -1,21 +1,20 @@
-"""yopo-swarm（只读参考）里 L1 的启动入口和世界格式。
+"""L1 在 Orin 上的启动入口，以及可选的 ros2 launch 绑定。
 
-本环境的 GitHub 安装读不到私有仓库 https://github.com/unununnnn/yopo-swarm
-（API 返回 404）。下面的路径来自该仓库 @00b85bf 已经原样抄进本仓库的文件：
+frank 在 Orin 上确认过：
 
-- 启动文件：``docs/ref/minco-port-map.md`` 第 23 行，ys 目标
-  ``ros2_ws/src/yopo_swarm_px4/launch/uavs.launch.py``
-  命令：``ros2 launch yopo_swarm_px4 uavs.launch.py``
-- 世界：``scenes/README.md``，``sim/px4/g2-scene.json``
-  字段是 ``world``、``goal_enu``、``boxes[{name, lo, hi}]``
-- 安全清单数值的出处：``yopo_l0/policy.py`` 注明 certified 默认值
-  「参数同 L1 G2（g2_run.py）」。抽检不改这个文件，也不把这些数当启动参数传下去。
-  命名空间规则见 ``yopo_swarm_core.uav.namespace``：``px4_[0-9]+``。
-  vendored 规划日志的 owner 是 ``px4_1``。
+- ``uavs.launch.py`` 只声明 ``vehicles`` / ``ipc_root`` / ``log_root`` /
+  ``body_radius`` / ``tracking_margin`` / ``code_sha``。没有 scene、seed、policy、
+  shadow、start_enu、goal_enu。抽检不再要求这些声明存在，也不把它们塞给
+  ``ros2 launch``。
+- 宿主没有 ROS 2 Humble，也没有 ``ros2_ws/install``。真 SITL 是 Docker Compose
+  + ``sim/px4/start.sh`` + ``scripts/g2_run.py``，入口是 ``scripts/run_g2.sh``。
+- 默认后端因此是 ``run_g2``：``bash scripts/run_g2.sh nominal``，种子只经
+  ``YOPO_SIM_SEED``。这条路径是已部署的 certified 栈，不接受 ``--policy upstream``。
+- 显式 ``backend=ros2`` 且 launch 文件真声明了那六个语义名时，才按
+  ``DeclareLaunchArgument`` 绑定。对不上就失败，避免把栈不认识的名字传下去。
 
-抽检机上读得到那份 launch 文件时，参数名按 ``DeclareLaunchArgument`` 对齐。
-读不到时用规范名。对不上就失败，避免把栈不认识的名字传给 ``ros2 launch``，
-也避免悄悄漏掉 policy / shadow。
+世界仍是 ``sim/px4/g2-scene.json``。安全清单数值仍以 ``g2_run.py`` 为准，
+抽检不下发、不改这些数。
 """
 
 from __future__ import annotations
@@ -31,6 +30,29 @@ LAUNCH_PATH = "ros2_ws/src/yopo_swarm_px4/launch/uavs.launch.py"
 WORLD_SCHEMA = "sim/px4/g2-scene.json"
 SAFETY_SOURCE = "g2_run.py"
 
+BACKEND_RUN_G2 = "run_g2"
+BACKEND_ROS2 = "ros2"
+RUN_G2_SCRIPT = "scripts/run_g2.sh"
+RUN_G2_MODE = "nominal"
+SEED_ENV = "YOPO_SIM_SEED"
+EXECUTED_POLICY = "deployed-certified"
+JOB_CARD_SCHEMA = "yopo-restart/l1-job-card/1"
+# 调度器墙钟。含镜像拉起和 nominal G2，不是场景卡里的 45 s 仿真时长。
+JOB_TIMEOUT_S = 1800
+CONTAINERS = ("yopo-sim-g2", "yopo-swarm:orin-infer-cu13")
+SWARM_REPO = "https://github.com/unununnnn/yopo-swarm"
+RESTART_REPO = "https://github.com/unununnnn/yopo-restart"
+
+# Orin 上 uavs.launch.py 实际声明的名字（frank 确认）。记录用，不往下传值。
+ORIN_LAUNCH_ARGS = (
+    "vehicles",
+    "ipc_root",
+    "log_root",
+    "body_radius",
+    "tracking_margin",
+    "code_sha",
+)
+
 # yopo_l0/policy.py CertifiedPolicy.DEFAULTS，注释写明与 L1 g2_run.py 相同。
 FROZEN_SAFETY = {
     "body_radius": 0.35,
@@ -39,6 +61,18 @@ FROZEN_SAFETY = {
     "start_pad_radius": 1.2,
 }
 FROZEN_BODY_RADIUS_M = FROZEN_SAFETY["body_radius"]
+
+POLICY_GAP = (
+    "今日 scripts/run_g2.sh 与 scripts/g2_run.py 是已部署的 certified 栈，"
+    "不接受 --policy upstream。本表 L1 策略是 deployed-certified，不是 upstream。"
+    "把 upstream 移植进 L1 不在票 09b：那要改 yopo-swarm，本仓库不动那个仓库。"
+)
+
+PYTHON_CHOICE = (
+    "抽检不在 Orin 宿主上创建 venv，也不安装 torch（aarch64 没有 torch 2.4.1 cpu wheel）。"
+    "export / import / report 只需要 numpy：优先宿主已能 import numpy 的 python3；"
+    "没有时用已经存在的镜像 yopo-swarm:orin-infer-cu13，挂上本仓库跑，不往宿主装依赖。"
+)
 
 # 规范名在前。同一个语义命中多个声明时用靠前的那个，避免把 JSON 路径绑到 Gazebo 的 world 名上。
 ALIASES = {
@@ -67,8 +101,30 @@ def declared_arguments(launch_py: Path) -> list[str]:
     return names
 
 
+def launch_covers_spotcheck(declared: list[str] | None) -> bool:
+    """六个抽检语义是否都能在这份 launch 文件里找到声明。"""
+    if not declared:
+        return False
+    have = set(declared)
+    return all(any(alias in have for alias in ALIASES[key]) for key in ALIASES)
+
+
+def resolve_backend(requested: str | None, declared: list[str] | None) -> str:
+    """默认 run_g2。只有显式 ros2，或 launch 文件真声明了全部语义名时，才走 ros2。"""
+    if requested in (None, ""):
+        if launch_covers_spotcheck(declared):
+            return BACKEND_ROS2
+        return BACKEND_RUN_G2
+    if requested in (BACKEND_RUN_G2, BACKEND_ROS2):
+        return requested
+    raise L1LaunchError(f"不认识的 L1 后端 {requested}（只能是 {BACKEND_RUN_G2} 或 {BACKEND_ROS2}）")
+
+
 def bind_launch_args(semantic: dict[str, str], declared: list[str] | None) -> dict[str, str]:
-    """semantic 的键是规范名。declared 为 None 时原样返回规范名。"""
+    """semantic 的键是规范名。declared 为 None 时原样返回规范名。缺声明就失败。
+
+    只给 ros2 后端用。run_g2 不调用这里。
+    """
     if declared is None:
         return dict(semantic)
     have = set(declared)

@@ -4,13 +4,17 @@
 
 - ``takeoff_handoff_s``：从日志起点到起飞交接（规划器接手）的秒数。日志没写就是 null
 - ``rtf``：仿真秒 / 墙钟秒。日志给了显式值就用显式值，否则用 sim_duration_s / wall_time_s
+- ``collisions`` / ``tracking_error_m``：Orin ``result.json`` 里有才写
 
 能读的日志（都在 log_dir 顶层或下一层）：
 
 - ``run.json``：export_l1 写的身份（场景卡哈希、策略、影子盾、判据）
 - ``scene.json``：盒子，用来算障碍距离和碰撞
+- ``orin-result.json`` 或 ``g2-result.json``：``run_g2.sh`` / ``g2_run.py`` 写下的摘要
+  （outcome、collisions、tracking、wall time、takeoff handoff）。有这份就以它为准，
+  并把策略写成 ``deployed-certified``。文件里的 policy 字段即使写了 upstream 也不采用。
 - ``*.jsonl`` / ``*.jsonl.gz``：schema ``yopo-swarm/planner-log/1`` 的规划日志。
-  影子盾开着时，diagnostic 不是 APPROVED 的步计为会拒
+  没有 Orin 摘要、且 run.json 说影子盾开着时，diagnostic 不是 APPROVED 的步计为会拒
 - ``ticks.jsonl``：和 L0 相同的逐 tick 记录（有的话优先于规划日志的位置和拒绝码）
 - ``l1-flight.json`` 或 ``flight.json``：显式覆盖到达、碰撞、起飞交接、RTF。合成夹具用 ``label: synthetic``
 - ``wall_time_s.txt`` / ``takeoff_handoff_s.txt``：抽检脚本写的单行浮点
@@ -31,6 +35,7 @@ from yopo_l0.scene import Ground, parse_geometry
 from yopo_l0.shadow import aggregate, aggregate_drones
 
 from .errors import L1LogError
+from .launch_contract import EXECUTED_POLICY, POLICY_GAP
 
 PLANNER_SCHEMA = "yopo-swarm/planner-log/1"
 # 与 yopo_swarm_core.oracle.FlightOracle 的默认值一致，只用于「还在垫上不算落地碰撞」。
@@ -307,9 +312,13 @@ def import_l1(log_dir: str | Path) -> dict:
     ]
     run = _load_json(run_path) if run_path else None
     flight = _load_json(flight_path) if flight_path else None
-    if run is None and flight is None and not planner_paths and tick_path is None:
+    orin_path = _orin_file(log_dir)
+    orin = _load_json(orin_path) if orin_path else None
+    if orin is not None and not _is_orin_result(orin):
+        raise L1LogError(f"{orin_path} 不像 g2 的 result.json（需要 outcome、collisions 或 tracking）")
+    if run is None and flight is None and not planner_paths and tick_path is None and orin is None:
         raise L1LogError(
-            f"{log_dir} 里没有 run.json、l1-flight.json、ticks.jsonl，也没有 {PLANNER_SCHEMA} 规划日志"
+            f"{log_dir} 里没有 run.json、l1-flight.json、ticks.jsonl、Orin result.json，也没有 {PLANNER_SCHEMA} 规划日志"
         )
     if scene_path is None and run and run.get("scene_file"):
         candidate = log_dir / run["scene_file"]
@@ -446,6 +455,8 @@ def import_l1(log_dir: str | Path) -> dict:
                 result[key] = flight[key]
         if "rtf" not in flight and result.get("sim_duration_s") not in (None, 0) and result.get("wall_time_s") not in (None, 0):
             result["rtf"] = float(result["sim_duration_s"]) / float(result["wall_time_s"])
+    if orin is not None:
+        _apply_orin(result, orin, identity)
     result["tier"] = "L1"
     if not result["shadow"]:
         result["shadow_reject_rate"] = None
@@ -456,8 +467,174 @@ def import_l1(log_dir: str | Path) -> dict:
         raise L1LogError("日志里没有场景卡名或哈希。把 export_l1 的 run.json 放进日志目录，或在飞行摘要里写 scene / scene_card_hash")
     if result.get("seed") is None or result.get("policy") is None:
         raise L1LogError("日志里没有 seed 或 policy。它们在 export_l1 的 run.json 里")
+    if orin_path is not None and orin_path.name == "result.json":
+        preserved = log_dir / "orin-result.json"
+        if not preserved.exists():
+            preserved.write_text(orin_path.read_text(encoding="utf-8"), encoding="utf-8")
     (log_dir / "result.json").write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return result
+
+
+def _num(value):
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _tracking_scalar(value):
+    """跟踪误差收成一个数：优先最大值，方便和 L0 对照表放在一格里。"""
+    got = _num(value)
+    if got is not None:
+        return got
+    if isinstance(value, list):
+        nums = [n for n in (_num(x) for x in value) if n is not None]
+        return max(nums) if nums else None
+    if isinstance(value, dict):
+        for key in ("error_m_max", "max", "tracking_error_m_max", "max_m", "error_m"):
+            if key in value:
+                got = _num(value[key])
+                if got is not None:
+                    return got
+        for key in ("tracking_error_m_p50_max", "tracking_error_m_p50_p95_max", "error_m_p50_max"):
+            if key in value:
+                got = _tracking_scalar(value[key])
+                if got is not None:
+                    return got
+    return None
+
+
+def _collision_count(doc: dict) -> int | None:
+    for key in ("collisions", "collision_count", "n_collisions"):
+        if key in doc and doc[key] is not None and not isinstance(doc[key], bool):
+            return int(doc[key])
+    if doc.get("collision") is True:
+        return 1
+    if doc.get("collision") is False:
+        return 0
+    if doc.get("outcome") == "COLLISION":
+        return 1
+    return None
+
+
+def _is_orin_result(doc: dict) -> bool:
+    if not isinstance(doc, dict):
+        return False
+    if doc.get("schema") == "yopo-restart/l1-run/1":
+        return False
+    if doc.get("tier") in ("L0", "L1") and "scene_card_hash" in doc and "dynamics" in doc:
+        return False
+    keys = set(doc)
+    interesting = {
+        "outcome",
+        "collisions",
+        "collision",
+        "collision_count",
+        "n_collisions",
+        "tracking",
+        "tracking_error_m",
+        "wall_time_s",
+        "wall_time",
+        "takeoff_handoff_s",
+        "takeoff_handoff",
+        "tracking_error_m_p50_max",
+        "tracking_error_m_p50_p95_max",
+    }
+    return bool(keys & interesting) and bool(
+        keys
+        & {
+            "outcome",
+            "collisions",
+            "collision",
+            "collision_count",
+            "n_collisions",
+            "tracking",
+            "tracking_error_m",
+            "tracking_error_m_p50_max",
+            "tracking_error_m_p50_p95_max",
+        }
+    )
+
+
+def orin_overlay(doc: dict) -> dict:
+    """g2 的 result.json → 要写进 L1 记录的字段。不采用对方自报的 policy。"""
+    out: dict = {}
+    if doc.get("outcome") is not None:
+        out["outcome"] = doc["outcome"]
+    if doc.get("reason") is not None:
+        out["reason"] = doc["reason"]
+    cols = _collision_count(doc)
+    if cols is not None:
+        out["collisions"] = cols
+        if cols > 0 and out.get("outcome") in (None, "SUCCESS"):
+            out["outcome"] = "COLLISION"
+            out.setdefault("reason", "COLLISION")
+    track = _tracking_scalar(doc["tracking"]) if "tracking" in doc else None
+    if track is None and "tracking_error_m" in doc:
+        track = _tracking_scalar(doc["tracking_error_m"])
+    if track is None:
+        for key in ("tracking_error_m_p50_max", "tracking_error_m_p50_p95_max"):
+            if key in doc:
+                track = _tracking_scalar(doc[key])
+                if track is not None:
+                    break
+    if track is not None:
+        out["tracking_error_m"] = track
+    if "tracking" in doc:
+        out["tracking"] = doc["tracking"]
+    for src, dst in (
+        ("wall_time_s", "wall_time_s"),
+        ("wall_time", "wall_time_s"),
+        ("wall_s", "wall_time_s"),
+        ("takeoff_handoff_s", "takeoff_handoff_s"),
+        ("takeoff_handoff", "takeoff_handoff_s"),
+        ("handoff_s", "takeoff_handoff_s"),
+        ("sim_duration_s", "sim_duration_s"),
+        ("sim_time_s", "sim_duration_s"),
+        ("arrival_time_s", "arrival_time_s"),
+        ("rtf", "rtf"),
+    ):
+        if src in doc and doc[src] is not None and dst not in out:
+            num = _num(doc[src])
+            out[dst] = num if num is not None else doc[src]
+    if "arrived" in doc and doc["arrived"] is not None:
+        out["arrived"] = doc["arrived"]
+    return out
+
+
+def _apply_orin(result: dict, doc: dict, identity: dict) -> None:
+    result.update(orin_overlay(doc))
+    requested = identity.get("policy_requested")
+    if not requested or requested == EXECUTED_POLICY:
+        requested = identity.get("policy")
+    result["policy"] = EXECUTED_POLICY
+    result["policy_requested"] = requested
+    result["policy_note"] = POLICY_GAP
+    # 部署栈没有影子盾开关。摘要没写 shadow 就不把 L0 的盾当成已运行。
+    result["shadow"] = bool(doc["shadow"]) if "shadow" in doc else False
+    if "rtf" not in doc and result.get("sim_duration_s") not in (None, 0) and result.get("wall_time_s") not in (None, 0):
+        result["rtf"] = float(result["sim_duration_s"]) / float(result["wall_time_s"])
+
+
+def _orin_file(log_dir: Path) -> Path | None:
+    for name in ("orin-result.json", "g2-result.json"):
+        found = _one(_find(log_dir, (name,)), name)
+        if found is not None:
+            return found
+    for path in _find(log_dir, ("result.json",)):
+        try:
+            doc = _load_json(path)
+        except (OSError, json.JSONDecodeError):
+            continue
+        if _is_orin_result(doc):
+            return path
+    return None
 
 
 def _looks_like_planner(path: Path) -> bool:

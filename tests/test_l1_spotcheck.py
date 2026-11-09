@@ -1,5 +1,6 @@
-"""票 09：抽检脚本只读参数，前后不一致就失败。不启动 PX4。"""
+"""票 09b：抽检脚本只读参数，Orin 驱动是 run_g2.sh nominal。不启动 PX4，不装 torch。"""
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -58,7 +59,13 @@ def test_dump_rejects_param_set_without_running_it(tmp_path):
     assert not dest.exists()
 
 
-def test_prepare_only_exports_without_px4(tmp_path):
+def test_script_does_not_install_a_host_venv_or_torch():
+    text = SCRIPT.read_text()
+    for phrase in ("make venv", "uv venv", "uv pip", "pip install", "ros2 launch"):
+        assert phrase not in text
+
+
+def test_prepare_only_writes_run_g2_job_card(tmp_path):
     proc = _run([
         "--prepare-only",
         "--scene", "scenes/g2-pillar.json",
@@ -68,11 +75,20 @@ def test_prepare_only_exports_without_px4(tmp_path):
         "--out", str(tmp_path / "spot"),
     ])
     assert proc.returncode == 0, proc.stderr
-    assert "ros2 launch yopo_swarm_px4 uavs.launch.py" in proc.stdout
-    assert "policy:=upstream" in proc.stdout
-    assert "shadow:=on" in proc.stdout
+    assert 'YOPO_SIM_SEED=1 bash "$YOPO_SWARM_ROOT/scripts/run_g2.sh" nominal' in proc.stdout
+    assert "ros2 launch" not in proc.stdout
     assert "param set" not in proc.stdout
     assert (tmp_path / "spot/bundle/scene.json").is_file()
+    card = json.loads((tmp_path / "spot/job-card.json").read_text())
+    assert card["mode"] == "nominal"
+    assert card["argv"] == ["nominal"]
+    assert card["driver"] == "scripts/run_g2.sh"
+    assert card["env"]["YOPO_SIM_SEED"] == "1"
+    assert card["policy_requested"] == "upstream"
+    assert card["policy_executed"] == "deployed-certified"
+    assert card["timeout_s"] == 1800
+    assert "pass" in card["pass_fail"] and "fail" in card["pass_fail"]
+    assert card["uavs_launch_py"]["used"] is False
     assert not (tmp_path / "spot/log").exists()
 
 
@@ -84,6 +100,91 @@ def test_prepare_refuses_cylinders(tmp_path):
     ])
     assert proc.returncode != 0
     assert "圆柱" in proc.stderr
+
+
+def _fake_swarm(root: Path, body: str) -> None:
+    (root / "scripts").mkdir(parents=True)
+    (root / "scripts" / "g2_run.py").write_text("# frozen\nBODY_RADIUS = 0.35\n")
+    script = root / "scripts" / "run_g2.sh"
+    script.write_text(body)
+    script.chmod(0o755)
+    launch = root / "ros2_ws/src/yopo_swarm_px4/launch/uavs.launch.py"
+    launch.parent.mkdir(parents=True)
+    launch.write_text(
+        "\n".join(
+            f"DeclareLaunchArgument('{name}')"
+            for name in ("vehicles", "ipc_root", "log_root", "body_radius", "tracking_margin", "code_sha")
+        )
+        + "\n"
+    )
+
+
+def test_full_run_calls_run_g2_nominal_and_ingests_result(tmp_path):
+    swarm = tmp_path / "swarm"
+    _fake_swarm(
+        swarm,
+        """#!/bin/bash
+set -euo pipefail
+test "${1:-}" = nominal
+test -n "${YOPO_SIM_SEED:-}"
+mkdir -p sim/px4/last
+printf '%s\\n' "$1" > sim/px4/last/mode.txt
+printf '%s\\n' "$YOPO_SIM_SEED" > sim/px4/last/seed.txt
+cat > sim/px4/last/result.json <<'EOF'
+{"outcome":"SUCCESS","collisions":0,"tracking":{"error_m_max":0.04},"wall_time_s":11.0,"takeoff_handoff_s":2.5,"sim_duration_s":22.0}
+EOF
+printf '%s\\n' '{"kind":"event"}' > sim/px4/last/events.jsonl
+""",
+    )
+    spot = tmp_path / "spot"
+    proc = _run(
+        ["--scene", "scenes/g2-pillar.json", "--seed", "0", "--policy", "upstream", "--out", str(spot)],
+        env={
+            "YOPO_SWARM_ROOT": str(swarm),
+            "PX4_PARAM_DUMP_CMD": "printf '%s\\n' 'MPC_Z_VEL_MAX [0, 8] : 3.0000'",
+        },
+    )
+    assert proc.returncode == 0, proc.stderr + proc.stdout
+    assert (swarm / "sim/px4/last/mode.txt").read_text().strip() == "nominal"
+    assert (swarm / "sim/px4/last/seed.txt").read_text().strip() == "0"
+    assert "run_g2.sh" in (spot / "log/command.txt").read_text()
+    assert "nominal" in (spot / "log/command.txt").read_text()
+    result = json.loads((spot / "log/result.json").read_text())
+    assert result["tier"] == "L1"
+    assert result["policy"] == "deployed-certified"
+    assert result["policy_requested"] == "upstream"
+    assert result["outcome"] == "SUCCESS"
+    assert result["collisions"] == 0
+    assert result["tracking_error_m"] == 0.04
+    assert result["wall_time_s"] == 11.0
+    assert result["takeoff_handoff_s"] == 2.5
+    assert result["rtf"] == 2.0
+    assert result["shadow"] is False
+    assert (spot / "log/orin-result.json").is_file()
+    assert list((spot / "log/events").glob("*events.jsonl"))
+    assert "ros2 launch" not in proc.stdout
+
+
+def test_full_run_fails_when_safety_file_changes(tmp_path):
+    swarm = tmp_path / "swarm"
+    _fake_swarm(
+        swarm,
+        """#!/bin/bash
+set -euo pipefail
+printf '\\n# touched\\n' >> scripts/g2_run.py
+mkdir -p sim/px4/last
+echo '{"outcome":"SUCCESS","collisions":0}' > sim/px4/last/result.json
+""",
+    )
+    proc = _run(
+        ["--scene", "scenes/g2-pillar.json", "--seed", "0", "--out", str(tmp_path / "spot")],
+        env={
+            "YOPO_SWARM_ROOT": str(swarm),
+            "PX4_PARAM_DUMP_CMD": "printf '%s\\n' 'MPC_Z_VEL_MAX [0, 8] : 3.0000'",
+        },
+    )
+    assert proc.returncode == 3, proc.stderr
+    assert "安全清单" in proc.stderr
 
 
 def test_full_run_refuses_to_start_without_swarm_root(tmp_path):
