@@ -7,6 +7,13 @@ runtime 都挂在这个对象上，零故障时必须原对象进 step）。总�
 本机一条 `self_plan` 令牌，他机一条不含对象身份的 `peer_plan` 公告。
 令牌被延迟、丢失、重复或乱序后，动力学才改用对应的槽；他机公告不写入批准计划，
 也不进入 Observation。没有已投递的本机计划时，动力学保持当前点。
+
+票 10 的 ROS 2 形态不另写一套循环。`bridge is None`（默认）时下面两个调用点都不进入，
+进程内结果与加钩子之前相同。桥只做两件事：每个 tick 传感之前 `begin_tick(k, now)`，
+规划那一步 `plan(drone_id, obs)` 代替本函数直接调用 `policy.plan`。
+`plan` 必须调用该机字典里的同一个策略实例并返回它交出的计划对象，
+这样 `last_code` / `extra_codes` 和动力学 `sample` 的对象身份都不变。
+调用方在 `run` 返回后调用 `bridge.close()`（本函数不调用）。
 """
 
 from __future__ import annotations
@@ -91,7 +98,7 @@ def _note_pairs(drones: list[dict], radius: float, min_inter: float | None, outc
     return min_inter, outcome, reason
 
 
-def run(card: SceneCard, cfg: RunConfig) -> RunOutput:
+def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
     if cfg.tier != "L0":
         raise ValueError("本运行器只实现 L0")
     wall0 = time.perf_counter()
@@ -135,6 +142,9 @@ def run(card: SceneCard, cfg: RunConfig) -> RunOutput:
     faults = _faults(card, cfg)
     bus = MessageBus(faults, rng=np.random.default_rng(np.random.SeedSequence([cfg.seed, _BUS_SEED_SALT])))
     slots: list = []  # 本机计划对象。不下发到他机，也不放进总线 payload。
+    # 票 10：策略实例已经建好。None 时不进入。
+    if bridge is not None:
+        bridge.bind(drones)
 
     ticks: list[dict] = []
     inputs: list[str] = []
@@ -148,6 +158,8 @@ def run(card: SceneCard, cfg: RunConfig) -> RunOutput:
         for k in range(n_ticks):
             ran = True
             now = k / phys
+            if bridge is not None:
+                bridge.begin_tick(k, now)
             for dr in drones:
                 s = dr["state"]
                 if _due(k, cam_hz, phys):
@@ -159,7 +171,10 @@ def run(card: SceneCard, cfg: RunConfig) -> RunOutput:
                     obs = Observation(dr["frame"], s, dr["goal"].copy(), now)
                     if cfg.record_planner_inputs:
                         inputs.append(obs.digest())
-                    proposed = dr["policy"].plan(obs)
+                    if bridge is None:
+                        proposed = dr["policy"].plan(obs)
+                    else:
+                        proposed = bridge.plan(dr["id"], obs)
                     dr["plan"] = proposed
                     code = dr["policy"].last_code
                     dr["codes"][code] = dr["codes"].get(code, 0) + 1
