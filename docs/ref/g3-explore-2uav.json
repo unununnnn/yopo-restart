@@ -1,0 +1,84 @@
+{
+  "invariants": [
+    "SINGLE_COMMITTED(I1)",
+    "DOUBLE_CONFIRM(I10)",
+    "ACK_BINDING(I11)",
+    "COLLISION(I10/I14, 参考检查器按完整占用)",
+    "COVERAGE(I3/I12/I13)"
+  ],
+  "scenario": {
+    "branch_offsets": [
+      0.0,
+      0.5
+    ],
+    "duration": 4.0,
+    "members": [
+      "A",
+      "B"
+    ],
+    "plan_config": {
+      "body_radius": "0x1.3333333333333p-3",
+      "frame": "world-ENU",
+      "limits": [
+        "0x1.0000000000000p+2",
+        "0x1.8000000000000p+2",
+        "0x1.4000000000000p+5"
+      ],
+      "max_branch_points": 2,
+      "tracking_margin": "0x1.999999999999ap-5",
+      "units": "SI"
+    },
+    "routes": {
+      "A": [
+        [
+          4.0,
+          0.0,
+          0.0
+        ]
+      ],
+      "B": [
+        [
+          2.0,
+          2.0,
+          0.0
+        ]
+      ]
+    },
+    "starts": {
+      "A": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "B": [
+        2.0,
+        -2.0,
+        0.0
+      ]
+    },
+    "window_len": 1.0
+  },
+  "summary": {
+    "complete": true,
+    "counterexample": [],
+    "faults": [
+      "drop",
+      "duplicate",
+      "reorder"
+    ],
+    "leaves_step_bound": 2957,
+    "max_depth_reached": 10,
+    "max_plan_seq": 1,
+    "max_steps": 10,
+    "members": [
+      "A",
+      "B"
+    ],
+    "pruned_queue_depth": 6568,
+    "queue_depth": 3,
+    "states": 7239,
+    "time_step": 0.5,
+    "transitions": 33707,
+    "violation": null
+  }
+}

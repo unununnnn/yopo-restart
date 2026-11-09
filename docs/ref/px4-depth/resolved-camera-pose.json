@@ -1,0 +1,29 @@
+{
+  "source": "sdformat14.SemanticPose.resolve; PX4 v1.17.0 x500_depth",
+  "base_link_in_model": [
+    0.0,
+    0.0,
+    0.24,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "camera_link_in_base_link": [
+    0.12,
+    0.03,
+    0.002,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "depth_sensor_in_base_link_flu": [
+    0.13233,
+    0.0,
+    0.02078,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "body_origin": "base_link",
+  "sensor_axes": "FLU; optical axes = right/down/forward"
+}
