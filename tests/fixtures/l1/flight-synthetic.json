@@ -1,0 +1,17 @@
+{
+  "label": "synthetic",
+  "built_from": "docs/ref/ros2-node/px4_1.jsonl.gz",
+  "note": "到达、碰撞结论、起飞交接和 RTF 是合成覆盖。拒绝码直方图来自那份 yopo-swarm 规划日志，不是合成的。",
+  "outcome": "SUCCESS",
+  "reason": "GOAL_REACHED_AND_HELD",
+  "arrived": 1,
+  "arrival_time_s": 12.4,
+  "min_obstacle_distance_m": 0.62,
+  "final_goal_error_m": 0.11,
+  "max_hover_error_m": null,
+  "sim_duration_s": 18.0,
+  "wall_time_s": 40.0,
+  "takeoff_handoff_s": 6.5,
+  "rtf": 0.45,
+  "ticks": 18
+}

@@ -13,7 +13,10 @@ make venv                     # 一次（Python 3.12 + torch 2.4.1 CPU，uv）
 scripts/regress.sh            # 合 main 前回归：pytest + 批跑 + Markdown 表
 ```
 
-L0 默认 `upstream` + 影子盾开（`--policy hover|certified`、`--shadow off` / `--no-shadow` 可覆盖）。影子盾只记录会否拒绝，不改批准动作。M0–M4 判据先报数后冻结（碰撞数如实报）。
+L0 默认 `upstream` + 影子盾开（`--policy hover|certified`、`--shadow off` / `--no-shadow` 可覆盖）。影子盾只记录会否拒绝，不改批准动作。M0–M4 判据先报数后冻结（碰撞数如实报）。`upstream` 的终端规则是项目的 `stop_at_goal`，半径 1.5 m 已采纳（[ADR 0009](docs/adr/0009-stop-at-goal-vs-hold-here.md)）。上游 5 m `hold_here` 到不了 G2 oracle 的 0.4 m。
+
+决策记录见 [docs/adr/](docs/adr/README.md)。M0 样例表（commit、场景卡哈希、复现命令）见 [docs/results/m0-g2-pillar.md](docs/results/m0-g2-pillar.md)。
+
 YOPO 推理走 vendored `core/`（yopo-swarm core@00b85bf，见 core/VENDORED.md）：钉定上游 d5e1e60 + 权重 sha256 校验，CPU 单线程，与金样一致。
 
 接缝：场景卡（`scenes/*.json`）→ `yopo_l0.runner.run(card, RunConfig)` → 结果记录 + 逐 tick 日志。
@@ -84,6 +87,28 @@ scripts/nightly.sh
 ```
 
 `scripts/nightly.sh` 把 JSON、Markdown、逐 tick 日志和每张卡首个 seed 的俯视+侧视视频写到 **`out/nightly/YYYYMMDD/`**。播放时长 ≤60 s。同一天再跑会先清空该目录。失败时 `ticks.jsonl` 留在目录里，用上面的 `render` 命令重放。合 main 前的门仍是 `scripts/regress.sh`（另含 certified 冒烟）。不接 GitHub Actions；box 上把 `scripts/nightly.sh` 放进 cron 即可。系统需要 `ffmpeg`。
+
+## L1 抽检（票 09，box 侧）
+
+真 PX4 SITL + Gazebo 在 frank 的 WSL 或 Orin 上跑。box 只做三件事：把场景卡导出成 yopo-swarm 现有栈能吃的目录、事后把日志收成和 L0 同一张 `result.json`（`tier=L1`，多起飞交接和 RTF）、以及同卡的 L0/L1 对照。不在这里启动 PX4，也不改 PX4 参数和 `g2_run.py` 里的安全清单数值。
+
+路径引自 yopo-swarm @00b85bf 已经抄进本仓库的说明（本环境读不到那个私有仓库本身）：
+
+- 启动：`ros2 launch yopo_swarm_px4 uavs.launch.py`，文件 `ros2_ws/src/yopo_swarm_px4/launch/uavs.launch.py`（`docs/ref/minco-port-map.md` 第 23 行）
+- 世界：`sim/px4/g2-scene.json` 的格式（`world`、`goal_enu`、轴对齐 `boxes`）。圆柱和别的几何直接拒绝
+- 安全清单数值：`g2_run.py`（`yopo_l0/policy.py` 里 certified 默认值注明与它对齐）。导出不把这些数写进启动参数
+
+抽检机上若能读到那份 launch 文件，参数名按文件里的 `DeclareLaunchArgument` 对齐；对不上 `scene` / `seed` / `policy` / `shadow` / `start_enu` / `goal_enu` 就失败，不会把不认识的参数塞给 `ros2 launch`。
+
+```bash
+.venv/bin/python -m yopo_l1.export --scene scenes/g2-pillar.json --seed 0 --policy upstream --shadow on --out out/l1/bundle
+# WSL / Orin：
+YOPO_SWARM_ROOT=/path/to/yopo-swarm PX4_PARAM_DUMP_CMD='param show' \
+  scripts/l1_spotcheck.sh --scene scenes/g2-pillar.json --seed 0 --out out/l1/g2-pillar
+.venv/bin/python -m yopo_l1.report --l0 out/g2-pillar/seed0 --l1 out/l1/g2-pillar/log
+```
+
+`PX4_PARAM_DUMP_CMD` 必须是只读的（`param show` 可以，`param set` / `save` / `load` / `reset` / `import` 会被拒绝）。脚本在 launch 前后各 dump 一次参数，并给 `g2_run.py` 和文件名含 safety / checklist 的文本做 sha256；有差异就失败，不把这次写进成功结果。批跑表末尾两列是起飞交接和 RTF，L0 留空。RTF = 仿真秒 / 墙钟秒。
 
 ## 合 main（premerge）
 

@@ -6,6 +6,7 @@
 - goto 任务：判据未冻结（criteria.frozen=false）→ 只报数「未冻结 / report-only」；碰撞数作为硬事实单列。
 退出码：hover 全部通过、确定性一致、单次墙钟 < 上限 时为 0；goto 的到达与碰撞不影响退出码（只报数）。
 结果表列出场景卡哈希、seed、层级、策略、影子盾、最小机间距离。影子拒绝率读结果里的 shadow_reject_rate（关着是 null，表中写 —）。单机的机间距离为 —。
+起飞交接和 RTF 是 L1 字段（票 09）；L0 结果里没有这两列，表上留空。
 """
 
 from __future__ import annotations
@@ -101,8 +102,8 @@ def main(argv=None):
             f"场景卡 `{card.hash}`）：{verdict}",
             f"墙钟 最大 {max(walls):.1f} s / 平均 {sum(walls) / len(walls):.1f} s",
             "",
-            "| seed | 层级 | 策略 | 影子盾 | 场景卡哈希 | 结果 | 到达时间 s | 最小障碍距离 m | 最小机间距离 m | 终点误差 m | 仿真 s | 墙钟 s | 影子拒绝率 | 主要拒绝码 | 规划码 |",
-            "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+            "| seed | 层级 | 策略 | 影子盾 | 场景卡哈希 | 结果 | 到达时间 s | 最小障碍距离 m | 最小机间距离 m | 终点误差 m | 仿真 s | 墙钟 s | 影子拒绝率 | 主要拒绝码 | 规划码 | 起飞交接 s | RTF |",
+            "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
         ]
         for r in rs:
             codes = ", ".join(f"{k}:{v}" for k, v in r["plan_codes"].items() if not k.startswith("cand:"))
@@ -111,7 +112,8 @@ def main(argv=None):
                 f"{r['outcome']} | {_fmt(r['arrival_time_s'])} | {_fmt(r['min_obstacle_distance_m'], 3)} | "
                 f"{_fmt(r.get('min_inter_drone_distance_m'), 3)} | {_fmt(r['final_goal_error_m'], 3)} | "
                 f"{r['sim_duration_s']:.1f} | {r['wall_time_s']:.1f} | "
-                f"{_fmt(r.get('shadow_reject_rate'), 3)} | {_reject_summary(r)} | {codes} |"
+                f"{_fmt(r.get('shadow_reject_rate'), 3)} | {_reject_summary(r)} | {codes} | "
+                f"{_fmt(r.get('takeoff_handoff_s'), 3)} | {_fmt(r.get('rtf'), 3)} |"
             )
         cand = {}
         for r in rs:

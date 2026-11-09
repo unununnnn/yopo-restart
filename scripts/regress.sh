@@ -3,7 +3,7 @@
 # 用法：scripts/regress.sh [额外场景卡...]
 set -euo pipefail
 cd "$(dirname "$0")/.."
-if ! .venv/bin/python -c 'import torch, yopo_swarm_core, yopo_l0, matplotlib' 2>/dev/null; then
+if ! .venv/bin/python -c 'import torch, yopo_swarm_core, yopo_l0, yopo_l1, matplotlib' 2>/dev/null; then
   make venv
 fi
 PY=.venv/bin/python
