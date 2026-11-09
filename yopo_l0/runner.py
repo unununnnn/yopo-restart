@@ -24,6 +24,7 @@ from .dynamics import HoverPlan, State, make_model
 from .policy import POLICIES, Observation, PolicyContext
 from .scene import SceneCard
 from .sensor import CameraConfig, DepthCamera
+from .shadow import DroneShadow, aggregate, aggregate_drones, approved_pva, gate_status
 
 WALL_FIELDS = frozenset({"wall_time_s"})  # 确定性比较时排除的字段
 REPO = Path(__file__).resolve().parents[1]
@@ -35,7 +36,7 @@ _BUS_SEED_SALT = 0xB05
 class RunConfig:
     seed: int = 0
     policy: str = "upstream"  # L0 默认 upstream + 影子盾（frank 拍板 / 父代理代定）；L1 不变
-    shadow: bool = True  # 开关已就绪；真正记录实现留给票 03
+    shadow: bool = True  # 默认开。只记录会否拒绝，不改批准动作
     tier: str = "L0"
     duration_s: float | None = None  # None = 用场景卡 task.duration_s
     record_planner_inputs: bool = False
@@ -138,6 +139,9 @@ def run(card: SceneCard, cfg: RunConfig) -> RunOutput:
             "codes": {}, "goal_since": None, "arrival": None,
             "frame": None, "plan": None, "approved": None,
             "min_obs": card.min_distance(start), "max_err": 0.0,
+            "shadow": (
+                DroneShadow(d["id"], start, goal, dict(c.get("policy_params", {}))) if cfg.shadow else None
+            ),
         })
     by_id = {dr["id"]: dr for dr in drones}
     faults = _faults(card, cfg)
@@ -161,6 +165,7 @@ def run(card: SceneCard, cfg: RunConfig) -> RunOutput:
                 if _due(k, cam_hz, phys):
                     dr["frame"] = dr["camera"].capture(s.p, s.yaw, now)
                     frames += 1
+                fresh = False
                 if fleet is None and (_due(k, plan_hz, phys) or dr["plan"] is None):
                     # 目标是本机数组的拷贝。Observation 里没有他机状态，也没有几何。
                     obs = Observation(dr["frame"], s, dr["goal"].copy(), now)
@@ -171,6 +176,7 @@ def run(card: SceneCard, cfg: RunConfig) -> RunOutput:
                     code = dr["policy"].last_code
                     dr["codes"][code] = dr["codes"].get(code, 0) + 1
                     plans += 1
+                    fresh = True
                     slots.append(proposed)
                     token = len(slots) - 1
                     for dest in drones:
@@ -179,6 +185,9 @@ def run(card: SceneCard, cfg: RunConfig) -> RunOutput:
                         else:
                             payload = {"kind": "peer_plan", "code": code}
                         bus.publish(now, src=dr["id"], dest=dest["id"], topic="plan", payload=payload)
+                # 只读复验本机刚选出的计划。不碰总线，也不改 proposed。
+                if fleet is None and dr["shadow"] is not None and fresh:
+                    dr["shadow"].on_selection(dr["plan"], dr["frame"], s, now)
             if fleet is None:
                 for msg in bus.poll(now):
                     kind = msg.payload.get("kind")
@@ -197,9 +206,18 @@ def run(card: SceneCard, cfg: RunConfig) -> RunOutput:
                     if _due(k, plan_hz, phys):
                         code = dr["policy"].last_code
                         dr["codes"][code] = dr["codes"].get(code, 0) + 1
+                    # 复验刚在本地提交的计划。视图不进动力学，影子也不改那份计划。
+                    view = fleet.shadow_view(dr["id"])
+                    if dr["shadow"] is not None and view is not None:
+                        dr["shadow"].on_selection(view, dr["frame"], s, now)
                 plan = dr["approved"]
                 if plan is None:
                     plan = HoverPlan(tuple(float(x) for x in s.p), float(s.yaw))
+                # 批准位置：不调用 sample。_TrajPlan.sample / command 会改航向和时钟。
+                cmd_p, cmd_v, cmd_a = approved_pva(plan, s.t)
+                codes = None
+                if dr["shadow"] is not None:
+                    codes = dr["shadow"].on_tick(s, cmd_p, now)
                 s = model.step(s, plan, dt)
                 s = replace(s, t=(k + 1) / phys)  # 时间戳只取仿真时钟整数 tick，不累加浮点
                 dr["state"] = s
@@ -212,6 +230,12 @@ def run(card: SceneCard, cfg: RunConfig) -> RunOutput:
                     "a": s.a.tolist(), "frame_stamp": None if dr["frame"] is None else dr["frame"].stamp,
                     "min_obstacle_m": dist, "goal_error_m": err, "yaw": s.yaw,
                     "plan_code": dr["policy"].last_code,
+                    "cmd_p": [float(x) for x in np.asarray(cmd_p, dtype=float)],
+                    "cmd_v": [float(x) for x in np.asarray(cmd_v, dtype=float)],
+                    "cmd_a": [float(x) for x in np.asarray(cmd_a, dtype=float)],
+                    # 关：null。开：空列表表示查了且不拒。
+                    "would_reject": None if codes is None else bool(codes),
+                    "reject_codes": None if codes is None else list(codes),
                 }
                 if fleet is not None:
                     rec = fleet.last_record(dr["id"])
@@ -270,7 +294,11 @@ def run(card: SceneCard, cfg: RunConfig) -> RunOutput:
         "max_hover_error_m": None if track_goal else max(d["max_err"] for d in drones),
         "final_goal_error_m": max(float(np.linalg.norm(d["state"].p - d["goal"])) for d in drones),
         "min_inter_drone_distance_m": min_inter,  # 单机为 None
-        "shadow_reject_rate": None,  # 票 03
+        # 关 = null，不是 0。0.0 只表示「开了，但没有任何 tick 会拒」。
+        "shadow_reject_rate": None,
+        "shadow_reject_histogram": None,
+        "shadow_gates": None,
+        "shadow_drones": None,  # 开：每机一行；关：null
         "plan_codes": {k: v for d in drones for k, v in sorted(
             {**d["codes"], **getattr(d["policy"], "extra_codes", {})}.items())},
         "network": _net_provenance(policy_name),
@@ -288,6 +316,12 @@ def run(card: SceneCard, cfg: RunConfig) -> RunOutput:
         },
         "wall_time_s": time.perf_counter() - wall0,
     }
+    if cfg.shadow:
+        rate, hist = aggregate(ticks)
+        result["shadow_reject_rate"] = rate
+        result["shadow_reject_histogram"] = hist
+        result["shadow_gates"] = gate_status()
+        result["shadow_drones"] = aggregate_drones(ticks, [d["id"] for d in drones])
     if formation is not None:
         result["formation"] = formation
         result["formation_error_p95_m"] = formation["error_p95_m"]

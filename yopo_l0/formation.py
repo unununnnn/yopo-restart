@@ -281,11 +281,20 @@ class _Track:
         self.yaw = float(yaw)
         self.dt = float(dt)
 
+    def pva(self, t: float):
+        """影子盾读批准位置用。不推进航向。"""
+        rows = state_at(self.plan, float(t))
+        return tuple(np.asarray(x, dtype=float) for x in rows)
+
+    @property
+    def traj(self):
+        """影子盾按上游轨迹复验契约时读运动段，不改本计划。"""
+        return self.plan.motion
+
     def sample(self, t: float):
         from yopo_swarm_core.yaw import calculate_yaw
 
-        pva = state_at(self.plan, float(t))
-        p, v, a = (np.asarray(x, dtype=float) for x in pva)
+        p, v, a = self.pva(t)
         self.yaw = float(calculate_yaw(v, self.goal - p, self.yaw, self.dt)[0])
         return p, v, a, self.yaw
 
@@ -451,11 +460,22 @@ class FormationFleet:
         rec = self.nodes[drone_id].executing(now)
         self._last_rec[drone_id] = rec
         slot = self._follow[drone_id]
-        if slot["hash"] != rec.plan_hash:
+        changed = slot["hash"] != rec.plan_hash
+        if changed:
             yaw = 0.0 if slot["sampler"] is None else slot["sampler"].yaw
             slot["sampler"] = _Track(rec.occupancy.plan, self.goals[drone_id], yaw, self.dt)
             slot["hash"] = rec.plan_hash
         return slot["sampler"]
+
+    def shadow_view(self, drone_id: str):
+        """本机刚提交的计划的只读视图。没换代则返回 None。不交给动力学。"""
+        rec = self.nodes[drone_id].committed
+        slot = self._follow[drone_id]
+        if slot.get("commit_hash") == rec.plan_hash:
+            return None
+        slot["commit_hash"] = rec.plan_hash
+        yaw = 0.0 if slot["sampler"] is None else slot["sampler"].yaw
+        return _Track(rec.occupancy.plan, self.goals[drone_id], yaw, self.dt)
 
     def last_record(self, drone_id: str):
         return self._last_rec[drone_id]

@@ -9,7 +9,7 @@
 - `formation-hold.json`：票 06 / M1。三机按虚拟中心（直线 + 平滑左转 + 直线）和机体槽位保持队形。运动更新走轮转提案窗口和预留协议，每机只用本机批准的计划。判据未冻结（`criteria.frozen=false`）。不在 `suite.txt` 里。
 - `pillar-forest.json` + `pillar-forest-scene.json`：柱林。12 根竖直圆柱，半径 0.3 m，高 2.8 m（与 G2 那根柱子同高），4 列 × 3 行，列距 2.5 m、行距 2.4 m，最近柱心 (3, 0)。天花板 z=4.0，与 G2 一致。当前任务是悬停；穿越是票 07。
 - `narrow-corridor.json` + `narrow-corridor-scene.json`：窄廊。左右墙内侧面 y=±0.8，内宽 1.6 m（G2 内宽 6.6 m）。当前任务是悬停。
-- `suite.txt`：`卡@策略` 列表，`scripts/regress.sh` 与 `scripts/nightly.sh` 共用。含 `g2-pillar.json@upstream` 和 `open-3drone.json@hover`。
+- `suite.txt`：`卡@策略` 列表，`scripts/regress.sh` 与 `scripts/nightly.sh` 共用。含 `g2-pillar.json@upstream`、`open-3drone.json@hover` 和 `formation-hold.json@formation`。
 
 场景卡字段：`geometry`（相对路径）、`ground_z`、`drones[].start_enu`（hover 任务可选 `hover_enu`；goto 任务用 `goal_enu`；formation 任务用 `slot_body`，起点必须等于虚拟中心起点处的槽位）、`task`（`hover`、`goto` 或 `formation`）、`criteria`、`camera`、`dynamics`、`rates_hz`、`seeds`。可选 `bus`：`drop`、`duplicate`、`delay`（`[lo, hi]` 秒）、`reorder`，含义见 `yopo_l0/bus.py`。`RunConfig.bus` 覆盖场景卡。
 goto 到达沿用 G2 oracle：`goal_tolerance_m` / `goal_speed_mps` / `goal_hold_s`。机间碰撞看中心距是否 ≤ 两倍 `body_radius_m`。

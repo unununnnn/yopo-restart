@@ -6,3 +6,4 @@ scenes/g2-pillar.json@upstream
 scenes/pillar-forest.json@hover
 scenes/narrow-corridor.json@hover
 scenes/open-3drone.json@hover
+scenes/formation-hold.json@formation

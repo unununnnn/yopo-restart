@@ -39,6 +39,9 @@ def test_formation_holds_through_straight_and_turn(tmp_path):
     assert r["reason"] == "GOAL_REACHED_AND_HELD"
     assert r["task"] == "formation" and r["policy"] == "formation"
     assert r["network"] is None and r["tier"] == "L0" and r["shadow"] is True
+    assert isinstance(r["shadow_reject_rate"], float)
+    assert [row["id"] for row in r["shadow_drones"]] == ["uav0", "uav1", "uav2"]
+    assert all(isinstance(row["shadow_reject_rate"], float) for row in r["shadow_drones"])
     assert r["n_drones"] == 3 and r["arrived"] == 3
     form = r["formation"]
     assert form["frozen"] is False and form["adjudicator"] is None
@@ -88,6 +91,31 @@ def test_formation_holds_through_straight_and_turn(tmp_path):
         capture_output=True, text=True, check=True,
     )
     assert float(json.loads(probe.stdout)["format"]["duration"]) <= 60.5
+
+
+def _actions(ticks):
+    return [(t["cmd_p"], t["cmd_v"], t["cmd_a"], t["p"], t["v"], t["a"]) for t in ticks]
+
+
+def test_shadow_records_per_drone_and_does_not_change_the_formation():
+    card = load_card(CARD)
+    kw = dict(seed=0, duration_s=3.0, record_planner_inputs=True)
+    off = _run(card, shadow=False, **kw)
+    on = _run(card, shadow=True, **kw)
+    assert off.result["shadow_reject_rate"] is None and off.result["shadow_drones"] is None
+    assert isinstance(on.result["shadow_reject_rate"], float)
+    assert [row["id"] for row in on.result["shadow_drones"]] == ["uav0", "uav1", "uav2"]
+    assert _actions(off.ticks) == _actions(on.ticks)
+    assert off.planner_inputs == on.planner_inputs
+    assert off.result["formation"]["error_p95_m"] == on.result["formation"]["error_p95_m"]
+    assert off.result["formation"]["local_commits"] == on.result["formation"]["local_commits"]
+    rejected = 0
+    for row in on.result["shadow_drones"]:
+        subset = [t for t in on.ticks if t["uav"] == row["id"]]
+        n = sum(bool(t["would_reject"]) for t in subset)
+        rejected += n
+        assert row["shadow_reject_rate"] == n / len(subset)
+    assert on.result["shadow_reject_rate"] == rejected / len(on.ticks)
 
 
 def test_seed_does_not_change_the_approved_schedule():
