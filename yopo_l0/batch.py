@@ -137,6 +137,10 @@ def main(argv=None):
         from .crossing import format_report
 
         lines += ["", format_report(rows)]
+    if any(r.get("task") == "switch" for r in rows):
+        from .switch import format_report as switch_report
+
+        lines += ["", switch_report(rows)]
     md = "\n".join(lines)
     Path(a.out).mkdir(parents=True, exist_ok=True)
     (Path(a.out) / "summary.md").write_text(md + "\n")
