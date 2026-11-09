@@ -57,17 +57,26 @@ YOPO 推理走 vendored `core/`（yopo-swarm core@00b85bf，见 core/VENDORED.md
 
 世界一个节点，每机一个节点。世界按 L0 的 tick 往 `/clock` 发仿真时间（各节点 `use_sim_time`），锁步仍是传感 → 规划 → 总线 → 动力学 → 碰撞真值，和 `yopo_l0.runner` 同一条循环。规划在该机节点里调用已有的 `yopo_l0.policy`。命名空间是场景卡里的无人机 id：`/uav0/drone`、`/uav1/drone`……影子盾也在这条循环里记，所以 `shadow_reject_rate` 和逐 tick 的 `would_reject` 与进程内形态相同。
 
+编队（M1，`scenes/formation-hold.json`）的机间协议消息不进进程内 `MessageBus` 队列。一次运行里 `FormationFleet.transport_override` 指向 ROS 传输：没被故障丢掉的信封按锁步走完三跳，`poll` 才看得到话题上回来的那一份。
+
+1. `/{src}/bus_tx`：世界把信封交给源无人机节点
+2. `/{dest}/bus_rx`：源节点转发给目的无人机
+3. `/{dest}/bus_done`：目的节点交回世界
+
+单线程执行器，一条消息的分片按序走完才发下一条，DDS 谁先到不进仿真结果。丢包、重复、时延、乱序仍用和进程内相同的 `BusFaults` 抽样（时延只改 `deliver_at`，不睡墙钟）。被丢掉的消息不上话题。非编队场景的他机公告仍走进程内总线。
+
 ```bash
 scripts/setup_ros2.sh    # Ubuntu 24.04 → Jazzy，22.04 → Humble；ros-*-ros-base + rclpy
 .venv/bin/python -m yopo_l0.ros2_run --scene scenes/open-3drone.json --seed 0 --policy hover
 .venv/bin/python -m yopo_l0.ros2_run --scene scenes/g2-pillar.json --seed 0 --policy upstream
+.venv/bin/python -m yopo_l0.ros2_run --scene scenes/formation-hold.json --seed 0 --policy formation
 ```
 
-输出和 `yopo_l0.run` 一样：`out/<场景>/seed<N>/{result.json,ticks.jsonl}`，结果里多一个 `"form": "ros2"`。`--policy`、`--seed`、`--shadow on|off` / `--no-shadow`、`--duration`、`--out`、`--bus-*` 与进程内启动器相同。票 06 的编队场景卡不用改节点：按卡里的 `drones` 建节点，策略名在 `POLICIES` 里取。
+输出和 `yopo_l0.run` 一样：`out/<场景>/seed<N>/{result.json,ticks.jsonl}`，结果里多一个 `"form": "ros2"`。`--policy`、`--seed`、`--shadow on|off` / `--no-shadow`、`--duration`、`--out`、`--bus-*` 与进程内启动器相同。`--policy formation` 只接受 `task.type` 为 `formation` 的卡。节点仍按卡里的 `drones` 建，id 即命名空间。
 
-`rclpy` 导入不了时，`tests/test_ros2_form.py` 里的 ROS 用例跳过，原因里写明要跑 `scripts/setup_ros2.sh`。进程内回归不依赖 ROS。自己开解释器时再 `source /opt/ros/<jazzy|humble>/setup.bash`；启动器会自己把已安装的发行版加进模块路径。
+`rclpy` 导入不了时，`tests/test_ros2_form.py` 和 `tests/test_ros2_formation.py` 里的 ROS 用例跳过，原因里写明要跑 `scripts/setup_ros2.sh`。进程内回归不依赖 ROS。自己开解释器时再 `source /opt/ros/<jazzy|humble>/setup.bash`；启动器会自己把已安装的发行版加进模块路径。
 
-批准计划对象留在本进程。动力学要 `sample` 策略交出来的那一个（上游偏航和 certified 运行时都挂在上面），ROS 消息里是观测和计划令牌。他机仍然只走 `MessageBus` 的公告。
+批准计划对象留在本进程。动力学要 `sample` 策略交出来的那一个（上游偏航和 certified 运行时都挂在上面），ROS 消息里是观测和计划令牌。编队协议载荷用 `float.hex` 往返，计划哈希和占用规范形式不变。
 
 ## 场景套件、视频、nightly（票 04）
 
@@ -109,3 +118,19 @@ YOPO_SWARM_ROOT=/path/to/yopo-swarm PX4_PARAM_DUMP_CMD='param show' \
 ```
 
 `PX4_PARAM_DUMP_CMD` 必须是只读的（`param show` 可以，`param set` / `save` / `load` / `reset` / `import` 会被拒绝）。脚本在 launch 前后各 dump 一次参数，并给 `g2_run.py` 和文件名含 safety / checklist 的文本做 sha256；有差异就失败，不把这次写进成功结果。批跑表末尾两列是起飞交接和 RTF，L0 留空。RTF = 仿真秒 / 墙钟秒。
+
+## 合 main（premerge）
+
+不接 GitHub Actions。每个要进 main 的 PR 在本机跑：
+
+```bash
+scripts/premerge.sh 123            # 查 MERGEABLE，临时 worktree 里跑 regress.sh，查 Co-authored-by，在 PR 留一条评论
+scripts/premerge.sh 123 --merge    # 上面全部通过后：gh pr ready，再 gh pr merge --merge --match-head-commit <检验过的 sha>
+scripts/premerge.sh 123 --squash   # 同样只在全部通过后合并；说明由各提交拼成，并去掉 Co-authored-by 行
+```
+
+不可合并、regress 非 0、解析不到 pytest 计数或批跑表、任一提交带 `Co-authored-by` trailer、评论或合并失败，退出码都不是 0。评论里有 head sha、L0 与 core 的 passed/skipped、regress 退出码、总退出码，以及批跑 Markdown 表。
+
+不给 `--merge` / `--squash` 时脚本不合并。它不 `git push`，也不 force-push。worktree 用完即删。
+
+`make venv` 在 `.venv/bin/python` 已在、且 `requirements.txt` / `pyproject.toml` / `core/pyproject.toml` 的哈希未变时直接返回，避免 `uv venv` 报 virtual environment already exists。第三方装在 `~/.cache/yopo-restart/deps/<哈希>`（本目录只挂 editable）；wheel 走 uv 缓存，所以新 worktree 不重装 torch。

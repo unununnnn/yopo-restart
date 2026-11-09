@@ -300,6 +300,10 @@ class _Track:
 
 
 class FormationFleet:
+    # 票 10b 传输钩子。None：下面的 exchange 用调用方传入的进程内总线。
+    # ROS 形态只在一次 run 期间把话题传输放在这里。06b 若重写 exchange，请保留第一行的 _transport_or_bus。
+    transport_override = None
+
     def __init__(self, card: dict, physics_dt: float, *, record_inputs: bool):
         task = card["task"]
         if task["type"] != "formation":
@@ -440,7 +444,15 @@ class FormationFleet:
                 payload={"kind": "protocol", "msg": clone_msg(msg)},
             )
 
+    def _transport_or_bus(self, bus):
+        """进程内总线，或票 10b 设下的话题传输。不改协议，只换 publish/poll 的那一端。"""
+        transport = type(self).transport_override
+        if transport is None:
+            return bus
+        return transport.carrying(bus)
+
     def exchange(self, bus, now: float) -> None:
+        bus = self._transport_or_bus(bus)
         for did in self.members:
             for msg in self.nodes[did].on_tick(now):
                 self._emit(bus, now, did, msg)
