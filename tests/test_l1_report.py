@@ -61,6 +61,55 @@ def test_report_lists_the_five_metrics(tmp_path):
     assert "方向 B" in text
 
 
+def test_report_labels_deployed_certified_gap(tmp_path):
+    card = load_card(ROOT / "scenes/g2-pillar.json")
+    _write(tmp_path / "l0", scene_card_hash=card.hash, policy="upstream", wall_time_s=4.4)
+    _write(
+        tmp_path / "l1",
+        scene_card_hash=card.hash,
+        tier="L1",
+        policy="deployed-certified",
+        policy_requested="upstream",
+        policy_note="今日 scripts/run_g2.sh 与 scripts/g2_run.py 是已部署的 certified 栈，不接受 --policy upstream。把 upstream 移植进 L1 不在票 09b：那要改 yopo-swarm。",
+        outcome="COLLISION",
+        collisions=1,
+        tracking_error_m=0.22,
+        wall_time_s=90.0,
+        takeoff_handoff_s=6.5,
+        arrived=0,
+        arrival_time_s=None,
+    )
+    text = l0_vs_l1(tmp_path / "l0", tmp_path / "l1")
+    assert "deployed-certified（请求 upstream，未在 L1 执行）" in text
+    assert "不在票 09b" in text
+    assert "yopo-swarm" in text
+    assert "| 碰撞 | 0 | 1 | 1 |" in text
+    assert "| 跟踪误差 m | — | 0.220 | — |" in text
+    assert "| 墙钟 s | 4.4 | 90.0 | 85.6 |" in text
+    assert "| 结果 | SUCCESS | COLLISION | — |" in text
+
+
+def test_report_can_rerun_l0_for_the_same_card(tmp_path):
+    from yopo_l1.report import main as report_main
+
+    card = load_card(ROOT / "scenes/g2-hover.json")
+    _write(tmp_path / "l1", scene="g2-hover", scene_card_hash=card.hash, tier="L1", policy="deployed-certified", task="hover")
+    rc = report_main([
+        "--scene", "scenes/g2-hover.json",
+        "--seed", "0",
+        "--policy", "hover",
+        "--duration", "0.2",
+        "--no-shadow",
+        "--l0-out", str(tmp_path / "l0"),
+        "--l1", str(tmp_path / "l1"),
+        "--out", str(tmp_path / "diff.md"),
+    ])
+    assert rc == 0
+    text = (tmp_path / "diff.md").read_text()
+    assert "g2-hover" in text
+    assert (tmp_path / "l0/result.json").is_file()
+
+
 def test_report_rejects_different_cards(tmp_path):
     _write(tmp_path / "l0", scene_card_hash="aaa")
     _write(tmp_path / "l1", scene_card_hash="bbb", tier="L1")

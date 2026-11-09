@@ -34,17 +34,50 @@ def test_g2_pillar_exports_scene_schema_and_launch_args(tmp_path):
     assert run["scene_card_hash"] == card.hash
     assert run["policy"] == "upstream" and run["shadow"] is True
     assert run["drones"][0]["namespace"] == "px4_1"
-    args = (out / "launch-args.txt").read_text().splitlines()
-    assert "policy:=upstream" in args
-    assert "shadow:=on" in args
-    assert any(line.startswith("scene:=") and line.endswith("scene.json") for line in args)
-    assert "start_enu:=0,0,1.5" in args
-    assert "goal_enu:=5,0,1.5" in args
-    blob = "\n".join(args)
-    for forbidden in ("body_radius", "tracking_margin", "switch_delay", "start_pad", "MPC_", "param set"):
+    assert not (out / "launch-args.txt").exists()
+    assert run["policy_requested"] == "upstream"
+    assert run["policy_executed"] == "deployed-certified"
+    assert run["drones"][0]["start_enu"] == [0.0, 0.0, 1.5]
+    assert run["drones"][0]["goal_enu"] == [5.0, 0.0, 1.5]
+    card_obj = json.loads((out / "job-card.json").read_text())
+    assert card_obj["schema"] == "yopo-restart/l1-job-card/1"
+    assert card_obj["mode"] == "nominal"
+    assert card_obj["argv"] == ["nominal"]
+    assert card_obj["driver"] == "scripts/run_g2.sh"
+    assert card_obj["command"] == 'YOPO_SIM_SEED=0 bash "$YOPO_SWARM_ROOT/scripts/run_g2.sh" nominal'
+    assert card_obj["env"] == {"YOPO_SIM_SEED": "0"}
+    assert card_obj["policy_executed"] == "deployed-certified"
+    assert card_obj["uavs_launch_py"]["used"] is False
+    blob = card_obj["command"] + "\n" + json.dumps(card_obj["env"])
+    for forbidden in ("body_radius", "tracking_margin", "switch_delay", "start_pad", "MPC_", "param set", "scene:=", "policy:="):
         assert forbidden not in blob
-    assert run["launch"]["launch_path"] == "ros2_ws/src/yopo_swarm_px4/launch/uavs.launch.py"
+    assert run["launch"]["launch_path"] == "scripts/run_g2.sh"
     assert run["launch"]["world_schema"] == "sim/px4/g2-scene.json"
+    assert run["launch"]["args"] == {}
+
+
+def test_orin_launch_file_does_not_require_missing_args(tmp_path):
+    launch = tmp_path / "uavs.launch.py"
+    launch.write_text(
+        "\n".join(
+            f"DeclareLaunchArgument('{name}')"
+            for name in ("vehicles", "ipc_root", "log_root", "body_radius", "tracking_margin", "code_sha")
+        )
+    )
+    card = load_card(ROOT / "scenes/g2-pillar.json")
+    out = export_l1(card, _cfg(), tmp_path / "out", launch_file=launch, backend="run_g2")
+    job = json.loads((out / "job-card.json").read_text())
+    assert job["uavs_launch_py"]["declared_in_file"] == [
+        "vehicles",
+        "ipc_root",
+        "log_root",
+        "body_radius",
+        "tracking_margin",
+        "code_sha",
+    ]
+    assert job["uavs_launch_py"]["used"] is False
+    assert "scene" not in job["env"]
+    assert not (out / "launch-args.txt").exists()
 
 
 def test_launch_file_renames_args(tmp_path):
@@ -69,12 +102,21 @@ def test_launch_file_renames_args(tmp_path):
     assert "shadow:=off" in (out / "launch-args.txt").read_text()
 
 
-def test_launch_file_missing_policy_fails_closed(tmp_path):
+def test_partial_launch_file_falls_back_to_run_g2(tmp_path):
+    launch = tmp_path / "uavs.launch.py"
+    launch.write_text("DeclareLaunchArgument('scene', default_value='')\nDeclareLaunchArgument('seed', default_value='0')\n")
+    card = load_card(ROOT / "scenes/g2-pillar.json")
+    out = export_l1(card, _cfg(), tmp_path / "out", launch_file=launch)
+    assert (out / "job-card.json").is_file()
+    assert not (out / "launch-args.txt").exists()
+
+
+def test_ros2_backend_missing_policy_fails_closed(tmp_path):
     launch = tmp_path / "uavs.launch.py"
     launch.write_text("DeclareLaunchArgument('scene', default_value='')\nDeclareLaunchArgument('seed', default_value='0')\n")
     card = load_card(ROOT / "scenes/g2-pillar.json")
     with pytest.raises(L1LaunchError, match="policy"):
-        export_l1(card, _cfg(), tmp_path / "out", launch_file=launch)
+        export_l1(card, _cfg(), tmp_path / "out", launch_file=launch, backend="ros2")
 
 
 def test_cylinders_are_refused():
@@ -112,8 +154,8 @@ def test_narrow_corridor_boxes_export(tmp_path):
 def test_three_drones_join_poses(tmp_path):
     card = load_card(ROOT / "scenes/open-3drone.json")
     out = export_l1(card, _cfg(), tmp_path)
-    text = (out / "launch-args.txt").read_text()
-    assert "start_enu:=0,0,1.5;0,5,1.5;0,-5,1.5" in text
-    assert "goal_enu:=6,0,1.5;6,5,1.5;6,-5,1.5" in text
     run = json.loads((out / "run.json").read_text())
+    assert [d["start_enu"] for d in run["drones"]] == [[0.0, 0.0, 1.5], [0.0, 5.0, 1.5], [0.0, -5.0, 1.5]]
+    assert [d["goal_enu"] for d in run["drones"]] == [[6.0, 0.0, 1.5], [6.0, 5.0, 1.5], [6.0, -5.0, 1.5]]
+    assert not (out / "launch-args.txt").exists()
     assert [d["namespace"] for d in run["drones"]] == ["px4_1", "px4_2", "px4_3"]
