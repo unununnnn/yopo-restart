@@ -1,5 +1,5 @@
 # 票 04 场景套件。regress.sh 与 nightly.sh 共用。井号后为注释。
-# 规格与 yopo_l0.batch 相同：场景卡[@策略]
+# 规格与 yopo_l0.batch 相同：场景卡[@策略[@seed,seed]]
 scenes/g2-hover.json@hover
 scenes/g2-hover-lift.json@hover
 scenes/g2-pillar.json@upstream
@@ -7,8 +7,15 @@ scenes/pillar-forest.json@hover
 scenes/narrow-corridor.json@hover
 scenes/open-3drone.json@hover
 scenes/formation-hold.json@formation
+# 票 06b：同一编队任务，打开 MessageBus 的丢包 / 重复 / 时延 / 乱序。判据未冻结，只报数。
+scenes/formation-drop.json@formation
+scenes/formation-duplicate.json@formation
+scenes/formation-delay.json@formation
+scenes/formation-reorder.json@formation
 scenes/crossing-pillars.json@crossing
 scenes/formation-switch.json@switch
+# 票 07b medium 只跑 seed 0：单次墙钟约 56 s，低于 60 s。密档不进套件。
+scenes/crossing-forest.json@crossing@0
 # 票 11a：六机开阔区楔形，进程内，零故障（档位 none）。seed 0 墙钟约 14 s，低于 60 s，所以进 regress。
 # 故障档位和 ROS 2 形态用 yopo_l0.batch --form ros2 --tiers，不进这条套件。柱林六机是票 11b，不在这张票里。
 scenes/formation-6-open.json@formation

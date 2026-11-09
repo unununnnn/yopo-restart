@@ -313,12 +313,18 @@ def main(argv=None):
     jobs = []
     groups = []
     for spec in a.specs:
-        path, _, policy = spec.partition("@")
+        path, _, rest = spec.partition("@")
+        policy, _, seedpart = rest.partition("@")
         policy = policy or a.policy
         card = load_card(path)
         if tiers is not None and card.card["task"]["type"] == "formation":
             policy = "formation"
-        seeds = [int(s) for s in a.seeds.split(",")] if a.seeds else card.card.get("seeds", [0])
+        if a.seeds:
+            seeds = [int(s) for s in a.seeds.split(",")]
+        elif seedpart:
+            seeds = [int(s) for s in seedpart.split(",") if s != ""]
+        else:
+            seeds = card.card.get("seeds", [0])
         if tiers is None:
             groups.append((card, policy, None, seeds))
             for i, seed in enumerate(seeds):

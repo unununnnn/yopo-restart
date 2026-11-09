@@ -355,6 +355,8 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         },
         "wall_time_s": time.perf_counter() - wall0,
     }
+    if isinstance(c.get("forest"), dict):
+        result["forest_density"] = str(c["forest"].get("density", "medium"))
     if cfg.shadow:
         rate, hist = aggregate(ticks)
         result["shadow_reject_rate"] = rate

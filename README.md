@@ -112,27 +112,37 @@ scripts/nightly.sh
 
 `scripts/nightly.sh` 把 JSON、Markdown、逐 tick 日志和每张卡首个 seed 的俯视+侧视视频写到 **`out/nightly/YYYYMMDD/`**。播放时长 ≤60 s。同一天再跑会先清空该目录。失败时 `ticks.jsonl` 留在目录里，用上面的 `render` 命令重放。合 main 前的门仍是 `scripts/regress.sh`（另含 certified 冒烟）。不接 GitHub Actions；box 上把 `scripts/nightly.sh` 放进 cron 即可。系统需要 `ffmpeg`。
 
-## L1 抽检（票 09，box 侧）
+## L1 抽检（票 09 / 09b，Orin）
 
-真 PX4 SITL + Gazebo 在 frank 的 WSL 或 Orin 上跑。box 只做三件事：把场景卡导出成 yopo-swarm 现有栈能吃的目录、事后把日志收成和 L0 同一张 `result.json`（`tier=L1`，多起飞交接和 RTF）、以及同卡的 L0/L1 对照。不在这里启动 PX4，也不改 PX4 参数和 `g2_run.py` 里的安全清单数值。
+真 PX4 SITL + Gazebo 在 Orin 上跑。驱动是 yopo-swarm 的 `scripts/run_g2.sh nominal`（Docker Compose + `sim/px4/start.sh` + `scripts/g2_run.py`），不是 `ros2 launch`。Orin 上的 `uavs.launch.py` 只声明 `vehicles`、`ipc_root`、`log_root`、`body_radius`、`tracking_margin`、`code_sha`，没有 scene / seed / policy / shadow / start / goal。宿主没有 ROS 2 Humble，也没有 `ros2_ws/install`。
 
-路径引自 yopo-swarm @00b85bf 已经抄进本仓库的说明（本环境读不到那个私有仓库本身）：
+box 只做三件事：把场景卡导出成记录目录加一张工单、事后把 Orin 的 `result.json` 收成和 L0 同一张记录（`tier=L1`）、以及同卡的 L0/L1 对照。不在这里启动 PX4，也不改 PX4 参数和 `g2_run.py` 里的安全清单数值。
 
-- 启动：`ros2 launch yopo_swarm_px4 uavs.launch.py`，文件 `ros2_ws/src/yopo_swarm_px4/launch/uavs.launch.py`（`docs/ref/minco-port-map.md` 第 23 行）
-- 世界：`sim/px4/g2-scene.json` 的格式（`world`、`goal_enu`、轴对齐 `boxes`）。圆柱和别的几何直接拒绝
-- 安全清单数值：`g2_run.py`（`yopo_l0/policy.py` 里 certified 默认值注明与它对齐）。导出不把这些数写进启动参数
+- 世界记录：`scene.json` 的字段与 `sim/px4/g2-scene.json` 相同（`world`、`goal_enu`、轴对齐 `boxes`）。圆柱和别的几何直接拒绝。nominal 用栈里已有的 G2 世界，不把场景路径传给 launch。
+- 安全清单：`g2_run.py`（机体半径 0.35、`tracking_margin` 0.15、`switch_delay` 2.0、`start_pad_radius` 1.2）。这些数不进要执行的命令。
+- 种子：只经环境变量 `YOPO_SIM_SEED`。
+- 策略：今日这条路径是已部署的 certified 栈，不接受 `--policy upstream`。对照表里 L1 写 `policy=deployed-certified`。把 upstream 移植进 L1 要改 yopo-swarm，不在本票。
 
-抽检机上若能读到那份 launch 文件，参数名按文件里的 `DeclareLaunchArgument` 对齐；对不上 `scene` / `seed` / `policy` / `shadow` / `start_enu` / `goal_enu` 就失败，不会把不认识的参数塞给 `ros2 launch`。
+工单 schema 是 `yopo-restart/l1-job-card/1`（`--prepare-only` 写到 `--out/job-card.json`）。调度器要看的字段：`repo`、`swarm_sha` / `swarm_sha_command`、`command`、`env`、`artifacts`、`timeout_s`（1800）、`pass_fail`。`uavs_launch_py.used` 是 false。
+
+Python：export / import / report 只要 numpy。脚本不在 Orin 宿主上创建 venv，也不安装 torch（aarch64 没有 `torch==2.4.1+cpu` 的 wheel）。已有 `.venv` 或宿主 `python3` 能 `import numpy` 就用它；否则用已经存在的镜像 `yopo-swarm:orin-infer-cu13`。仿真容器是 `yopo-sim-g2`，由 `run_g2.sh` 自己拉起。
 
 ```bash
-.venv/bin/python -m yopo_l1.export --scene scenes/g2-pillar.json --seed 0 --policy upstream --shadow on --out out/l1/bundle
-# WSL / Orin：
+# box 或 Orin，只写工单，不飞：
+scripts/l1_spotcheck.sh --prepare-only --scene scenes/g2-pillar.json --seed 0 \
+  --policy upstream --shadow on --out out/l1/g2-pillar
+# Orin 全量。PX4_PARAM_DUMP_CMD 必须只读（param show 可以）。
 YOPO_SWARM_ROOT=/path/to/yopo-swarm PX4_PARAM_DUMP_CMD='param show' \
-  scripts/l1_spotcheck.sh --scene scenes/g2-pillar.json --seed 0 --out out/l1/g2-pillar
-.venv/bin/python -m yopo_l1.report --l0 out/g2-pillar/seed0 --l1 out/l1/g2-pillar/log
+  scripts/l1_spotcheck.sh --scene scenes/g2-pillar.json --seed 0 \
+  --policy upstream --shadow on --out out/l1/g2-pillar
+# 对照。已有 L0 结果就给 --l0；x86 上也可以让报告按同一张卡重跑 seed 0：
+.venv/bin/python -m yopo_l1.report --l0 out/g2-pillar/seed0 --l1 out/l1/g2-pillar/log \
+  --out out/l1/g2-pillar/l0-vs-l1.md
+.venv/bin/python -m yopo_l1.report --scene scenes/g2-pillar.json --seed 0 \
+  --l1 out/l1/g2-pillar/log --out out/l1/g2-pillar/l0-vs-l1.md
 ```
 
-`PX4_PARAM_DUMP_CMD` 必须是只读的（`param show` 可以，`param set` / `save` / `load` / `reset` / `import` 会被拒绝）。脚本在 launch 前后各 dump 一次参数，并给 `g2_run.py` 和文件名含 safety / checklist 的文本做 sha256；有差异就失败，不把这次写进成功结果。批跑表末尾两列是起飞交接和 RTF，L0 留空。RTF = 仿真秒 / 墙钟秒。
+脚本内部执行的就是 `YOPO_SIM_SEED=<seed> bash "$YOPO_SWARM_ROOT/scripts/run_g2.sh" nominal`。跑前跑后各做一次只读参数 dump，并给 `g2_run.py` 和文件名含 safety / checklist 的文本做 sha256；有差异就失败。`param set` / `save` / `load` / `reset` / `import` 会在执行前拒绝。批跑表末尾两列是起飞交接和 RTF，L0 留空。RTF = 仿真秒 / 墙钟秒。
 
 ## 合 main（premerge）
 

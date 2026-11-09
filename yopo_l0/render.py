@@ -22,7 +22,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import animation
-from matplotlib.patches import Circle, Rectangle
+from matplotlib.patches import Circle, Polygon, Rectangle
 
 from .scene import Box, Cylinder, Ground, load_card
 
@@ -141,10 +141,18 @@ def _add_obstacles(ax_top, ax_side, obstacles) -> float | None:
             ax_top.add_patch(Rectangle((x, y), dx, dy, **kw))
             ax_side.add_patch(Rectangle((x, z), dx, dz, **kw))
         elif isinstance(ob, Cylinder):
-            cx, cy = ob.center_xy
+            # 俯视画飞行高度上的截面，倾斜树干不会画在根部。
+            cx, cy = ob.section_xy(1.5)
             kw = dict(facecolor="#a8a8a8", edgecolor="#555555", lw=0.6, zorder=1)
             ax_top.add_patch(Circle((cx, cy), ob.radius, **kw))
-            ax_side.add_patch(Rectangle((cx - ob.radius, ob.z_lo), 2 * ob.radius, ob.z_hi - ob.z_lo, **kw))
+            if ob.upright():
+                ax_side.add_patch(Rectangle((ob.center_xy[0] - ob.radius, ob.z_lo), 2 * ob.radius, ob.z_hi - ob.z_lo, **kw))
+            else:
+                x0, x1 = ob.center_xy[0], ob.center_xy[0] + ob.lean_xy[0]
+                ax_side.add_patch(Polygon(
+                    [(x0 - ob.radius, ob.z_lo), (x0 + ob.radius, ob.z_lo), (x1 + ob.radius, ob.z_hi), (x1 - ob.radius, ob.z_hi)],
+                    closed=True, **kw,
+                ))
         elif isinstance(ob, Ground):
             ground_z = ob.z
             ax_side.axhline(ob.z, color="#888888", lw=0.8, zorder=0)
@@ -296,7 +304,7 @@ def render_top_pngs(
                     dx, dy, _dz = (np.asarray(ob.hi) - np.asarray(ob.lo)).tolist()
                     ax.add_patch(Rectangle((x, y), dx, dy, facecolor="#c8c8c8", edgecolor="#666666", lw=0.6, zorder=0))
                 elif isinstance(ob, Cylinder):
-                    cx, cy = ob.center_xy
+                    cx, cy = ob.section_xy(1.5)
                     ax.add_patch(Circle((cx, cy), ob.radius, facecolor="#a8a8a8", edgecolor="#555555", lw=0.6, zorder=1))
             ax.set_xlim(xmin, xmax)
             ax.set_ylim(ymin, ymax)
