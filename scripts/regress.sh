@@ -3,7 +3,7 @@
 # 用法：scripts/regress.sh [额外场景卡...]
 set -euo pipefail
 cd "$(dirname "$0")/.."
-if ! .venv/bin/python -c 'import torch, yopo_swarm_core, yopo_l0' 2>/dev/null; then
+if ! .venv/bin/python -c 'import torch, yopo_swarm_core, yopo_l0, matplotlib' 2>/dev/null; then
   make venv
 fi
 PY=.venv/bin/python
@@ -19,9 +19,9 @@ echo "## pytest（core，vendored，含上游金样；不含 slow 与联网的�
 P2=${PIPESTATUS[0]}
 PYTEST=$(( P1 || P2 ))
 echo
-echo "## 批跑（hover@hover 判过；g2-pillar 默认 upstream+影子盾，判据未冻结只报数）"
-$PY -m yopo_l0.batch scenes/g2-hover.json@hover scenes/g2-hover-lift.json@hover scenes/g2-pillar.json "$@" \
-  --jobs 4 --out "$OUT" 2>/dev/null
+echo "## 批跑（suite.txt：hover 判过；g2-pillar@upstream 与 open-3drone@hover 判据未冻结只报数）"
+mapfile -t SUITE < <(sed -e 's/[[:space:]]*#.*//' -e '/^[[:space:]]*$/d' scenes/suite.txt)
+$PY -m yopo_l0.batch "${SUITE[@]}" "$@" --jobs 4 --out "$OUT" 2>/dev/null
 BATCH=$?
 echo
 echo "## certified 冒烟（单 seed、仿真 4 s；全部门每步约 2.4 s 墙钟）"

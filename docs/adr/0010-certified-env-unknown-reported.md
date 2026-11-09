@@ -26,7 +26,7 @@ L0 的前视光线投射给不了这份证明。机身周围、相机后方、�
 - 门本身继续拦截。UNKNOWN 候选不飞。不把 UNKNOWN 改成 FREE，不放宽 SafetyGate，不改 L0 深度适配去换一次到达。那样做会毁掉这组对照。
 - 运行器只在真值碰撞时中止回合。`ENV:UNKNOWN` 累加到 `plan_codes`（`cand:` 前缀来自 certified 漏斗），回合跑到到达或超时。goto 在判据冻结前不影响退出码，见 [0008](0008-report-only-until-frozen.md)。
 - 这样做是因为诊断已经预期对照臂到不了：全部门让 G2 无解。飞行臂是 `upstream`（终端规则见 [0009](0009-stop-at-goal-vs-hold-here.md)）。用对照臂的 0/10 去拦合入，等于把 main 再次冻在「门使场景无解」上。
-- 这些 `cand:ENV:UNKNOWN` 计数是 certified 策略自己的漏斗，不是影子盾。影子盾开关按 [0007](0007-l0-default-upstream-shadow.md) 照常写入结果；逐 tick 影子拒绝率仍是票 03，`shadow_reject_rate` 保持 `null`。
+- 这些 `cand:ENV:UNKNOWN` 计数是 certified 策略自己的漏斗，不是影子盾。影子盾开关按 [0007](0007-l0-default-upstream-shadow.md) 照常写入结果。样例记录跑在票 03 之前，所以 `shadow_reject_rate` 是 `null`。票 03 合入之后，盾开时这个字段是拒绝率，不再是 `null`。那一列也不在冻结前变成合入门。
 
 ## Consequences
 

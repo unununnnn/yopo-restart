@@ -5,6 +5,7 @@
 - hover 任务：SUCCESS 才算通过（票 01 判据）。
 - goto 任务：判据未冻结（criteria.frozen=false）→ 只报数「未冻结 / report-only」；碰撞数作为硬事实单列。
 退出码：hover 全部通过、确定性一致、单次墙钟 < 上限 时为 0；goto 的到达与碰撞不影响退出码（只报数）。
+结果表列出场景卡哈希、seed、层级、策略、影子盾、最小机间距离。影子拒绝率读结果里的 shadow_reject_rate（关着是 null，表中写 —）。单机的机间距离为 —。
 """
 
 from __future__ import annotations
@@ -39,6 +40,14 @@ def _fmt(x, nd=2):
     return "—" if x is None else f"{x:.{nd}f}"
 
 
+def _reject_summary(r):
+    hist = r.get("shadow_reject_histogram")
+    if not hist:
+        return "—"
+    top = sorted(hist.items(), key=lambda kv: (-kv[1], kv[0]))[:3]
+    return ", ".join(f"{k}:{v}" for k, v in top)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("specs", nargs="+", help="场景卡路径，可带 @策略（默认 --policy）")
@@ -69,7 +78,7 @@ def main(argv=None):
 
     rows = [r for r, _ in res]
     det = [(r["scene"], r["policy"], r["seed"], same) for r, same in res if same is not None]
-    lines = [f"commit `{rows[0]['commit'][:12]}`，层级 L0", ""]
+    lines = [f"commit `{rows[0]['commit'][:12]}`，层级 {rows[0]['tier']}", ""]
     gate_ok = True
     for card, policy, seeds in groups:
         rs = [r for r in rows if r["scene"] == card.name and r["policy"] == policy]
@@ -88,17 +97,21 @@ def main(argv=None):
                        f"（{'判据已冻结' if frozen else '未冻结 / report-only'}）")
         gate_ok &= max(walls) < a.wall_limit or task != "hover"
         lines += [
-            f"### {card.name} @ {policy}（{task}，影子盾 {'开' if rs[0]['shadow'] else '关'}）：{verdict}",
+            f"### {card.name} @ {policy}（{task}，层级 {rs[0]['tier']}，影子盾 {'开' if rs[0]['shadow'] else '关'}，"
+            f"场景卡 `{card.hash}`）：{verdict}",
             f"墙钟 最大 {max(walls):.1f} s / 平均 {sum(walls) / len(walls):.1f} s",
             "",
-            "| seed | 结果 | 到达时间 s | 最小障碍距离 m | 终点误差 m | 仿真 s | 墙钟 s | 规划码 |",
-            "|---|---|---|---|---|---|---|---|",
+            "| seed | 层级 | 策略 | 影子盾 | 场景卡哈希 | 结果 | 到达时间 s | 最小障碍距离 m | 最小机间距离 m | 终点误差 m | 仿真 s | 墙钟 s | 影子拒绝率 | 主要拒绝码 | 规划码 |",
+            "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
         ]
         for r in rs:
             codes = ", ".join(f"{k}:{v}" for k, v in r["plan_codes"].items() if not k.startswith("cand:"))
             lines.append(
-                f"| {r['seed']} | {r['outcome']} | {_fmt(r['arrival_time_s'])} | {_fmt(r['min_obstacle_distance_m'], 3)} | "
-                f"{_fmt(r['final_goal_error_m'], 3)} | {r['sim_duration_s']:.1f} | {r['wall_time_s']:.1f} | {codes} |"
+                f"| {r['seed']} | {r['tier']} | {r['policy']} | {'开' if r['shadow'] else '关'} | `{r['scene_card_hash']}` | "
+                f"{r['outcome']} | {_fmt(r['arrival_time_s'])} | {_fmt(r['min_obstacle_distance_m'], 3)} | "
+                f"{_fmt(r.get('min_inter_drone_distance_m'), 3)} | {_fmt(r['final_goal_error_m'], 3)} | "
+                f"{r['sim_duration_s']:.1f} | {r['wall_time_s']:.1f} | "
+                f"{_fmt(r.get('shadow_reject_rate'), 3)} | {_reject_summary(r)} | {codes} |"
             )
         cand = {}
         for r in rs:

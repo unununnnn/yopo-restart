@@ -51,7 +51,9 @@ upstream 主表跑在干净工作区上，结果里的 `commit` 没有 `-dirty`�
 
 到达 0/10，碰撞 0。未冻结 / report-only。影子盾开。批跑退出码 0（到达数不拦，见 [ADR 0010](../adr/0010-certified-env-unknown-reported.md)）。没有做 seed 0 的第二次全时长重跑。
 
-结果记录里的 commit 是 `036d90761c13beb2ad5574fc685af5f138b996e3-dirty`。`-dirty` 只因为 README 已有未提交改动。场景卡哈希与 upstream 主表相同。
+结果记录里的 commit 是 `036d90761c13beb2ad5574fc685af5f138b996e3-dirty`。`-dirty` 只因为当时 README 已有未提交改动。场景卡哈希与 upstream 主表相同。
+
+干净工作区重跑这 10 个 seed 会去掉 `-dirty`。单 seed 墙钟约 14 分钟（表上 823–873 s），4 核并行整表约 45 分钟，超过这次合并允许的 10 分钟，所以没有重跑。数字仍是票 02 代码上的测量，也早于票 03：`shadow_reject_rate` 在这些 JSON 里是 `null`。票 03 合入 main 之后，盾开的新运行会写成拒绝率。到达 0、碰撞 0、`ENV:UNKNOWN` 是门的行为，不依赖那个字段。
 
 | seed | 结果 | 到达时间 s | 最小障碍距离 m | 终点误差 m | 仿真 s | 墙钟 s | 规划码 |
 |---|---|---|---|---|---|---|---|
