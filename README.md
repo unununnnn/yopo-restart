@@ -8,6 +8,7 @@ yopo 编队项目重启。规格见 [docs/SPEC.md](docs/SPEC.md)，票见 [docs/
 make venv                     # 一次（Python 3.12 + torch 2.4.1 CPU，uv）
 .venv/bin/python -m yopo_l0.run --scene scenes/g2-hover.json --seed 0   # 单次：out/g2-hover/seed0/{result.json,ticks.jsonl}
 .venv/bin/python -m yopo_l0.run --scene scenes/g2-pillar.json --seed 0 --policy upstream    # 单机过 G2 柱子
+.venv/bin/python -m yopo_l0.run --scene scenes/open-3drone.json --seed 0 --policy hover      # 三机开阔区，各自飞向 goal_enu
 .venv/bin/python -m yopo_l0.batch scenes/g2-pillar.json@upstream scenes/g2-pillar.json@certified --jobs 8  # M0 表
 scripts/regress.sh            # 合 main 前回归：pytest + 批跑 + Markdown 表
 ```
@@ -19,7 +20,8 @@ YOPO 推理走 vendored `core/`（yopo-swarm core@00b85bf，见 core/VENDORED.md
 - 世界：轴对齐盒子 + 竖直圆柱 + 地面；G2 几何原样取自 yopo-swarm `sim/px4/g2-scene.json`。
 - 传感器：光线投射深度，内参由分辨率 + 视场算，量程/噪声/帧率可配，时间戳 = 仿真时钟。
 - 动力学：`step(state, approved_plan, dt)`，点质量 + 一阶加速度滞后。
-- 锁步：每 tick 传感器 → 规划 → 动力学 → 碰撞真值（机体半径 0.35 m）；墙钟不进仿真时间。
-- 规划器只拿 `Observation`（深度帧、里程计、目标、时间），不拿几何。策略在 `yopo_l0.policy.POLICIES` 注册：`hover` / `upstream` / `certified`。
+- 锁步：每 tick 全体传感 → 全体规划 → 进程内总线投递 → 动力学 → 碰撞真值（障碍用机体半径 0.35 m，机间用两倍半径）；墙钟不进仿真时间。
+- 规划器只拿 `Observation`（深度帧、里程计、目标、时间），不拿几何、不拿他机状态。每机一个策略实例。策略在 `yopo_l0.policy.POLICIES` 注册：`hover` / `upstream` / `certified`。
+- 机间消息只走 `yopo_l0.bus.MessageBus`（payload 深拷贝）。旋钮 `drop` / `duplicate` / `delay` 对齐 G3 `FaultPlan`，`reorder` 对齐 G3 explore 的乱序（插到当前队首）。默认全 0。场景卡可写 `bus`，或用 `--bus-drop` 等覆盖。本机计划对象留在私有槽，总线只送令牌；他机只收到不含对象身份的公告。
 
 结果记录里的 `tier` 总是 `L0`：这是假动力学，不是 PX4 结果。

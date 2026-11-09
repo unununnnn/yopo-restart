@@ -91,14 +91,15 @@ def main(argv=None):
             f"### {card.name} @ {policy}（{task}，影子盾 {'开' if rs[0]['shadow'] else '关'}）：{verdict}",
             f"墙钟 最大 {max(walls):.1f} s / 平均 {sum(walls) / len(walls):.1f} s",
             "",
-            "| seed | 结果 | 到达时间 s | 最小障碍距离 m | 终点误差 m | 仿真 s | 墙钟 s | 规划码 |",
-            "|---|---|---|---|---|---|---|---|",
+            "| seed | 结果 | 到达时间 s | 最小障碍距离 m | 最小机间距离 m | 终点误差 m | 仿真 s | 墙钟 s | 规划码 |",
+            "|---|---|---|---|---|---|---|---|---|",
         ]
         for r in rs:
             codes = ", ".join(f"{k}:{v}" for k, v in r["plan_codes"].items() if not k.startswith("cand:"))
             lines.append(
                 f"| {r['seed']} | {r['outcome']} | {_fmt(r['arrival_time_s'])} | {_fmt(r['min_obstacle_distance_m'], 3)} | "
-                f"{_fmt(r['final_goal_error_m'], 3)} | {r['sim_duration_s']:.1f} | {r['wall_time_s']:.1f} | {codes} |"
+                f"{_fmt(r.get('min_inter_drone_distance_m'), 3)} | {_fmt(r['final_goal_error_m'], 3)} | "
+                f"{r['sim_duration_s']:.1f} | {r['wall_time_s']:.1f} | {codes} |"
             )
         cand = {}
         for r in rs:
