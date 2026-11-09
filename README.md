@@ -25,3 +25,22 @@ YOPO 推理走 vendored `core/`（yopo-swarm core@00b85bf，见 core/VENDORED.md
 - 机间消息只走 `yopo_l0.bus.MessageBus`（payload 深拷贝）。旋钮 `drop` / `duplicate` / `delay` 对齐 G3 `FaultPlan`，`reorder` 对齐 G3 explore 的乱序（插到当前队首）。默认全 0。场景卡可写 `bus`，或用 `--bus-drop` 等覆盖。本机计划对象留在私有槽，总线只送令牌；他机只收到不含对象身份的公告。
 
 结果记录里的 `tier` 总是 `L0`：这是假动力学，不是 PX4 结果。
+
+## 场景套件、视频、nightly（票 04）
+
+`scenes/suite.txt` 是 regress 与 nightly 共用的列表（`卡@策略`）：
+
+- `g2-hover` / `g2-hover-lift` @ `hover`
+- `g2-pillar` @ `upstream`（票 02 的场景卡和策略；本票不改策略。判据未冻结，只报数）
+- `pillar-forest` / `narrow-corridor` @ `hover`（新几何，悬停占位）
+- `open-3drone` @ `hover`（票 05 的三机卡；几何是空的 `open-area.json`）
+
+G2 几何仍只在 `scenes/g2-scene.json`。影子拒绝率仍是占位（票 03）。柱林穿越是票 07，编队是票 06。
+
+```bash
+.venv/bin/python -m yopo_l0.batch scenes/g2-pillar.json@upstream scenes/open-3drone.json@hover --jobs 4 --out out/suite
+.venv/bin/python -m yopo_l0.render --log out/suite/g2-pillar@upstream/seed0/ticks.jsonl --scene scenes/g2-pillar.json --out out/suite/g2-pillar@upstream/seed0/preview.mp4
+scripts/nightly.sh
+```
+
+`scripts/nightly.sh` 把 JSON、Markdown、逐 tick 日志和每张卡首个 seed 的俯视+侧视视频写到 **`out/nightly/YYYYMMDD/`**。播放时长 ≤60 s。同一天再跑会先清空该目录。失败时 `ticks.jsonl` 留在目录里，用上面的 `render` 命令重放。合 main 前的门仍是 `scripts/regress.sh`（另含 certified 冒烟）。不接 GitHub Actions；box 上把 `scripts/nightly.sh` 放进 cron 即可。系统需要 `ffmpeg`。

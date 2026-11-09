@@ -1,0 +1,8 @@
+# 票 04 场景套件。regress.sh 与 nightly.sh 共用。井号后为注释。
+# 规格与 yopo_l0.batch 相同：场景卡[@策略]
+scenes/g2-hover.json@hover
+scenes/g2-hover-lift.json@hover
+scenes/g2-pillar.json@upstream
+scenes/pillar-forest.json@hover
+scenes/narrow-corridor.json@hover
+scenes/open-3drone.json@hover

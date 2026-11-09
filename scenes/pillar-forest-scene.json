@@ -1,0 +1,20 @@
+{
+  "world": "pillar-forest",
+  "boxes": [
+    {"name": "ceiling", "lo": [-4.0, -8.0, 4.0], "hi": [16.0, 8.0, 4.2]}
+  ],
+  "cylinders": [
+    {"name": "p_c0_r0", "center_xy": [3.0, -2.4], "radius": 0.3, "z_lo": 0.0, "z_hi": 2.8},
+    {"name": "p_c0_r1", "center_xy": [3.0, 0.0], "radius": 0.3, "z_lo": 0.0, "z_hi": 2.8},
+    {"name": "p_c0_r2", "center_xy": [3.0, 2.4], "radius": 0.3, "z_lo": 0.0, "z_hi": 2.8},
+    {"name": "p_c1_r0", "center_xy": [5.5, -2.4], "radius": 0.3, "z_lo": 0.0, "z_hi": 2.8},
+    {"name": "p_c1_r1", "center_xy": [5.5, 0.0], "radius": 0.3, "z_lo": 0.0, "z_hi": 2.8},
+    {"name": "p_c1_r2", "center_xy": [5.5, 2.4], "radius": 0.3, "z_lo": 0.0, "z_hi": 2.8},
+    {"name": "p_c2_r0", "center_xy": [8.0, -2.4], "radius": 0.3, "z_lo": 0.0, "z_hi": 2.8},
+    {"name": "p_c2_r1", "center_xy": [8.0, 0.0], "radius": 0.3, "z_lo": 0.0, "z_hi": 2.8},
+    {"name": "p_c2_r2", "center_xy": [8.0, 2.4], "radius": 0.3, "z_lo": 0.0, "z_hi": 2.8},
+    {"name": "p_c3_r0", "center_xy": [10.5, -2.4], "radius": 0.3, "z_lo": 0.0, "z_hi": 2.8},
+    {"name": "p_c3_r1", "center_xy": [10.5, 0.0], "radius": 0.3, "z_lo": 0.0, "z_hi": 2.8},
+    {"name": "p_c3_r2", "center_xy": [10.5, 2.4], "radius": 0.3, "z_lo": 0.0, "z_hi": 2.8}
+  ]
+}
