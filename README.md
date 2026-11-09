@@ -26,6 +26,22 @@ YOPO 推理走 vendored `core/`（yopo-swarm core@00b85bf，见 core/VENDORED.md
 
 结果记录里的 `tier` 总是 `L0`：这是假动力学，不是 PX4 结果。
 
+## ROS 2 形态（票 10）
+
+世界一个节点，每机一个节点。世界按 L0 的 tick 往 `/clock` 发仿真时间（各节点 `use_sim_time`），锁步仍是传感 → 规划 → 总线 → 动力学 → 碰撞真值，和 `yopo_l0.runner` 同一条循环。规划在该机节点里调用已有的 `yopo_l0.policy`。命名空间是场景卡里的无人机 id：`/uav0/drone`、`/uav1/drone`……
+
+```bash
+scripts/setup_ros2.sh    # Ubuntu 24.04 → Jazzy，22.04 → Humble；ros-*-ros-base + rclpy
+.venv/bin/python -m yopo_l0.ros2_run --scene scenes/open-3drone.json --seed 0 --policy hover
+.venv/bin/python -m yopo_l0.ros2_run --scene scenes/g2-pillar.json --seed 0 --policy upstream
+```
+
+输出和 `yopo_l0.run` 一样：`out/<场景>/seed<N>/{result.json,ticks.jsonl}`，结果里多一个 `"form": "ros2"`。`--policy`、`--seed`、`--shadow` / `--no-shadow`、`--duration`、`--out`、`--bus-*` 与进程内启动器相同。票 06 的编队场景卡不用改节点：按卡里的 `drones` 建节点，策略名在 `POLICIES` 里取。
+
+`rclpy` 导入不了时，`tests/test_ros2_form.py` 里的 ROS 用例跳过，原因里写明要跑 `scripts/setup_ros2.sh`。进程内回归不依赖 ROS。自己开解释器时再 `source /opt/ros/<jazzy|humble>/setup.bash`；启动器会自己把已安装的发行版加进模块路径。
+
+批准计划对象留在本进程。动力学要 `sample` 策略交出来的那一个（上游偏航和 certified 运行时都挂在上面），ROS 消息里是观测和计划令牌。他机仍然只走 `MessageBus` 的公告。
+
 ## 场景套件、视频、nightly（票 04）
 
 `scenes/suite.txt` 是 regress 与 nightly 共用的列表（`卡@策略`）：
