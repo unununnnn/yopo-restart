@@ -3,9 +3,10 @@
 世界在每个 tick 传感之前把 L0 时钟发到 `/clock`（各节点 use_sim_time）。
 规划请求走 `/{id}/observation`，批准计划的令牌走 `/{id}/plan`。
 令牌指向本进程里的计划对象：`_TrajPlan.sample` 会改偏航，certified 的运行时也挂在这个对象上，
-动力学必须 sample 策略交出来的那一个。他机仍然只拿总线公告，不拿这个对象。
+动力学必须 sample 策略交出来的那一个。他机不拿这个对象。
 
-编队卡（票 06）不需要改这里。节点按 `bind` 收到的无人机列表建，id 即命名空间。
+编队的机间信封不进进程内队列。世界把信封发到 `/{src}/bus_tx`，源节点转到 `/{dest}/bus_rx`，
+目的节点再发 `/{dest}/bus_done`。锁步队列只接收走完这三跳的那一份。节点仍按 bind 的 id 建命名空间。
 """
 
 from __future__ import annotations
@@ -21,11 +22,15 @@ from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPo
 from rosgraph_msgs.msg import Clock
 from std_msgs.msg import String
 
+from .bus import _Item
 from .policy import Observation
 from .ros2_codec import (
     check_drone_id,
+    decode_bus_messages,
     decode_observation_messages,
+    encode_bus_item,
     encode_observation,
+    same_float,
     same_observation,
     sim_time_ns,
 )
@@ -83,10 +88,45 @@ class _Assembler:
         return None
 
 
+class _BusAssembler:
+    """一个 seq 的 bus header 加分片。乱序或半包直接报错。"""
+
+    def __init__(self) -> None:
+        self.reset()
+
+    def reset(self) -> None:
+        self.seq: int | None = None
+        self.messages: list[str] = []
+        self.need = 0
+        self.dest: str | None = None
+
+    def push(self, text: str) -> list[str] | None:
+        data = json.loads(text)
+        kind = data.get("kind")
+        if kind == "bus":
+            self.seq = int(data["seq"])
+            self.need = int(data["n_chunks"])
+            self.dest = data["dest"]
+            self.messages = [text]
+        elif kind == "bus_chunk":
+            if self.seq is None or int(data.get("seq", -1)) != self.seq:
+                raise RuntimeError(f"总线分片 seq={data.get('seq')} 没有对应的 header {self.seq}")
+            if data.get("dest") != self.dest:
+                raise RuntimeError(f"总线分片目的地 {data.get('dest')} 和 header {self.dest} 不一致")
+            self.messages.append(text)
+        else:
+            raise RuntimeError(f"不是机间总线消息：{kind}")
+        if len(self.messages) == 1 + self.need:
+            done = self.messages
+            self.reset()
+            return done
+        return None
+
+
 class DroneNode(Node):
     """包一层已有策略。策略对象就是运行器建的那一个。"""
 
-    def __init__(self, drone_id: str, policy, slots: _Slots):
+    def __init__(self, drone_id: str, policy, slots: _Slots, peers: list[str] | None = None):
         check_drone_id(drone_id)
         super().__init__(
             "drone",
@@ -100,6 +140,27 @@ class DroneNode(Node):
         self._asm = _Assembler()
         self.create_subscription(String, "observation", self._on_observation, _LOCKSTEP_QOS)
         self._plan_pub = self.create_publisher(String, "plan", _LOCKSTEP_QOS)
+        self.bus_rx_pubs = {}
+        self.bus_done_pub = None
+        if peers is not None:
+            # 含自己：dest==src 时也从本机 bus_rx 走一跳，不在回调里短路。
+            self.create_subscription(String, "bus_tx", self._on_bus_tx, _LOCKSTEP_QOS)
+            self.create_subscription(String, "bus_rx", self._on_bus_rx, _LOCKSTEP_QOS)
+            self.bus_done_pub = self.create_publisher(String, "bus_done", _LOCKSTEP_QOS)
+            for peer in peers:
+                self.bus_rx_pubs[peer] = self.create_publisher(String, f"/{peer}/bus_rx", _LOCKSTEP_QOS)
+
+    def _on_bus_tx(self, msg: String) -> None:
+        dest = json.loads(msg.data)["dest"]
+        pub = self.bus_rx_pubs.get(dest)
+        if pub is None:
+            raise RuntimeError(f"{self.drone_id} 没有发往 {dest} 的 bus_rx")
+        pub.publish(String(data=msg.data))
+
+    def _on_bus_rx(self, msg: String) -> None:
+        if self.bus_done_pub is None:
+            raise RuntimeError(f"{self.drone_id} 没有 bus_done")
+        self.bus_done_pub.publish(String(data=msg.data))
 
     def _on_observation(self, msg: String) -> None:
         done = self._asm.push(msg.data)
@@ -123,14 +184,17 @@ class DroneNode(Node):
 class L0WorldBridge:
     """世界节点。`run(..., bridge=this)` 每 tick 调进来，由这里把锁步挡住，直到该机节点规划完。"""
 
-    def __init__(self, card: SceneCard, *, plan_timeout_s: float = 180.0):
+    def __init__(self, card: SceneCard, *, plan_timeout_s: float = 180.0, transport=None):
         self.card = card
         self.phys = int(card.card["rates_hz"]["physics"])
         self.plan_timeout_s = float(plan_timeout_s)
+        self.transport = transport
         self.clock_ok = True
         self.clock_error = ""
         self.clock_samples = 0
         self.nodes_full_names: list[str] = []
+        self.bus_ros_deliveries = 0
+        self.bus_topics: list[str] = []
         self.last_now: float | None = None
         self._clock_misses = 0
         self._clock_broken = False
@@ -142,6 +206,11 @@ class L0WorldBridge:
         self._slots = _Slots()
         self._obs_pubs: dict = {}
         self._plan_subs: dict = {}
+        self._tx_pubs: dict = {}
+        self._done_subs: dict = {}
+        self._bus_asm = _BusAssembler()
+        self._bus_seen = 0
+        self._bus_done_item: dict | None = None
         self._clock_pub = None
         self._waiting: tuple[str, int] | None = None
         self._token: int | None = None
@@ -164,8 +233,24 @@ class L0WorldBridge:
         self._executor = SingleThreadedExecutor()
         self._executor.add_node(self.world)
         self._clock_pub = self.world.create_publisher(Clock, "/clock", _CLOCK_QOS)
+        peers = ids if self.transport is not None else None
+        if self.transport is not None:
+            for drone_id in ids:
+                self._tx_pubs[drone_id] = self.world.create_publisher(
+                    String, f"/{drone_id}/bus_tx", _LOCKSTEP_QOS,
+                )
+                self._done_subs[drone_id] = self.world.create_subscription(
+                    String, f"/{drone_id}/bus_done",
+                    lambda msg, drone_id=drone_id: self._on_bus_done(drone_id, msg),
+                    _LOCKSTEP_QOS,
+                )
+                self.bus_topics += [
+                    f"/{drone_id}/bus_tx", f"/{drone_id}/bus_rx", f"/{drone_id}/bus_done",
+                ]
+            self.transport.relay = self.relay_item
+            self.transport.topics = list(self.bus_topics)
         for dr in drones:
-            node = DroneNode(dr["id"], dr["policy"], self._slots)
+            node = DroneNode(dr["id"], dr["policy"], self._slots, peers=peers)
             self.drone_nodes.append(node)
             self._owned.append(node)
             self._executor.add_node(node)
@@ -275,15 +360,105 @@ class L0WorldBridge:
             clock_n = self._clock_pub.get_subscription_count()
             obs_ok = all(p.get_subscription_count() >= 1 for p in self._obs_pubs.values())
             plan_ok = all(s.get_publisher_count() >= 1 for s in self._plan_subs.values())
-            if clock_n >= expect_clock and obs_ok and plan_ok:
+            if clock_n >= expect_clock and obs_ok and plan_ok and self._bus_matched():
                 return
         raise TimeoutError(
             "ROS 2 发现没有完成："
             f" /clock 订阅 {self._clock_pub.get_subscription_count()}/{expect_clock}，"
             f"观测订阅 {[p.get_subscription_count() for p in self._obs_pubs.values()]}，"
             f"计划发布 {[s.get_publisher_count() for s in self._plan_subs.values()]}。"
+            f"{self._bus_discovery_text()}"
             "若本机还有别的 ROS 图，换一个 ROS_DOMAIN_ID。"
         )
+
+    def _bus_matched(self) -> bool:
+        if self.transport is None:
+            return True
+        if not self._tx_pubs:
+            return False
+        tx_ok = all(p.get_subscription_count() >= 1 for p in self._tx_pubs.values())
+        rx_ok = all(
+            pub.get_subscription_count() >= 1
+            for node in self.drone_nodes
+            for pub in node.bus_rx_pubs.values()
+        )
+        done_ok = all(
+            node.bus_done_pub is not None and node.bus_done_pub.get_subscription_count() >= 1
+            for node in self.drone_nodes
+        )
+        return tx_ok and rx_ok and done_ok
+
+    def _bus_discovery_text(self) -> str:
+        if self.transport is None:
+            return ""
+        tx = [p.get_subscription_count() for p in self._tx_pubs.values()]
+        rx = [pub.get_subscription_count() for node in self.drone_nodes for pub in node.bus_rx_pubs.values()]
+        done = [
+            0 if node.bus_done_pub is None else node.bus_done_pub.get_subscription_count()
+            for node in self.drone_nodes
+        ]
+        return f" bus_tx 订阅 {tx}，bus_rx 订阅 {rx}，bus_done 订阅 {done}。"
+
+    def relay_item(self, item) -> _Item:
+        """一条没被丢掉的拷贝。分片按序走完三跳才返回，返回值只含话题上回来的字段。"""
+        messages = encode_bus_item(item)
+        self._bus_asm.reset()
+        self._bus_seen = 0
+        self._bus_done_item = None
+        pub = self._tx_pubs[item.src]
+        for index, text in enumerate(messages):
+            pub.publish(String(data=text))
+            self._wait_bus_seen(index + 1, item)
+        got = self._bus_done_item
+        if got is None:
+            raise RuntimeError(f"机间消息 seq={item.seq} 分片齐了但没有解出信封")
+        self._bus_done_item = None
+        for key in ("seq", "src", "dest", "topic", "rank"):
+            if got[key] != getattr(item, key):
+                raise RuntimeError(
+                    f"话题往返字段 {key}：发出 {getattr(item, key)!r}，收到 {got[key]!r}"
+                )
+        if not same_float(got["sent_at"], item.sent_at) or not same_float(got["deliver_at"], item.deliver_at):
+            raise RuntimeError(
+                f"总线时间戳经话题后不是逐位：sent {item.sent_at!r}->{got['sent_at']!r}，"
+                f"deliver {item.deliver_at!r}->{got['deliver_at']!r}"
+            )
+        self.bus_ros_deliveries += 1
+        return _Item(
+            deliver_at=got["deliver_at"],
+            rank=int(got["rank"]),
+            seq=int(got["seq"]),
+            src=got["src"],
+            dest=got["dest"],
+            topic=got["topic"],
+            payload=got["payload"],
+            sent_at=got["sent_at"],
+        )
+
+    def _wait_bus_seen(self, target: int, item) -> None:
+        assert self._executor is not None
+        deadline = time.monotonic() + min(self.plan_timeout_s, 30.0)
+        spins = 0
+        while self._bus_seen < target:
+            timeout = 0.0 if spins < 30 else 0.02
+            self._executor.spin_once(timeout_sec=timeout)
+            spins += 1
+            if time.monotonic() > deadline:
+                raise TimeoutError(
+                    f"机间消息 seq={item.seq} {item.src}->{item.dest} 在 30s 内没有经 "
+                    f"/{item.src}/bus_tx → /{item.dest}/bus_rx → /{item.dest}/bus_done 回到世界"
+                    f"（已回到世界 {self._bus_seen} 片，正在等第 {target} 片）"
+                )
+
+    def _on_bus_done(self, drone_id: str, msg: String) -> None:
+        self._bus_seen += 1
+        done = self._bus_asm.push(msg.data)
+        if done is None:
+            return
+        decoded = decode_bus_messages(done)
+        if decoded["dest"] != drone_id:
+            raise RuntimeError(f"/{drone_id}/bus_done 收到目的地是 {decoded['dest']} 的信封")
+        self._bus_done_item = decoded
 
     def _require_sim_clock(self) -> None:
         from rclpy.clock_type import ClockType
