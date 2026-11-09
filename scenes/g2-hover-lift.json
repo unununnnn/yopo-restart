@@ -1,0 +1,59 @@
+{
+  "name": "g2-hover-lift",
+  "geometry": "g2-scene.json",
+  "ground_z": 0.0,
+  "drones": [
+    {
+      "id": "uav0",
+      "start_enu": [
+        0.0,
+        0.0,
+        1.2
+      ],
+      "hover_enu": [
+        0.0,
+        0.0,
+        1.5
+      ]
+    }
+  ],
+  "task": {
+    "type": "hover",
+    "duration_s": 10.0
+  },
+  "criteria": {
+    "body_radius_m": 0.35,
+    "hover_tolerance_m": 0.4
+  },
+  "camera": {
+    "width": 160,
+    "height": 96,
+    "hfov_deg": 90.0,
+    "vfov_deg": 60.0,
+    "min_range_m": 0.2,
+    "max_range_m": 20.0,
+    "noise_std_m": 0.02,
+    "mount_xyz_body": [
+      0.13,
+      0.0,
+      0.02
+    ]
+  },
+  "dynamics": {
+    "model": "point_mass_lag",
+    "tau_s": 0.1,
+    "kp": 4.0,
+    "kd": 3.0,
+    "a_max": 6.0
+  },
+  "rates_hz": {
+    "physics": 100,
+    "camera": 30,
+    "planner": 10
+  },
+  "seeds": [
+    0,
+    1,
+    2
+  ]
+}
