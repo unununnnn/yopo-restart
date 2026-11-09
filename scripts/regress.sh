@@ -3,17 +3,21 @@
 # 用法：scripts/regress.sh [额外场景卡...]
 set -euo pipefail
 cd "$(dirname "$0")/.."
-if [ ! -x .venv/bin/python ]; then
-  python3 -m venv .venv
-  .venv/bin/pip -q install -e '.[test]'
+if ! .venv/bin/python -c 'import torch, yopo_swarm_core, yopo_l0' 2>/dev/null; then
+  make venv
 fi
 PY=.venv/bin/python
 OUT=out/regress/$(date +%Y%m%dT%H%M%S)
 mkdir -p "$OUT"
-echo "## pytest"
+echo "## pytest（L0）"
 set +e
-$PY -m pytest -q -m "not slow" 2>&1 | tee "$OUT/pytest.log" | tail -3
-PYTEST=${PIPESTATUS[0]}
+$PY -m pytest -q -m "not slow" tests 2>&1 | tee "$OUT/pytest-l0.log" | tail -2
+P1=${PIPESTATUS[0]}
+echo "## pytest（core，vendored，含上游金样；不含 slow 与联网的上游 head 检查）"
+(cd core && ../$PY -m pytest -q -p no:cacheprovider -m "not slow" \
+  --deselect tests/test_upstream_pin.py::test_upstream_branch_head_has_not_moved) 2>&1 | tee "$OUT/pytest-core.log" | tail -2
+P2=${PIPESTATUS[0]}
+PYTEST=$(( P1 || P2 ))
 echo
 echo "## 批跑"
 $PY -m yopo_l0.batch scenes/g2-hover.json scenes/g2-hover-lift.json "$@" --out "$OUT"

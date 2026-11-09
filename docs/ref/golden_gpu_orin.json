@@ -1,0 +1,72 @@
+{
+  "torch": "2.12.0+cu132",
+  "L0_cpu_fp32": {
+    "max_abs": {
+      "traj_params": 7.450580596923828e-07,
+      "score": 1.9073486328125e-06,
+      "radius": 2.384185791015625e-07
+    },
+    "pass_tol": true,
+    "argmax_equal": true,
+    "latency_ms_p50_p99": [
+      54.8125124996659,
+      60.305008909945165
+    ],
+    "status": "PASS"
+  },
+  "onnx_export": {
+    "status": "PASS"
+  },
+  "onnx_cpu": {
+    "max_abs": {
+      "traj_params": 5.811452865600586e-07,
+      "score": 3.337860107421875e-06,
+      "radius": 2.384185791015625e-07
+    },
+    "pass_tol": true,
+    "argmax_equal": true,
+    "status": "PASS"
+  },
+  "L1_cuda_fp32": {
+    "max_abs": {
+      "traj_params": 5.066394805908203e-07,
+      "score": 3.0994415283203125e-06,
+      "radius": 2.384185791015625e-07
+    },
+    "pass_tol": true,
+    "argmax_equal": true,
+    "latency_ms_p50_p99": [
+      7.809522000115976,
+      10.171237309732533
+    ],
+    "status": "PASS"
+  },
+  "L2_trt_fp32": {
+    "max_abs": {
+      "traj_params": 6.973743438720703e-06,
+      "score": 1.9073486328125e-06,
+      "radius": 2.384185791015625e-07
+    },
+    "pass_tol": true,
+    "argmax_equal": true,
+    "status": "PASS",
+    "latency_ms_p50_p99": [
+      2.2882995003783435,
+      2.5389833499684755
+    ]
+  },
+  "L3_trt_fp16": {
+    "max_abs": {
+      "traj_params": 0.002429664134979248,
+      "score": 0.010434150695800781,
+      "radius": 0.0008886754512786865
+    },
+    "pass_tol": true,
+    "argmax_equal": true,
+    "status": "PASS",
+    "latency_ms_p50_p99": [
+      0.8063304999268439,
+      0.8367219095816836
+    ]
+  }
+}
