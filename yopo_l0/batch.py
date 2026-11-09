@@ -389,6 +389,10 @@ def main(argv=None):
         for cmd in plan["commands"]:
             lines.append(f"- `{cmd}`")
         lines.append("")
+    if any(r.get("task") == "crossing" for r in rows):
+        from .crossing import format_report
+
+        lines += ["", format_report(rows)]
     md = "\n".join(lines)
     (out_dir / "summary.md").write_text(md + "\n")
     (out_dir / "results.json").write_text(json.dumps(rows, indent=2, ensure_ascii=False) + "\n")

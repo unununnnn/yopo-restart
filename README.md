@@ -76,7 +76,7 @@ scripts/setup_ros2.sh    # Ubuntu 24.04 → Jazzy，22.04 → Humble；ros-*-ros
 
 ## 六机开阔区 + 故障档位（票 11a，M4）
 
-楔形六机在开阔区保持队形。判据未冻结，表上只报数。柱林六机等票 07 / 08。丢包档里若有飞机停在起点，那是票 06b（收不齐 ACK 就不再追赶），本票不改 `formation.py`。
+楔形六机在开阔区保持队形。判据未冻结，表上只报数。柱林六机（11b）等票 08。丢包档里若有飞机停在起点，那是票 06b（收不齐 ACK 就不再追赶），本票不改 `formation.py`。
 
 ```bash
 .venv/bin/python -m yopo_l0.batch scenes/formation-6-open.json@formation \
@@ -98,6 +98,7 @@ scripts/setup_ros2.sh    # Ubuntu 24.04 → Jazzy，22.04 → Humble；ros-*-ros
 - `pillar-forest` / `narrow-corridor` @ `hover`（新几何，悬停占位）
 - `open-3drone` @ `hover`（票 05 的三机卡；几何是空的 `open-area.json`）
 - `formation-hold` @ `formation`（票 06）
+- `crossing-pillars` @ `crossing`（票 07）
 - `formation-6-open` @ `formation`（票 11a，进程内零故障。故障档位和 ROS 2 形态不进套件）
 
 G2 几何仍只在 `scenes/g2-scene.json`。柱林穿越是票 07，编队是票 06。

@@ -255,6 +255,75 @@ def render_video(
     return RenderInfo(out_path, len(indices), float(fps), duration_s, sped_up)
 
 
+def render_top_pngs(
+    log: str | Path,
+    out_dir: str | Path,
+    *,
+    scene: str | Path | None = None,
+    n: int = 5,
+) -> list[Path]:
+    """沿仿真时间均匀存 n 张俯视 PNG。障碍画法和 render_video 相同，不进规划器。"""
+    if n < 1:
+        raise ValueError("至少一张俯视")
+    _ensure_cjk_font()
+    log_path = Path(log)
+    times, uavs, tracks = _align(_load_ticks(log_path))
+    pts = np.concatenate([tracks[u] for u in uavs], axis=0)
+    pts = pts[np.isfinite(pts).all(axis=1)]
+    if len(pts) == 0:
+        raise ValueError(f"日志里没有有效位置：{log_path}")
+    card = load_card(scene) if scene is not None else None
+    name = card.name if card is not None else log_path.stem
+    obstacles = card.obstacles if card is not None else ()
+    radius = float(card.card["criteria"]["body_radius_m"]) if card is not None else 0.35
+    if len(times) == 1:
+        indices = np.asarray([0], dtype=int)
+    else:
+        indices = np.unique(np.rint(np.linspace(0, len(times) - 1, int(n))).astype(int))
+    pad = 4.0
+    xmin, xmax = float(pts[:, 0].min()) - pad, float(pts[:, 0].max()) + pad
+    ymin, ymax = float(pts[:, 1].min()) - pad, float(pts[:, 1].max()) + pad
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    saved: list[Path] = []
+    for i, src in enumerate(indices):
+        fig, ax = plt.subplots(figsize=(8.0, 6.0), dpi=120)
+        try:
+            fig.patch.set_facecolor("white")
+            for ob in obstacles:
+                if isinstance(ob, Box):
+                    x, y, _z = ob.lo
+                    dx, dy, _dz = (np.asarray(ob.hi) - np.asarray(ob.lo)).tolist()
+                    ax.add_patch(Rectangle((x, y), dx, dy, facecolor="#c8c8c8", edgecolor="#666666", lw=0.6, zorder=0))
+                elif isinstance(ob, Cylinder):
+                    cx, cy = ob.center_xy
+                    ax.add_patch(Circle((cx, cy), ob.radius, facecolor="#a8a8a8", edgecolor="#555555", lw=0.6, zorder=1))
+            ax.set_xlim(xmin, xmax)
+            ax.set_ylim(ymin, ymax)
+            ax.set_aspect("equal", adjustable="box")
+            ax.set_xlabel("x / m")
+            ax.set_ylabel("y / m")
+            ax.grid(True, alpha=0.3)
+            for j, uav in enumerate(uavs):
+                color = COLORS[j % len(COLORS)]
+                trail = tracks[uav][: int(src) + 1]
+                finite = np.isfinite(trail).all(axis=1)
+                ax.plot(trail[finite, 0], trail[finite, 1], color=color, lw=1.4, label=uav, zorder=3)
+                p = tracks[uav][int(src)]
+                if bool(np.isfinite(p).all()):
+                    ax.plot([p[0]], [p[1]], "o", color=color, ms=5, zorder=4)
+                    ax.add_patch(Circle((float(p[0]), float(p[1])), radius, fill=False, ec=color, lw=1.0, zorder=4))
+            if len(uavs) > 1:
+                ax.legend(loc="upper right", fontsize=8)
+            ax.set_title(f"{name}  俯视  t={float(times[int(src)]):.2f}s")
+            path = out / f"top-{i:02d}-t{float(times[int(src)]):05.2f}s.png"
+            fig.savefig(path, bbox_inches="tight")
+        finally:
+            plt.close(fig)
+        saved.append(path)
+    return saved
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="从 ticks.jsonl 离线渲染俯视+侧视视频（播放 ≤60s）")
     ap.add_argument("--log", required=True, help="逐 tick 日志（ticks.jsonl）")
