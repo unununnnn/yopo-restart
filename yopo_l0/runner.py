@@ -113,6 +113,7 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
     radius = float(crit["body_radius_m"])
     # formation 走票 06 的本机预留协议，不进 YOPO。
     # crossing 走同一套预留，但提案内容是本机深度上的上游 YOPO，槽位只偏置目标。
+    # switch 走同一套预留：窄门宽度触发横排↔纵列，槽位重分配经 ACK/COMMIT，不瞬移。
     # 判到达的口径和 goto 一样。
     fleet = None
     approval_cls = None
@@ -127,7 +128,13 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
 
         fleet = CrossingFleet.from_card(c, dt, record_inputs=cfg.record_planner_inputs)
         approval_cls = CrossingApproval
-    track_goal = task["type"] in ("goto", "formation", "crossing")
+    elif task["type"] == "switch":
+        from .switch import SwitchFleet
+        from .switch import LocalApproval as SwitchApproval
+
+        fleet = SwitchFleet.from_card(c, dt, record_inputs=cfg.record_planner_inputs)
+        approval_cls = SwitchApproval
+    track_goal = task["type"] in ("goto", "formation", "crossing", "switch")
     if track_goal:
         gtol, gspeed, ghold = float(crit["goal_tolerance_m"]), float(crit["goal_speed_mps"]), float(crit["goal_hold_s"])
     else:

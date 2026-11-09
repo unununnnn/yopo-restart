@@ -86,6 +86,7 @@ scripts/setup_ros2.sh    # Ubuntu 24.04 → Jazzy，22.04 → Humble；ros-*-ros
 - `g2-pillar` @ `upstream`（票 02 的场景卡和策略；本票不改策略。判据未冻结，只报数）
 - `pillar-forest` / `narrow-corridor` @ `hover`（新几何，悬停占位）
 - `open-3drone` @ `hover`（票 05 的三机卡；几何是空的 `open-area.json`）
+- `formation-switch` @ `switch`（票 08：窄门触发横排↔纵列，判据未冻结，只报数）
 
 G2 几何仍只在 `scenes/g2-scene.json`。柱林穿越是票 07，编队是票 06。
 

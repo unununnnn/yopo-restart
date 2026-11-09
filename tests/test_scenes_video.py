@@ -80,6 +80,7 @@ def test_suite_includes_g2_pillar_upstream_and_new_hover_cards():
         "scenes/formation-delay.json@formation",
         "scenes/formation-reorder.json@formation",
         "scenes/crossing-pillars.json@crossing",
+        "scenes/formation-switch.json@switch",
     ]
     for spec in specs:
         load_card(ROOT / spec.split("@", 1)[0])
