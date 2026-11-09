@@ -1,0 +1,40 @@
+{
+  "name": "formation-duplicate",
+  "geometry": "open-area.json",
+  "ground_z": 0.0,
+  "drones": [
+    {"id": "uav0", "slot_body": [0.0, 0.0, 0.0], "start_enu": [0.0, 0.0, 1.5]},
+    {"id": "uav1", "slot_body": [0.0, 2.0, 0.0], "start_enu": [0.0, 2.0, 1.5]},
+    {"id": "uav2", "slot_body": [0.0, -2.0, 0.0], "start_enu": [0.0, -2.0, 1.5]}
+  ],
+  "task": {
+    "type": "formation",
+    "duration_s": 40.0,
+    "window_len_s": 0.5,
+    "virtual_center": {
+      "origin_enu": [0.0, 0.0, 1.5],
+      "straight_m": 5.0,
+      "turn_m": 10.0,
+      "final_straight_m": 5.0,
+      "turn": "left",
+      "turn_deg": 90.0,
+      "speed_mps": 2.0
+    }
+  },
+  "criteria": {
+    "body_radius_m": 0.35,
+    "goal_tolerance_m": 0.4,
+    "goal_speed_mps": 0.2,
+    "goal_hold_s": 1.0,
+    "frozen": false
+  },
+  "camera": {
+    "width": 160, "height": 96, "hfov_deg": 90.0, "vfov_deg": 60.0,
+    "min_range_m": 0.2, "max_range_m": 20.0, "noise_std_m": 0.02,
+    "mount_xyz_body": [0.13, 0.0, 0.02]
+  },
+  "dynamics": {"model": "point_mass_lag", "tau_s": 0.1, "kp": 4.0, "kd": 3.0, "a_max": 6.0},
+  "rates_hz": {"physics": 100, "camera": 30, "planner": 10},
+  "seeds": [0, 1, 2],
+  "bus": {"duplicate": 0.5}
+}
