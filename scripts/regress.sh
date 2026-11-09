@@ -19,9 +19,15 @@ echo "## pytest（core，vendored，含上游金样；不含 slow 与联网的�
 P2=${PIPESTATUS[0]}
 PYTEST=$(( P1 || P2 ))
 echo
-echo "## 批跑"
-$PY -m yopo_l0.batch scenes/g2-hover.json scenes/g2-hover-lift.json "$@" --out "$OUT"
+echo "## 批跑（hover@hover 判过；g2-pillar 默认 upstream+影子盾，判据未冻结只报数）"
+$PY -m yopo_l0.batch scenes/g2-hover.json@hover scenes/g2-hover-lift.json@hover scenes/g2-pillar.json "$@" \
+  --jobs 4 --out "$OUT" 2>/dev/null
 BATCH=$?
+echo
+echo "## certified 冒烟（单 seed、仿真 4 s；全部门每步约 2.4 s 墙钟）"
+$PY -m yopo_l0.batch scenes/g2-pillar.json@certified --seeds 0 --duration 4 --no-determinism --no-shadow \
+  --out "$OUT/certified-smoke" 2>/dev/null
+BATCH=$(( BATCH || $? ))
 set -e
 echo
 echo "pytest=$([ $PYTEST -eq 0 ] && echo 通过 || echo 失败) 批跑=$([ $BATCH -eq 0 ] && echo 通过 || echo 失败) 输出 $OUT"
