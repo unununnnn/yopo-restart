@@ -8,3 +8,4 @@ scenes/narrow-corridor.json@hover
 scenes/open-3drone.json@hover
 scenes/formation-hold.json@formation
 scenes/crossing-pillars.json@crossing
+scenes/formation-switch.json@switch
