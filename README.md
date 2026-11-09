@@ -84,3 +84,19 @@ scripts/nightly.sh
 ```
 
 `scripts/nightly.sh` 把 JSON、Markdown、逐 tick 日志和每张卡首个 seed 的俯视+侧视视频写到 **`out/nightly/YYYYMMDD/`**。播放时长 ≤60 s。同一天再跑会先清空该目录。失败时 `ticks.jsonl` 留在目录里，用上面的 `render` 命令重放。合 main 前的门仍是 `scripts/regress.sh`（另含 certified 冒烟）。不接 GitHub Actions；box 上把 `scripts/nightly.sh` 放进 cron 即可。系统需要 `ffmpeg`。
+
+## 合 main（premerge）
+
+不接 GitHub Actions。每个要进 main 的 PR 在本机跑：
+
+```bash
+scripts/premerge.sh 123            # 查 MERGEABLE，临时 worktree 里跑 regress.sh，查 Co-authored-by，在 PR 留一条评论
+scripts/premerge.sh 123 --merge    # 上面全部通过后：gh pr ready，再 gh pr merge --merge --match-head-commit <检验过的 sha>
+scripts/premerge.sh 123 --squash   # 同样只在全部通过后合并；说明由各提交拼成，并去掉 Co-authored-by 行
+```
+
+不可合并、regress 非 0、解析不到 pytest 计数或批跑表、任一提交带 `Co-authored-by` trailer、评论或合并失败，退出码都不是 0。评论里有 head sha、L0 与 core 的 passed/skipped、regress 退出码、总退出码，以及批跑 Markdown 表。
+
+不给 `--merge` / `--squash` 时脚本不合并。它不 `git push`，也不 force-push。worktree 用完即删。
+
+`make venv` 在 `.venv/bin/python` 已在、且 `requirements.txt` / `pyproject.toml` / `core/pyproject.toml` 的哈希未变时直接返回，避免 `uv venv` 报 virtual environment already exists。第三方装在 `~/.cache/yopo-restart/deps/<哈希>`（本目录只挂 editable）；wheel 走 uv 缓存，所以新 worktree 不重装 torch。
