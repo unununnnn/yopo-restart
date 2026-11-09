@@ -17,7 +17,7 @@
 - `narrow-corridor.json` + `narrow-corridor-scene.json`：窄廊。左右墙内侧面 y=±0.8，内宽 1.6 m（G2 内宽 6.6 m）。当前任务是悬停。
 - `suite.txt`：`卡@策略` 或 `卡@策略@seed` 列表，`scripts/regress.sh` 与 `scripts/nightly.sh` 共用。含 `g2-pillar.json@upstream`、`open-3drone.json@hover`、`formation-hold.json@formation`、票 06b 的四张总线故障卡、`crossing-pillars.json@crossing`、`formation-switch.json@switch`、`crossing-forest.json@crossing@0`（medium，只跑 seed 0）和 `formation-6-open.json@formation`（票 11a，仅进程内零故障）。
 
-场景卡字段：`geometry`（相对路径；带 `forest` 的卡没有这份文件，加载时按种子生成）、`ground_z`、`drones[].start_enu`（hover 任务可选 `hover_enu`；goto 任务用 `goal_enu`；formation / crossing 任务用 `slot_body`，起点必须等于虚拟中心起点处的槽位）、`task`（`hover`、`goto`、`formation`、`crossing` 或 `switch`）、`criteria`、`camera`、`dynamics`、`rates_hz`、`seeds`。可选 `forest`（`density` 为 `sparse` / `medium` / `dense`，`seed` 只决定树的位置）和 `bus`：`drop`、`duplicate`、`delay`（`[lo, hi]` 秒）、`reorder`，含义见 `yopo_l0/bus.py`。`RunConfig.bus` 覆盖场景卡。
+场景卡字段：`geometry`（相对路径；带 `forest` 的卡没有这份文件，加载时按种子生成）、`ground_z`、`drones[].start_enu`（hover 任务可选 `hover_enu`；goto 任务用 `goal_enu`；formation / crossing / switch 任务用 `slot_body`，起点必须等于虚拟中心起点处的槽位）、`task`（`hover`、`goto`、`formation`、`crossing` 或 `switch`）、`criteria`、`camera`、`dynamics`、`rates_hz`、`seeds`。可选 `forest`（`density` 为 `sparse` / `medium` / `dense`，`seed` 只决定树的位置）和 `bus`：`drop`、`duplicate`、`delay`（`[lo, hi]` 秒）、`reorder`，含义见 `yopo_l0/bus.py`。`RunConfig.bus` 覆盖场景卡。
 goto 到达沿用 G2 oracle：`goal_tolerance_m` / `goal_speed_mps` / `goal_hold_s`。机间碰撞看中心距是否 ≤ 两倍 `body_radius_m`。
 场景卡哈希 = 场景卡 + 内联几何的规范 JSON 的 sha256，写进结果记录。
 
