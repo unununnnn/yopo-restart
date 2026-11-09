@@ -7,6 +7,11 @@
 同步出发：成员 i 的提案 t_start = (i+1)·窗口长，末机刚好在 t_go 起步。先提案的飞机
 在自己的计划里把 [t_start, t_go) 留成悬停，所以三机按同一套槽位时刻表一起动。
 这是写在场景卡里的任务配置，每机各自算一遍，不是运行时的中央调度。
+
+票 06b：这一轮 ACK 没到齐时，节点在 t_start 超时，按协议 RELEASE 并放弃该提案。
+COMMIT/RELEASE 用 resend_period 从总线上重发，免得对端的预留一直占着槽位。
+下一轮轮到本机，重新提案一条追赶：从当前悬停点沿本槽弧长接到时刻表（或终点保持），
+速度和加速度不超过计划限幅。动力学仍然只跟踪本机已经 COMMIT 的计划。
 """
 
 from __future__ import annotations
@@ -246,6 +251,139 @@ def build_motion(path: _CenterPath, t_start: float, t_go: float, slot: np.ndarra
     return PiecewisePolynomial(t_start, segs)
 
 
+def _arc_ref(path: _CenterPath, t: float, t_go: float) -> tuple[float, float, float]:
+    """时刻表在 t 的弧长、弧长速度、弧长加速度。走完以后停在终点。"""
+    if t <= t_go:
+        return 0.0, 0.0, 0.0
+    if t >= t_go + path.T:
+        return path.length, 0.0, 0.0
+    return path._sigma(t - t_go)
+
+
+def _scalar_quintic(p0: float, v0: float, a0: float, p1: float, v1: float, a1: float, duration: float):
+    """标量五次，两端 PVA。返回局部时间 u∈[0, duration] 上的 (值, 一阶, 二阶)。"""
+    start = np.array([[p0, 0.0, 0.0], [v0, 0.0, 0.0], [a0, 0.0, 0.0]], dtype=float)
+    end = np.array([[p1, 0.0, 0.0], [v1, 0.0, 0.0], [a1, 0.0, 0.0]], dtype=float)
+    traj = PiecewisePolynomial(0.0, [quintic(start, end, duration)])
+
+    def at(u: float) -> tuple[float, float, float]:
+        st = np.stack([traj.evaluate(u, k) for k in range(3)])
+        return float(st[0, 0]), float(st[1, 0]), float(st[2, 0])
+
+    return at
+
+
+def _join_times(t_start: float, t_end: float) -> list[float]:
+    """从最早的半秒档开始试接入点，时刻表走完以后继续试终点保持。"""
+    times: list[float] = []
+    t = t_start + 0.5
+    horizon = max(t_end, t_start) + 20.0
+    while t <= horizon + 1e-9:
+        times.append(t)
+        t += 0.5
+        if len(times) > 80:
+            break
+    if t_end > t_start + 0.5 and all(abs(item - t_end) > 1e-6 for item in times):
+        times.append(t_end)
+        times.sort()
+    return times
+
+
+def _fit_pva_interval(pva_at, t0: float, t1: float, limits: KinematicLimits, depth: int, forced0: np.ndarray | None):
+    pva0 = pva_at(t0) if forced0 is None else forced0
+    pva1 = pva_at(t1)
+    seg = quintic(pva0, pva1, t1 - t0)
+    traj = PiecewisePolynomial(t0, [seg])
+    tm = 0.5 * (t0 + t1)
+    err = float(np.linalg.norm(traj.evaluate(tm) - pva_at(tm)[0]))
+    if err <= _FIT_TOL_M and _kin_ok(traj, limits):
+        return [seg]
+    if depth >= 8 or (t1 - t0) <= 0.08:
+        return None
+    left = _fit_pva_interval(pva_at, t0, tm, limits, depth + 1, forced0)
+    if left is None:
+        return None
+    right = _fit_pva_interval(pva_at, tm, t1, limits, depth + 1, None)
+    if right is None:
+        return None
+    return left + right
+
+
+def _fit_profile(pva_at, t_start: float, t_end: float, head: np.ndarray, limits: KinematicLimits):
+    if t_end <= t_start + 1e-9:
+        return None
+    knots = [t_start]
+    t = t_start
+    while t < t_end - 1e-9:
+        t = min(t_end, t + 0.5)
+        knots.append(t)
+    segs: list[PolySegment] = []
+    forced = {t_start: np.array(head, dtype=float, copy=True)}
+    for a, b in zip(knots, knots[1:]):
+        piece = _fit_pva_interval(pva_at, a, b, limits, 0, forced.get(a))
+        if piece is None:
+            return None
+        if len(segs) + len(piece) > _MAX_SEGMENTS:
+            return None
+        segs.extend(piece)
+    return PiecewisePolynomial(t_start, segs)
+
+
+def _catchup_motion(path: _CenterPath, t_start: float, t_go: float, t_join: float, slot: np.ndarray, head: np.ndarray, limits: KinematicLimits):
+    """沿本槽弧长从悬停接到 t_join 的时刻表，再贴着时刻表飞到终点。接不上就返回 None。"""
+    if t_join <= t_start + 0.2:
+        return None
+    s1, sp1, sa1 = _arc_ref(path, t_join, t_go)
+    blend = _scalar_quintic(0.0, 0.0, 0.0, s1, sp1, sa1, t_join - t_start)
+    # 轮廓比计划限幅收一档：点质量滞后的加速度上限更紧，反馈还要余量。硬检查仍是 limits。
+    v_cap = min(float(limits.v_max), 4.0)
+    a_cap = min(float(limits.a_max), 3.0)
+    t_motion_end = t_join if t_join >= t_go + path.T - 1e-9 else t_go + path.T
+
+    def arc(t: float) -> tuple[float, float, float]:
+        if t >= t_join - 1e-12:
+            return _arc_ref(path, t, t_go)
+        return blend(t - t_start)
+
+    def pva_at(t: float) -> np.ndarray:
+        s, sp, sa = arc(t)
+        s = min(max(s, 0.0), path.length)
+        return path.state_along(s, sp, sa, slot)
+
+    step = 0.05
+    t = t_start
+    while t <= t_motion_end + 1e-9:
+        s, sp, sa = arc(t)
+        if s < -1e-4 or s > path.length + 1e-4 or sp < -1e-3:
+            return None
+        pva = path.state_along(min(max(s, 0.0), path.length), sp, sa, slot)
+        if float(np.linalg.norm(pva[1])) > v_cap or float(np.linalg.norm(pva[2])) > a_cap:
+            return None
+        t += step
+    try:
+        return _fit_profile(pva_at, t_start, t_motion_end, head, limits)
+    except (RuntimeError, ValueError, np.linalg.LinAlgError):
+        return None
+
+
+def iter_catchup(path: _CenterPath, t_start: float, t_go: float, slot: np.ndarray, head: np.ndarray, limits: KinematicLimits):
+    """错过出发、人还停在本槽起点时，按接入时刻从早到晚产出至多三条追赶轨迹。"""
+    origin = path.state_along(0.0, 0.0, 0.0, slot)
+    head = np.asarray(head, dtype=float)
+    if float(np.linalg.norm(origin[0] - head[0])) > 1e-4 or float(np.linalg.norm(head[1])) > 1e-4:
+        return
+    produced = 0
+    t_end = t_go + path.T
+    for t_join in _join_times(t_start, t_end):
+        motion = _catchup_motion(path, t_start, t_go, t_join, slot, head, limits)
+        if motion is None:
+            continue
+        produced += 1
+        yield motion
+        if produced >= 3:
+            return
+
+
 def _clone_traj(traj: PiecewisePolynomial) -> PiecewisePolynomial:
     segs = tuple(PolySegment(np.array(seg.coeffs, dtype=float, copy=True), seg.duration) for seg in traj.segments)
     return PiecewisePolynomial(traj.t0, segs, traj.t_start, traj.t_end)
@@ -318,6 +456,8 @@ class FormationFleet:
         self.record_inputs = record_inputs
         self.input_digests: list[str] = []
         self.errors: list[float] = []
+        self._off_until: dict[str, float] = {}
+        self._last_obs_t = 0.0
         self.deliveries = 0
         self.frozen = bool(card["criteria"].get("frozen", False))
         window = float(task.get("window_len_s", 0.5))
@@ -342,10 +482,14 @@ class FormationFleet:
                     "window_len_s": window,
                 }
             ),
-            resend_period=None,
+            # 超时后重发 RELEASE/COMMIT。默认关掉的话，丢了的 RELEASE 会让对端预留一直占着本槽。
+            resend_period=window,
             heartbeat_period=None,
+            # 默认 3 次失败就停提案。丢包下要一直重新提案才能追上，不能中途 HALT。
+            max_failed_rounds=10_000,
         )
         crit = card["criteria"]
+        self.goal_tol = float(crit["goal_tolerance_m"])
         self.pcfg = PlanConfig(
             KinematicLimits(v_max=8.0, a_max=12.0, j_max=200.0),
             max_branch_points=2,
@@ -409,9 +553,18 @@ class FormationFleet:
             self.input_digests.append(self._digest(node, t_start, head))
         if float(np.linalg.norm(parent.terminal_point() - self.goals[node.id])) <= 1e-4:
             return None
-        if t_start > self.t_go + 1e-9:
-            return None  # 错过同步出发，继续执行已批准的悬停，不临时插一条追赶
-        motion = build_motion(self.path, t_start, self.t_go, self.slots[node.id], head, self.pcfg.limits)
+        slot = self.slots[node.id]
+        if t_start <= self.t_go + 1e-9:
+            motion = build_motion(self.path, t_start, self.t_go, slot, head, self.pcfg.limits)
+            return self._offer(node, motion, t_start, head, strict=True)
+        # 同步出发那一轮已经过了。只提案本机追赶，对不上限幅或和邻机占用冲突就等下一窗口再要。
+        for motion in iter_catchup(self.path, t_start, self.t_go, slot, head, self.pcfg.limits):
+            offered = self._offer(node, motion, t_start, head, strict=False)
+            if offered is not None:
+                return offered
+        return None
+
+    def _offer(self, node: ProtocolNode, motion: PiecewisePolynomial, t_start: float, head: np.ndarray, *, strict: bool):
         res = make_plan(
             node.id,
             node.plan_seq + 1,
@@ -423,7 +576,9 @@ class FormationFleet:
             self.pcfg,
         )
         if not isinstance(res, Plan):
-            raise RuntimeError(f"{node.id} 的编队计划没通过计划契约：{res}")
+            if strict:
+                raise RuntimeError(f"{node.id} 的编队计划没通过计划契约：{res}")
+            return None
         occ = PlanOccupancy(res, self.pcfg)
         if node.conflicts_with_neighbors(occ):
             return None
@@ -488,18 +643,26 @@ class FormationFleet:
         ref = self.path.pva_at(t, self.t_go, self.slots[drone_id])[0]
         err = float(np.linalg.norm(np.asarray(position, dtype=float) - ref))
         self.errors.append(err)
+        self._last_obs_t = max(self._last_obs_t, float(t))
+        if err > self.goal_tol:
+            self._off_until[drone_id] = float(t)
         return err
 
     def summary(self, arrived: int, n_drones: int) -> dict:
         commits: dict[str, int] = {}
+        aborts: dict[str, int] = {}
+        switches: dict[str, float] = {}
         proposals = acks = nacks = 0
         hashes = {}
         for did, node in self.nodes.items():
             n_commit = 0
+            n_abort = 0
             for event in node.events:
                 kind = event["event"]
                 if kind == "commit":
                     n_commit += 1
+                elif kind == "abort":
+                    n_abort += 1
                 elif kind == "propose":
                     proposals += 1
                 elif kind == "vote":
@@ -508,12 +671,36 @@ class FormationFleet:
                     else:
                         nacks += 1
             commits[did] = n_commit
+            aborts[did] = n_abort
+            switches[did] = float(node.committed.t_start)
             hashes[did] = node.committed.plan_hash
+        catchup = {}
+        for did, node in self.nodes.items():
+            t_switch = switches[did]
+            late = node.committed.plan_seq > 0 and t_switch > self.t_go + 1e-9
+            if node.committed.plan_seq == 0:
+                # 超时后一直悬停，没有接回槽位。记到最后一次观测。
+                catchup[did] = max(0.0, float(self._last_obs_t) - self.t_go)
+            elif late:
+                t_back = t_switch
+                t_off = self._off_until.get(did)
+                if t_off is not None and t_off > t_back:
+                    t_back = t_off
+                catchup[did] = max(0.0, float(t_back) - self.t_go)
+            else:
+                catchup[did] = 0.0
         arr = np.asarray(self.errors, dtype=float)
         return {
             "error_p95_m": None if arr.size == 0 else float(np.percentile(arr, 95)),
             "error_max_m": None if arr.size == 0 else float(arr.max()),
             "arrival_rate": float(arrived) / float(n_drones),
+            # 追赶时间：同步出发的飞机为 0。错过出发的，是从 t_go 到「晚提交的计划已经在执行，
+            # 且队形误差回到 goal_tolerance 以内」的时间。到结束还停在初始悬停上，则记到最后一次观测。
+            # 编队值取各机最大。
+            "catchup_time_s": max(catchup.values()) if catchup else 0.0,
+            "catchup_time_by_drone_s": catchup,
+            "local_aborts": aborts,
+            "committed_t_switch_s": switches,
             "frozen": self.frozen,
             "adjudicator": None,
             "local_commits": commits,

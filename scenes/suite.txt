@@ -7,3 +7,8 @@ scenes/pillar-forest.json@hover
 scenes/narrow-corridor.json@hover
 scenes/open-3drone.json@hover
 scenes/formation-hold.json@formation
+# 票 06b：同一编队任务，打开 MessageBus 的丢包 / 重复 / 时延 / 乱序。判据未冻结，只报数。
+scenes/formation-drop.json@formation
+scenes/formation-duplicate.json@formation
+scenes/formation-delay.json@formation
+scenes/formation-reorder.json@formation
