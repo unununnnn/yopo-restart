@@ -16,4 +16,4 @@ packages = ["yopo_l0"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["slow: 六机与大 seed 批量"]
+markers = ["slow: 六机与大 seed 批量", "upstream: 需要钉定的 YOPO 上游源码与权重（首次联网取到 ~/.cache/yopo-swarm）"]

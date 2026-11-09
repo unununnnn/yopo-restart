@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 
+from .policy import POLICIES
 from .runner import RunConfig, run, write
 from .scene import load_card
 
@@ -13,8 +14,9 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="L0 单次运行（CPU、无界面）")
     ap.add_argument("--scene", required=True, help="场景卡 JSON")
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--policy", default="hover")
-    ap.add_argument("--shadow", action="store_true")
+    ap.add_argument("--policy", default="upstream", choices=sorted(POLICIES))
+    ap.add_argument("--shadow", dest="shadow", action="store_true", default=True)
+    ap.add_argument("--no-shadow", dest="shadow", action="store_false")
     ap.add_argument("--duration", type=float, default=None, help="仿真秒数，默认取场景卡")
     ap.add_argument("--out", default=None, help="输出目录，默认 out/<scene>/seed<N>")
     a = ap.parse_args(argv)
