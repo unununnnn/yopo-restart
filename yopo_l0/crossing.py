@@ -576,13 +576,30 @@ class CrossingFleet:
         }
 
 
-def format_report(rows: list[dict]) -> str:
-    """票 07 结果表。碰撞是硬失败；判据本身未冻结，只报数。"""
+def format_report(rows: list[dict], *, title: str | None = None) -> str:
+    """票 07 / 07b 结果表。碰撞是硬失败；判据本身未冻结，只报数。"""
     rows = [r for r in rows if r.get("task") == "crossing"]
     if not rows:
         return ""
+    densities = []
+    for row in rows:
+        density = row.get("forest_density")
+        if density not in densities:
+            densities.append(density)
+    if len(densities) > 1:
+        parts = []
+        for density in densities:
+            subset = [row for row in rows if row.get("forest_density") == density]
+            heading = f"票 07b {density}" if density else "票 07"
+            parts.append(format_report(
+                subset,
+                title=f"### {heading}（判据未冻结 / report-only）",
+            ))
+        return "\n\n".join(parts)
+    if title is None and rows[0].get("forest_density"):
+        title = f"### 票 07b {rows[0]['forest_density']}（判据未冻结 / report-only）"
     lines = [
-        "### 票 07 三机交叉避障（判据未冻结 / report-only）",
+        title or "### 票 07 三机交叉避障（判据未冻结 / report-only）",
         "",
         "净空 = 机体中心到障碍表面的距离 − body_radius。碰撞（障碍或机间）是硬失败，仿真在第一次碰撞处停下。",
         "",

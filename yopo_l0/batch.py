@@ -64,10 +64,16 @@ def main(argv=None):
     a = ap.parse_args(argv)
     jobs, groups = [], []
     for spec in a.specs:
-        path, _, policy = spec.partition("@")
+        path, _, rest = spec.partition("@")
+        policy, _, seedpart = rest.partition("@")
         policy = policy or a.policy
         card = load_card(path)
-        seeds = [int(s) for s in a.seeds.split(",")] if a.seeds else card.card.get("seeds", [0])
+        if a.seeds:
+            seeds = [int(s) for s in a.seeds.split(",")]
+        elif seedpart:
+            seeds = [int(s) for s in seedpart.split(",") if s != ""]
+        else:
+            seeds = card.card.get("seeds", [0])
         groups.append((card, policy, seeds))
         for i, seed in enumerate(seeds):
             jobs.append((path, policy, seed, a.duration, a.out, i == 0 and not a.no_determinism, a.shadow))
@@ -131,6 +137,10 @@ def main(argv=None):
         from .crossing import format_report
 
         lines += ["", format_report(rows)]
+    if any(r.get("task") == "switch" for r in rows):
+        from .switch import format_report as switch_report
+
+        lines += ["", switch_report(rows)]
     md = "\n".join(lines)
     Path(a.out).mkdir(parents=True, exist_ok=True)
     (Path(a.out) / "summary.md").write_text(md + "\n")
