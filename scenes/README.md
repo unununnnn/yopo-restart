@@ -8,11 +8,12 @@
 - `open-3drone.json`：票 05。三机沿三条平行线飞向各自的 `goal_enu`（横向 5 m）。套件里用 `@hover`。判据未冻结。
 - `formation-hold.json`：票 06 / M1。三机按虚拟中心（直线 + 平滑左转 + 直线）和机体槽位保持队形。运动更新走轮转提案窗口和预留协议，每机只用本机批准的计划。判据未冻结（`criteria.frozen=false`）。
 - `crossing-pillars.json` + `crossing-pillars-scene.json`：票 07 / M2。三机穿柱林。柱子是 G2 那根盒子柱（0.6 × 0.8 × 2.8 m），4 列 × 3 行，列距 3.5 m，行距 8 m，落在三条航线上。走廊内宽 28 m（左右墙内侧面 y=±14），比 G2 的 6.6 m 宽，三机各自绕柱也不会占住邻机的航线。天花板 z=4.0。队形槽位只作为 YOPO 的目标偏置，避障优先；每机只飞本机 COMMIT 的计划。判据未冻结（`criteria.frozen=false`）。seeds 0–9。套件里用 `@crossing`。
+- `crossing-forest.json`：票 07b。没有几何文件，`forest.density` 为 `sparse` / `medium` / `dense`，树的位置由 `yopo_l0.forest` 按 `forest.seed` 做泊松盘采样。入口疏、中段密、密林后是空地。密档中段树干表面最小净距 1.7 m（在 1.5–2.0 m 里）。树干半径约 0.10–0.40 m，一部分倾斜，一部分在飞行高度有矮枝。规划参数与票 07 相同。默认 medium。seeds 0–9 只改深度噪声，不改树。判据未冻结。
 - `pillar-forest.json` + `pillar-forest-scene.json`：柱林。12 根竖直圆柱，半径 0.3 m，高 2.8 m（与 G2 那根柱子同高），4 列 × 3 行，列距 2.5 m、行距 2.4 m，最近柱心 (3, 0)。天花板 z=4.0，与 G2 一致。当前任务是悬停。三机穿越在 `crossing-pillars.json`（票 07），不改这份圆柱林。
 - `narrow-corridor.json` + `narrow-corridor-scene.json`：窄廊。左右墙内侧面 y=±0.8，内宽 1.6 m（G2 内宽 6.6 m）。当前任务是悬停。
-- `suite.txt`：`卡@策略` 列表，`scripts/regress.sh` 与 `scripts/nightly.sh` 共用。含 `g2-pillar.json@upstream`、`open-3drone.json@hover`、`formation-hold.json@formation` 和 `crossing-pillars.json@crossing`。
+- `suite.txt`：`卡@策略` 或 `卡@策略@seed` 列表，`scripts/regress.sh` 与 `scripts/nightly.sh` 共用。含 `g2-pillar.json@upstream`、`open-3drone.json@hover`、`formation-hold.json@formation`、`crossing-pillars.json@crossing` 和 `crossing-forest.json@crossing@0`（medium，只跑 seed 0）。
 
-场景卡字段：`geometry`（相对路径）、`ground_z`、`drones[].start_enu`（hover 任务可选 `hover_enu`；goto 任务用 `goal_enu`；formation / crossing 任务用 `slot_body`，起点必须等于虚拟中心起点处的槽位）、`task`（`hover`、`goto`、`formation` 或 `crossing`）、`criteria`、`camera`、`dynamics`、`rates_hz`、`seeds`。可选 `bus`：`drop`、`duplicate`、`delay`（`[lo, hi]` 秒）、`reorder`，含义见 `yopo_l0/bus.py`。`RunConfig.bus` 覆盖场景卡。
+场景卡字段：`geometry`（相对路径；带 `forest` 的卡没有这份文件，加载时按种子生成）、`ground_z`、`drones[].start_enu`（hover 任务可选 `hover_enu`；goto 任务用 `goal_enu`；formation / crossing 任务用 `slot_body`，起点必须等于虚拟中心起点处的槽位）、`task`（`hover`、`goto`、`formation` 或 `crossing`）、`criteria`、`camera`、`dynamics`、`rates_hz`、`seeds`。可选 `forest`（`density` 为 `sparse` / `medium` / `dense`，`seed` 只决定树的位置）和 `bus`：`drop`、`duplicate`、`delay`（`[lo, hi]` 秒）、`reorder`，含义见 `yopo_l0/bus.py`。`RunConfig.bus` 覆盖场景卡。
 goto 到达沿用 G2 oracle：`goal_tolerance_m` / `goal_speed_mps` / `goal_hold_s`。机间碰撞看中心距是否 ≤ 两倍 `body_radius_m`。
 场景卡哈希 = 场景卡 + 内联几何的规范 JSON 的 sha256，写进结果记录。
 

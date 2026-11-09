@@ -61,6 +61,8 @@ def _hit_box(o, d, b: Box):
 
 
 def _hit_cylinder(o, d, c: Cylinder):
+    if not c.upright():
+        return _hit_cylinder_lean(o, d, c)
     ox, oy = o[0] - c.center_xy[0], o[1] - c.center_xy[1]
     dx, dy = d[..., 0], d[..., 1]
     a = dx * dx + dy * dy
@@ -79,6 +81,46 @@ def _hit_cylinder(o, d, c: Cylinder):
             px, py = ox + t * dx, oy + t * dy
             ok = (t > 0) & (px * px + py * py <= c.radius**2)
             best = np.minimum(best, np.where(ok, t, np.inf))
+    return best
+
+
+def _hit_cylinder_lean(o, d, c: Cylinder):
+    """有限圆柱，轴线可以从底面圆心斜到顶面圆心。竖直圆柱不走这里。"""
+    a, b = c.axis_ends()
+    ab = b - a
+    length = float(np.linalg.norm(ab))
+    axis = ab / length
+    origin = np.asarray(o, dtype=float)
+    oc = origin - a
+    d_ax = np.sum(d * axis, axis=-1)
+    d_perp = d - d_ax[..., None] * axis
+    oc_ax = float(np.dot(oc, axis))
+    oc_perp = oc - oc_ax * axis
+    A = np.sum(d_perp * d_perp, axis=-1)
+    B = 2.0 * np.sum(oc_perp * d_perp, axis=-1)
+    C = float(np.dot(oc_perp, oc_perp) - c.radius ** 2)
+    disc = B * B - 4.0 * A * C
+    with np.errstate(divide="ignore", invalid="ignore"):
+        sq = np.sqrt(np.maximum(disc, 0.0))
+        denom = np.where(A > 1e-12, 2.0 * A, np.inf)
+        t_near = np.where(disc >= 0.0, (-B - sq) / denom, np.inf)
+        t_far = np.where(disc >= 0.0, (-B + sq) / denom, np.inf)
+
+    def on_side(t):
+        axial = oc_ax + t * d_ax
+        return (t > 0.0) & (axial >= -1e-6) & (axial <= length + 1e-6)
+
+    best = np.where(on_side(t_near), t_near, np.inf)
+    best = np.minimum(best, np.where(on_side(t_far), t_far, np.inf))
+    for end, outward in ((a, -axis), (b, axis)):
+        denom = np.sum(d * outward, axis=-1)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            t = np.dot(end - origin, outward) / np.where(np.abs(denom) > 1e-12, denom, np.inf)
+        hit = origin + t[..., None] * d
+        radial = hit - end
+        radial = radial - np.sum(radial * axis, axis=-1, keepdims=True) * axis
+        dist = np.linalg.norm(radial, axis=-1)
+        best = np.minimum(best, np.where((t > 0.0) & (dist <= c.radius + 1e-7), t, np.inf))
     return best
 
 
