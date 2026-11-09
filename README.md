@@ -84,3 +84,25 @@ scripts/nightly.sh
 ```
 
 `scripts/nightly.sh` 把 JSON、Markdown、逐 tick 日志和每张卡首个 seed 的俯视+侧视视频写到 **`out/nightly/YYYYMMDD/`**。播放时长 ≤60 s。同一天再跑会先清空该目录。失败时 `ticks.jsonl` 留在目录里，用上面的 `render` 命令重放。合 main 前的门仍是 `scripts/regress.sh`（另含 certified 冒烟）。不接 GitHub Actions；box 上把 `scripts/nightly.sh` 放进 cron 即可。系统需要 `ffmpeg`。
+
+## L1 抽检（票 09，box 侧）
+
+真 PX4 SITL + Gazebo 在 frank 的 WSL 或 Orin 上跑。box 只做三件事：把场景卡导出成 yopo-swarm 现有栈能吃的目录、事后把日志收成和 L0 同一张 `result.json`（`tier=L1`，多起飞交接和 RTF）、以及同卡的 L0/L1 对照。不在这里启动 PX4，也不改 PX4 参数和 `g2_run.py` 里的安全清单数值。
+
+路径引自 yopo-swarm @00b85bf 已经抄进本仓库的说明（本环境读不到那个私有仓库本身）：
+
+- 启动：`ros2 launch yopo_swarm_px4 uavs.launch.py`，文件 `ros2_ws/src/yopo_swarm_px4/launch/uavs.launch.py`（`docs/ref/minco-port-map.md` 第 23 行）
+- 世界：`sim/px4/g2-scene.json` 的格式（`world`、`goal_enu`、轴对齐 `boxes`）。圆柱和别的几何直接拒绝
+- 安全清单数值：`g2_run.py`（`yopo_l0/policy.py` 里 certified 默认值注明与它对齐）。导出不把这些数写进启动参数
+
+抽检机上若能读到那份 launch 文件，参数名按文件里的 `DeclareLaunchArgument` 对齐；对不上 `scene` / `seed` / `policy` / `shadow` / `start_enu` / `goal_enu` 就失败，不会把不认识的参数塞给 `ros2 launch`。
+
+```bash
+.venv/bin/python -m yopo_l1.export --scene scenes/g2-pillar.json --seed 0 --policy upstream --shadow on --out out/l1/bundle
+# WSL / Orin：
+YOPO_SWARM_ROOT=/path/to/yopo-swarm PX4_PARAM_DUMP_CMD='param show' \
+  scripts/l1_spotcheck.sh --scene scenes/g2-pillar.json --seed 0 --out out/l1/g2-pillar
+.venv/bin/python -m yopo_l1.report --l0 out/g2-pillar/seed0 --l1 out/l1/g2-pillar/log
+```
+
+`PX4_PARAM_DUMP_CMD` 必须是只读的（`param show` 可以，`param set` / `save` / `load` / `reset` / `import` 会被拒绝）。脚本在 launch 前后各 dump 一次参数，并给 `g2_run.py` 和文件名含 safety / checklist 的文本做 sha256；有差异就失败，不把这次写进成功结果。批跑表末尾两列是起飞交接和 RTF，L0 留空。RTF = 仿真秒 / 墙钟秒。
