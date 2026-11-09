@@ -111,13 +111,23 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
     task = c["task"]
     crit = c["criteria"]
     radius = float(crit["body_radius_m"])
-    # formation 走票 06 的本机预留协议，不进 YOPO。判到达的口径和 goto 一样。
+    # formation 走票 06 的本机预留协议，不进 YOPO。
+    # crossing 走同一套预留，但提案内容是本机深度上的上游 YOPO，槽位只偏置目标。
+    # 判到达的口径和 goto 一样。
     fleet = None
+    approval_cls = None
     if task["type"] == "formation":
         from .formation import FormationFleet, LocalApproval
 
         fleet = FormationFleet.from_card(c, dt, record_inputs=cfg.record_planner_inputs)
-    track_goal = task["type"] in ("goto", "formation")
+        approval_cls = LocalApproval
+    elif task["type"] == "crossing":
+        from .crossing import CrossingFleet
+        from .crossing import LocalApproval as CrossingApproval
+
+        fleet = CrossingFleet.from_card(c, dt, record_inputs=cfg.record_planner_inputs)
+        approval_cls = CrossingApproval
+    track_goal = task["type"] in ("goto", "formation", "crossing")
     if track_goal:
         gtol, gspeed, ghold = float(crit["goal_tolerance_m"]), float(crit["goal_speed_mps"]), float(crit["goal_hold_s"])
     else:
@@ -132,7 +142,7 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         if fleet is not None:
             fleet.check_start(d["id"], start)
             goal = fleet.goal_of(d["id"])
-            policy = LocalApproval()
+            policy = approval_cls()
         else:
             goal = np.asarray(d["goal_enu"] if track_goal else d.get("hover_enu", start), dtype=float)
             ctx = PolicyContext(d["id"], dt, dict(c.get("policy_params", {})))
@@ -212,6 +222,12 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
                         peer_deliveries += 1
             else:
                 # 提案 / ACK / COMMIT 只经总线。本机 COMMIT 之后 executing() 才换计划。
+                # crossing 在这里收本机深度。编队保持没有 ingest，不进这条。
+                ingest = getattr(fleet, "ingest", None)
+                if ingest is not None:
+                    for dr in drones:
+                        if dr["frame"] is not None:
+                            ingest(dr["id"], dr["frame"], dr["state"])
                 fleet.exchange(bus, now)
             for dr in drones:
                 s = dr["state"]
@@ -281,15 +297,16 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         outcome, reason = ("SUCCESS", "HOVER_HELD") if worst <= tol else ("HOVER_DRIFT", "HOVER_TOLERANCE")
 
     arrived = sum(d["arrival"] is not None for d in drones)
-    formation = None
+    fleet_block = None
     policy_name = cfg.policy
     if fleet is not None:
-        formation = fleet.summary(arrived, len(drones))
-        plans = formation["proposals"]
+        fleet_block = fleet.summary(arrived, len(drones))
+        plans = fleet_block["proposals"]
         peer_deliveries = fleet.deliveries
-        policy_name = "formation"
+        policy_name = getattr(fleet, "policy_name", "formation")
         if cfg.record_planner_inputs:
             inputs.extend(fleet.input_digests)
+    net_name = "upstream" if fleet is not None and getattr(fleet, "uses_network", False) else policy_name
     result = {
         "commit": git_commit(),
         "scene": card.name,
@@ -316,7 +333,7 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         "shadow_drones": None,  # 开：每机一行；关：null
         "plan_codes": {k: v for d in drones for k, v in sorted(
             {**d["codes"], **getattr(d["policy"], "extra_codes", {})}.items())},
-        "network": _net_provenance(policy_name),
+        "network": _net_provenance(net_name),
         "sim_duration_s": (k + 1) / phys if ran else 0.0,
         "ticks": k + 1 if ran else 0,
         "frames": frames,
@@ -337,10 +354,18 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         result["shadow_reject_histogram"] = hist
         result["shadow_gates"] = gate_status()
         result["shadow_drones"] = aggregate_drones(ticks, [d["id"] for d in drones])
-    if formation is not None:
-        result["formation"] = formation
-        result["formation_error_p95_m"] = formation["error_p95_m"]
-        result["arrival_rate"] = formation["arrival_rate"]
+    if fleet_block is not None:
+        if fleet_block.get("body_radius_m") is not None:
+            body = float(fleet_block["body_radius_m"])
+            fleet_block["min_obstacle_clearance_m"] = float(result["min_obstacle_distance_m"] - body)
+            gap = result["min_inter_drone_distance_m"]
+            fleet_block["obstacle_collisions"] = int(result["min_obstacle_distance_m"] <= body + 1e-9)
+            fleet_block["inter_drone_collisions"] = int(gap is not None and gap <= 2.0 * body + 1e-9)
+        if fleet_block.get("decisions"):
+            result["plan_codes"] = dict(fleet_block["decisions"])
+        result[getattr(fleet, "result_key", "formation")] = fleet_block
+        result["formation_error_p95_m"] = fleet_block["error_p95_m"]
+        result["arrival_rate"] = fleet_block["arrival_rate"]
     return RunOutput(result, ticks, inputs)
 
 
