@@ -74,6 +74,7 @@ def test_suite_includes_g2_pillar_upstream_and_new_hover_cards():
         "scenes/pillar-forest.json@hover",
         "scenes/narrow-corridor.json@hover",
         "scenes/open-3drone.json@hover",
+        "scenes/formation-hold.json@formation",
     ]
     for spec in specs:
         load_card(ROOT / spec.split("@", 1)[0])

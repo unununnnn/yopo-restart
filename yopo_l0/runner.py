@@ -111,8 +111,14 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
     task = c["task"]
     crit = c["criteria"]
     radius = float(crit["body_radius_m"])
-    goto = task["type"] == "goto"
-    if goto:
+    # formation 走票 06 的本机预留协议，不进 YOPO。判到达的口径和 goto 一样。
+    fleet = None
+    if task["type"] == "formation":
+        from .formation import FormationFleet, LocalApproval
+
+        fleet = FormationFleet.from_card(c, dt, record_inputs=cfg.record_planner_inputs)
+    track_goal = task["type"] in ("goto", "formation")
+    if track_goal:
         gtol, gspeed, ghold = float(crit["goal_tolerance_m"]), float(crit["goal_speed_mps"]), float(crit["goal_hold_s"])
     else:
         tol = float(crit["hover_tolerance_m"])
@@ -123,14 +129,20 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
     drones = []
     for d, ss in zip(c["drones"], root.spawn(len(c["drones"])), strict=True):
         start = np.asarray(d["start_enu"], dtype=float)
-        goal = np.asarray(d["goal_enu"] if goto else d.get("hover_enu", start), dtype=float)
-        ctx = PolicyContext(d["id"], dt, dict(c.get("policy_params", {})))
+        if fleet is not None:
+            fleet.check_start(d["id"], start)
+            goal = fleet.goal_of(d["id"])
+            policy = LocalApproval()
+        else:
+            goal = np.asarray(d["goal_enu"] if track_goal else d.get("hover_enu", start), dtype=float)
+            ctx = PolicyContext(d["id"], dt, dict(c.get("policy_params", {})))
+            policy = POLICIES[cfg.policy](ctx)
         drones.append({
             "id": d["id"],
-            "goal": goal,  # goto：目标点；hover：悬停点，默认 = 起点
+            "goal": goal,  # goto / formation：目标点；hover：悬停点，默认 = 起点
             "state": State(0.0, start.copy(), np.zeros(3), np.zeros(3), 0.0),
             "camera": DepthCamera(cam_cfg, card.obstacles, np.random.default_rng(ss)),
-            "policy": POLICIES[cfg.policy](ctx),
+            "policy": policy,
             "codes": {}, "goal_since": None, "arrival": None,
             "frame": None, "plan": None, "approved": None,
             "min_obs": card.min_distance(start), "max_err": 0.0,
@@ -166,7 +178,7 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
                     dr["frame"] = dr["camera"].capture(s.p, s.yaw, now)
                     frames += 1
                 fresh = False
-                if _due(k, plan_hz, phys) or dr["plan"] is None:
+                if fleet is None and (_due(k, plan_hz, phys) or dr["plan"] is None):
                     # 目标是本机数组的拷贝。Observation 里没有他机状态，也没有几何。
                     obs = Observation(dr["frame"], s, dr["goal"].copy(), now)
                     if cfg.record_planner_inputs:
@@ -189,16 +201,30 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
                             payload = {"kind": "peer_plan", "code": code}
                         bus.publish(now, src=dr["id"], dest=dest["id"], topic="plan", payload=payload)
                 # 只读复验本机刚选出的计划。不碰总线，也不改 proposed。
-                if dr["shadow"] is not None and fresh:
+                if fleet is None and dr["shadow"] is not None and fresh:
                     dr["shadow"].on_selection(dr["plan"], dr["frame"], s, now)
-            for msg in bus.poll(now):
-                kind = msg.payload.get("kind")
-                if kind == "self_plan" and msg.src == msg.dest and msg.dest in by_id:
-                    by_id[msg.dest]["approved"] = slots[int(msg.payload["token"])]
-                else:
-                    peer_deliveries += 1
+            if fleet is None:
+                for msg in bus.poll(now):
+                    kind = msg.payload.get("kind")
+                    if kind == "self_plan" and msg.src == msg.dest and msg.dest in by_id:
+                        by_id[msg.dest]["approved"] = slots[int(msg.payload["token"])]
+                    else:
+                        peer_deliveries += 1
+            else:
+                # 提案 / ACK / COMMIT 只经总线。本机 COMMIT 之后 executing() 才换计划。
+                fleet.exchange(bus, now)
             for dr in drones:
                 s = dr["state"]
+                if fleet is not None:
+                    dr["approved"] = fleet.track(dr["id"], now)
+                    dr["policy"].last_code = fleet.code(dr["id"])
+                    if _due(k, plan_hz, phys):
+                        code = dr["policy"].last_code
+                        dr["codes"][code] = dr["codes"].get(code, 0) + 1
+                    # 复验刚在本地提交的计划。视图不进动力学，影子也不改那份计划。
+                    view = fleet.shadow_view(dr["id"])
+                    if dr["shadow"] is not None and view is not None:
+                        dr["shadow"].on_selection(view, dr["frame"], s, now)
                 plan = dr["approved"]
                 if plan is None:
                     plan = HoverPlan(tuple(float(x) for x in s.p), float(s.yaw))
@@ -214,7 +240,7 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
                 err = float(np.linalg.norm(s.p - dr["goal"]))
                 dr["min_obs"] = min(dr["min_obs"], dist)
                 dr["max_err"] = max(dr["max_err"], err)
-                ticks.append({
+                row = {
                     "k": k, "t": round(s.t, 9), "uav": dr["id"], "p": s.p.tolist(), "v": s.v.tolist(),
                     "a": s.a.tolist(), "frame_stamp": None if dr["frame"] is None else dr["frame"].stamp,
                     "min_obstacle_m": dist, "goal_error_m": err, "yaw": s.yaw,
@@ -225,10 +251,16 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
                     # 关：null。开：空列表表示查了且不拒。
                     "would_reject": None if codes is None else bool(codes),
                     "reject_codes": None if codes is None else list(codes),
-                })
+                }
+                if fleet is not None:
+                    rec = fleet.last_record(dr["id"])
+                    row["approved_owner"] = rec.owner
+                    row["approved_seq"] = int(rec.plan_seq)
+                    row["formation_error_m"] = fleet.observe(dr["id"], s.t, s.p)
+                ticks.append(row)
                 if outcome is None and dist <= radius:
                     outcome, reason = "COLLISION", f"{dr['id']}:TRUTH_POSITION"
-                elif goto and dr["arrival"] is None and outcome is None:
+                elif track_goal and dr["arrival"] is None and outcome is None:
                     # G2 oracle 口径：距目标 ≤ 0.4 m 且速度 ≤ 0.2 m/s，连续保持 1 s
                     if err <= gtol and float(np.linalg.norm(s.v)) <= gspeed:
                         dr["goal_since"] = s.t if dr["goal_since"] is None else dr["goal_since"]
@@ -239,32 +271,42 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
             min_inter, outcome, reason = _note_pairs(drones, radius, min_inter, outcome, reason)
             if outcome:
                 break
-            if goto and all(d["arrival"] is not None for d in drones):
+            if track_goal and all(d["arrival"] is not None for d in drones):
                 outcome, reason = "SUCCESS", "GOAL_REACHED_AND_HELD"
                 break
-    if outcome is None and goto:
+    if outcome is None and track_goal:
         outcome, reason = "TIMEOUT", "GOAL_NOT_REACHED"
     if outcome is None:
         worst = max(d["max_err"] for d in drones)
         outcome, reason = ("SUCCESS", "HOVER_HELD") if worst <= tol else ("HOVER_DRIFT", "HOVER_TOLERANCE")
 
+    arrived = sum(d["arrival"] is not None for d in drones)
+    formation = None
+    policy_name = cfg.policy
+    if fleet is not None:
+        formation = fleet.summary(arrived, len(drones))
+        plans = formation["proposals"]
+        peer_deliveries = fleet.deliveries
+        policy_name = "formation"
+        if cfg.record_planner_inputs:
+            inputs.extend(fleet.input_digests)
     result = {
         "commit": git_commit(),
         "scene": card.name,
         "scene_card_hash": card.hash,
         "seed": cfg.seed,
         "tier": cfg.tier,
-        "policy": cfg.policy,
+        "policy": policy_name,
         "shadow": cfg.shadow,
         "dynamics": c["dynamics"]["model"],
         "n_drones": len(drones),
         "outcome": outcome,
         "reason": reason,
         "task": task["type"],
-        "arrived": sum(d["arrival"] is not None for d in drones),
-        "arrival_time_s": (max(d["arrival"] for d in drones) if goto and all(d["arrival"] is not None for d in drones) else None),
+        "arrived": arrived,
+        "arrival_time_s": (max(d["arrival"] for d in drones) if track_goal and arrived == len(drones) else None),
         "min_obstacle_distance_m": min(d["min_obs"] for d in drones),
-        "max_hover_error_m": None if goto else max(d["max_err"] for d in drones),
+        "max_hover_error_m": None if track_goal else max(d["max_err"] for d in drones),
         "final_goal_error_m": max(float(np.linalg.norm(d["state"].p - d["goal"])) for d in drones),
         "min_inter_drone_distance_m": min_inter,  # 单机为 None
         # 关 = null，不是 0。0.0 只表示「开了，但没有任何 tick 会拒」。
@@ -274,7 +316,7 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         "shadow_drones": None,  # 开：每机一行；关：null
         "plan_codes": {k: v for d in drones for k, v in sorted(
             {**d["codes"], **getattr(d["policy"], "extra_codes", {})}.items())},
-        "network": _net_provenance(cfg.policy),
+        "network": _net_provenance(policy_name),
         "sim_duration_s": (k + 1) / phys if ran else 0.0,
         "ticks": k + 1 if ran else 0,
         "frames": frames,
@@ -295,6 +337,10 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         result["shadow_reject_histogram"] = hist
         result["shadow_gates"] = gate_status()
         result["shadow_drones"] = aggregate_drones(ticks, [d["id"] for d in drones])
+    if formation is not None:
+        result["formation"] = formation
+        result["formation_error_p95_m"] = formation["error_p95_m"]
+        result["arrival_rate"] = formation["arrival_rate"]
     return RunOutput(result, ticks, inputs)
 
 
