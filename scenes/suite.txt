@@ -10,3 +10,4 @@ scenes/formation-hold.json@formation
 scenes/crossing-pillars.json@crossing
 # 票 07b medium 只跑 seed 0：单次墙钟约 56 s，低于 60 s。密档不进套件。
 scenes/crossing-forest.json@crossing@0
+scenes/formation-switch.json@switch
