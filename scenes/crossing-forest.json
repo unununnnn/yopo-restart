@@ -20,6 +20,8 @@
     "lateral_gain": 0.25,
     "arrive_radius_m": 1.5,
     "t_go_s": 0.0,
+    "progress_gate": true,
+    "progress_percentile": 0,
     "virtual_center": {
       "origin_enu": [0.0, 0.0, 1.5],
       "length_m": 42.0,

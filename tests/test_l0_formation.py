@@ -46,6 +46,7 @@ def test_formation_holds_through_straight_and_turn(tmp_path):
     form = r["formation"]
     assert form["frozen"] is False and form["adjudicator"] is None
     assert form["virtual_center"] == "scheduled"
+    assert form["progress_gate"] is False
     assert form["arrival_rate"] == 1.0
     assert r["arrival_rate"] == form["arrival_rate"]
     assert r["formation_error_p95_m"] == form["error_p95_m"]

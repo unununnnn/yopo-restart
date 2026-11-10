@@ -119,6 +119,8 @@ def test_same_seed_is_deterministic_and_each_drone_flies_its_own_plan():
     assert r["crossing"]["frozen"] is False and r["crossing"]["adjudicator"] is None
     assert r["crossing"]["avoidance"] == "upstream-yopo"
     assert r["crossing"]["goal_bias"] == "slot-lookahead-blend"
+    assert r["crossing"]["progress_gate"] is False
+    assert r["crossing"]["virtual_center"] == "straight-rail"
     assert r["network"]["upstream_sha"].startswith("d5e1e60")
     assert r["arrival_rate"] == r["crossing"]["arrival_rate"]
     assert r["formation_error_p95_m"] == r["crossing"]["error_p95_m"]

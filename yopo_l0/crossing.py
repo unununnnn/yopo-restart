@@ -11,6 +11,11 @@
 本机前方的 goto，侧向只在树干净空不够时挪开；YOPO 前缀铺到下一轮窗口，避免飞急刹。
 出了林带仍并回槽位。不改上游走廊 0.05 m，也不改 kp / kd / tau / a_max。
 候选顺序仍是上游的。树只用来挪目标和拒绝已经进树的那条多项式。
+
+票 13b：穿林的虚拟中心不再按墙钟×speed 开环走。frank 2026-11-09 定进度门控只在林带开、
+开阔区关。沿中心投影的进度取 min（progress_percentile 0）或低分位，落后机把时刻表按住；
+超前机只提案悬停，或一条短前缀。悬停按场景卡 a_max 减速，不走契约里 a_max=80 的急刹。
+不换 YOPO，也不引入外部求解器。没有 forest 的柱林默认仍是开环。
 """
 
 from __future__ import annotations
@@ -33,6 +38,7 @@ from yopo_swarm_core.plan import (
     KinematicLimits,
     Plan,
     PlanConfig,
+    hold_traj,
     make_plan,
     quintic,
     state_at,
@@ -44,12 +50,16 @@ from yopo_swarm_core.trajectory import PiecewisePolynomial, PolySegment
 
 from .forest import woods_x_interval
 from .policy import R_yaw, read_safe_radius, upstream_decoder
+from .progress import read_progress_settings
 from .scene import Box, Cylinder
 
 # 机体半径 0.35 m，再留一截给点质量跟踪。只用于林中目标的侧向，不进 YOPO 准入。
 _GOAL_CLEAR_M = 0.5
 _GOAL_LOOK_M = 4.0
 _GOAL_Y_STEP_M = 2.0
+# 超前超过这一截才改提悬停或短前缀。落后机仍走原来的 YOPO。
+_LEADER_MARGIN_M = 1.0
+_LEADER_PREFIX_S = 0.3
 # 上游多项式的速度尖峰可以高出 vel_max。这里的限幅只为了计划契约肯收下那条曲线，
 # 不是安全清单；动力学仍用场景卡里的 a_max。收不进就改走刹车，不飞一条没过契约的曲线。
 _LIMITS = KinematicLimits(v_max=20.0, a_max=80.0, j_max=20000.0)
@@ -225,16 +235,26 @@ class _Rail:
             raise ValueError("length_m 和 speed_mps 必须为正")
         self.T = self.length / self.speed
 
-    def position(self, t: float, t_go: float, slot: np.ndarray) -> np.ndarray:
+    def arc(self, t: float, t_go: float) -> float:
+        """开环弧长：墙钟 × speed，夹在 [0, length]。"""
         tau = float(t) - float(t_go)
         if tau <= 0.0:
-            s = 0.0
-        elif tau >= self.T:
-            s = self.length
-        else:
-            s = self.speed * tau
+            return 0.0
+        if tau >= self.T:
+            return self.length
+        return self.speed * tau
+
+    def at(self, s: float, slot: np.ndarray) -> np.ndarray:
+        s = float(min(self.length, max(0.0, float(s))))
         sx, sy, sz = (float(x) for x in slot)
         return self.origin + np.array([s + sx, sy, sz])
+
+    def along(self, position: np.ndarray, slot: np.ndarray) -> float:
+        """机体位置去掉槽位纵向偏移后，在中心线上的投影弧长。可以是负的。"""
+        return float(position[0]) - float(self.origin[0]) - float(slot[0])
+
+    def position(self, t: float, t_go: float, slot: np.ndarray) -> np.ndarray:
+        return self.at(self.arc(t, t_go), slot)
 
 
 class CrossingFleet:
@@ -283,6 +303,16 @@ class CrossingFleet:
         # 只有带森林的六机才松队形。三机穿林、柱林穿越保持原来的槽位前瞻。
         self.in_forest = isinstance(card.get("forest"), dict)
         self._trees = _forest_obstacles(card) if self.in_forest else ()
+        # 林带默认门控。柱林没有 forest，默认开环。卡上的布尔盖过默认。
+        self.progress_gate, self.progress_percentile = read_progress_settings(
+            task, default_gate=self.in_forest
+        )
+        a_track = float((card.get("dynamics") or {}).get("a_max", 6.0))
+        if a_track <= 0.0:
+            raise ValueError("dynamics.a_max 必须为正")
+        # 超前机的悬停用场景加速度，形状上避开 a_max=80 的急刹。契约检查仍用 _LIMITS。
+        self.gentle_limits = KinematicLimits(v_max=_LIMITS.v_max, a_max=a_track, j_max=_LIMITS.j_max)
+        self._progress = {did: 0.0 for did in self.members}
         spec = task["virtual_center"]
         self.cfg = ProtocolConfig(
             members=self.members,
@@ -300,6 +330,8 @@ class CrossingFleet:
                     "lateral_gain": self.lateral_gain,
                     "arrive_radius_m": self.arrive_radius,
                     "safe_radius_m": self.safe_radius_m,
+                    "progress_gate": self.progress_gate,
+                    "progress_percentile": self.progress_percentile,
                 }
             ),
             # 冲突跳过是常态，不能三次失败就停飞。
@@ -365,8 +397,39 @@ class CrossingFleet:
         return self.goals[drone_id].copy()
 
     def ingest(self, drone_id: str, frame, state) -> None:
-        """只收本机深度和航向。头状态稍后从本机已提交计划取，不用里程计位置冒充。"""
+        """只收本机深度和航向。头状态稍后从本机已提交计划取，不用里程计位置冒充。
+
+        进度门控另记一个沿中心的标量。这是协同用的投影，不拿来当计划头。
+        """
         self._sense[drone_id] = (frame, float(state.yaw))
+        self.note_progress(drone_id, state.p)
+
+    def note_progress(self, drone_id: str, position: np.ndarray) -> float:
+        s = self.rail.along(np.asarray(position, dtype=float), self.slots[drone_id])
+        self._progress[drone_id] = s
+        return s
+
+    def gate_s(self) -> float:
+        """全队投影进度的低分位。分位 0 就是 min。夹在航段内。"""
+        vals = [self._progress[did] for did in self.members if did in self._progress]
+        if not vals:
+            return 0.0
+        s = float(np.percentile(np.asarray(vals, dtype=float), self.progress_percentile))
+        if not math.isfinite(s):
+            return 0.0
+        return float(min(self.rail.length, max(0.0, s)))
+
+    def schedule_s(self, t: float) -> float:
+        """门控开：时刻表等于当前低分位。关：仍是墙钟 × speed。"""
+        if self.progress_gate:
+            return self.gate_s()
+        return self.rail.arc(t, self.t_go)
+
+    def _ahead_of_gate(self, drone_id: str, head_p: np.ndarray) -> bool:
+        if not self.progress_gate:
+            return False
+        s = self.rail.along(np.asarray(head_p, dtype=float), self.slots[drone_id])
+        return s > self.gate_s() + _LEADER_MARGIN_M
 
     def _forest_six(self) -> bool:
         return self.in_forest and len(self.members) >= 6
@@ -452,14 +515,15 @@ class CrossingFleet:
         final = self.goals[drone_id]
         if self._loose_band(float(head_p[0])):
             return self._loose_goal(head_p, final, float(slot[1]))
-        ahead = self.rail.position(t + self.lookahead_s, self.t_go, slot)
+        s = self.schedule_s(t)
+        ahead = self.rail.at(s + self.lookahead_s * self.rail.speed, slot)
         aim_x = min(float(final[0]), max(float(ahead[0]), float(head_p[0]) + self.min_ahead_m))
         aim = np.array([aim_x, float(ahead[1]), float(ahead[2])])
         remain = max(float(final[0] - ahead[0]), 0.0)
         reach = max(self.lookahead_s * self.rail.speed, 1e-6)
         w_final = 1.0 - min(remain / reach, 1.0)
         goal = (1.0 - w_final) * aim + w_final * final
-        lane_y = float(self.rail.position(t, self.t_go, slot)[1])
+        lane_y = float(self.rail.at(s, slot)[1])
         goal = np.array(goal, dtype=float, copy=True)
         goal[1] += self.lateral_gain * (lane_y - float(head_p[1]))
         goal[2] = float(final[2])
@@ -501,7 +565,51 @@ class CrossingFleet:
         """最长的那条过运动学的前缀。系数不变，避障形状还是这条 YOPO 曲线。"""
         return next(self._iter_fits(raw), None)
 
-    def _yopo_options(self, head: np.ndarray, t_start: float, goal: np.ndarray, depth, yaw: float):
+    def _fit_short(self, raw: PiecewisePolynomial) -> PiecewisePolynomial | None:
+        """超前机的短前缀。尾巴用场景 a_max 停住，避免再飞 a_max=80 的急刹。"""
+        total = raw.t_end - raw.t_start
+        horizon = min(_LEADER_PREFIX_S, total)
+        if horizon < 0.2:
+            return None
+        try:
+            traj = _append_stop(_prefix(raw, raw.t_start + horizon), self.gentle_limits)
+        except (ValueError, np.linalg.LinAlgError, FloatingPointError):
+            return None
+        if traj is not None and _kin_ok(traj, self.pcfg.limits):
+            return traj
+        return None
+
+    def _gentle_hover(self, head: np.ndarray, t_start: float) -> PiecewisePolynomial | None:
+        """已经停住就保持。还在走就按场景 a_max 刹停，停点之后由 state_at 保持。"""
+        if float(np.linalg.norm(head[1])) <= 1e-6 and float(np.linalg.norm(head[2])) <= 1e-6:
+            return hold_traj(head[0], t_start, t_start + max(self._commit_span(), 0.5))
+        return _brake_motion(head, t_start, self.gentle_limits)
+
+    def _leader_proposal(self, node: ProtocolNode, t_start: float, head: np.ndarray, goal: np.ndarray, frame, yaw: float):
+        """超前机只提悬停，或一条短前缀。不提交盖住下一轮窗口的长曲线。"""
+        hover = self._gentle_hover(head, t_start)
+        if hover is not None and not self._curve_hits_tree(hover):
+            occ, _reject = self._as_plan(node, t_start, head, hover)
+            if occ is not None:
+                self._count(node.id, "LEADER_HOVER")
+                return occ
+        try:
+            motions, code = self._yopo_options(head, t_start, goal, frame.depth, yaw, short=True)
+        except (ValueError, np.linalg.LinAlgError, FloatingPointError):
+            motions, code = [], "YOPO_FAIL"
+        if code == "CORRIDOR_EMPTY_HOVER":
+            self.empty_solution += 1
+        for motion in motions:
+            if self._curve_hits_tree(motion):
+                continue
+            occ, _reject = self._as_plan(node, t_start, head, motion)
+            if occ is not None:
+                self._count(node.id, "LEADER_PREFIX")
+                return occ
+        self._count(node.id, "LEADER_HOLD")
+        return None
+
+    def _yopo_options(self, head: np.ndarray, t_start: float, goal: np.ndarray, depth, yaw: float, *, short: bool = False):
         """一次前向。首位是上游 select_action；预留冲突时才按分数试后面的准入候选。"""
         R = R_yaw(yaw)
         params, score, radius = self.source.forward_raw(depth, head[1], head[2], goal, head[0], R)
@@ -519,7 +627,7 @@ class CrossingFleet:
                 raw = minco_two_piece(t_start, head, tail_w[index], inner_w[index], durations[index])
             except (ValueError, np.linalg.LinAlgError, FloatingPointError):
                 continue
-            traj = self._fit_yopo(raw)
+            traj = self._fit_short(raw) if short else self._fit_yopo(raw)
             if traj is not None:
                 motions.append(traj)
         if not motions:
@@ -560,6 +668,9 @@ class CrossingFleet:
         if parked:
             self._count(node.id, "ARRIVED_HOLD")
             return None
+        # 到了终点槽位仍走原来的停住。没到、又超前于低分位的，只许悬停或短前缀。
+        if self._ahead_of_gate(node.id, head[0]) and float(np.linalg.norm(head[0] - final)) >= self.arrive_radius:
+            return self._leader_proposal(node, t_start, head, goal, frame, yaw)
         code = "OK"
         motions: list[PiecewisePolynomial] = []
         if float(np.linalg.norm(head[0] - final)) < self.arrive_radius:
@@ -675,8 +786,14 @@ class CrossingFleet:
         return self._last_code[drone_id]
 
     def observe(self, drone_id: str, t: float, position: np.ndarray) -> float:
-        ref = self.rail.position(t, self.t_go, self.slots[drone_id])
-        err = float(np.linalg.norm(np.asarray(position, dtype=float) - ref))
+        pos = np.asarray(position, dtype=float)
+        self.note_progress(drone_id, pos)
+        slot = self.slots[drone_id]
+        if self.progress_gate:
+            ref = self.rail.at(self.gate_s(), slot)
+        else:
+            ref = self.rail.position(t, self.t_go, slot)
+        err = float(np.linalg.norm(pos - ref))
         self.errors.append(err)
         return err
 
@@ -712,6 +829,10 @@ class CrossingFleet:
             "avoidance": "upstream-yopo",
             "goal_bias": "forest-loose-goto" if self._forest_six() else "slot-lookahead-blend",
             "commit_span_s": self._commit_span(),
+            "progress_gate": self.progress_gate,
+            "progress_percentile": self.progress_percentile,
+            "gate_s_m": self.gate_s() if self.progress_gate else None,
+            "leader_margin_m": _LEADER_MARGIN_M if self.progress_gate else None,
             "body_radius_m": self.radius,
             "safe_radius_m": self.safe_radius_m,
             "empty_solution_count": int(self.empty_solution),
@@ -727,7 +848,7 @@ class CrossingFleet:
             "motion_duration_s": self.rail.T,
             "final_slots_enu": {did: self.goals[did].tolist() for did in self.members},
             "committed_plan_hash": hashes,
-            "virtual_center": "straight-rail",
+            "virtual_center": "progress-gated" if self.progress_gate else "straight-rail",
         }
 
 

@@ -18,6 +18,7 @@ THREE = ROOT / "scenes/crossing-forest.json"
 _TASK_KEYS = (
     "type", "duration_s", "window_len_s", "commit_horizon_s", "lookahead_s",
     "min_ahead_m", "lateral_gain", "arrive_radius_m", "t_go_s",
+    "progress_gate", "progress_percentile",
 )
 _RAIL_KEYS = ("length_m", "speed_mps")
 _WEDGE = {
@@ -74,6 +75,9 @@ def test_medium_seed0_short_prefix_stays_clear_of_the_wall():
     assert r["outcome"] != "COLLISION"
     assert r["crossing"]["avoidance"] == "upstream-yopo"
     assert r["crossing"]["goal_bias"] == "forest-loose-goto"
+    assert r["crossing"]["progress_gate"] is True
+    assert r["crossing"]["progress_percentile"] == 0.0
+    assert r["crossing"]["virtual_center"] == "progress-gated"
     assert r["crossing"]["commit_horizon_s"] == 1.0
     assert r["crossing"]["commit_span_s"] == 1.5
     assert r["crossing"]["adjudicator"] is None
