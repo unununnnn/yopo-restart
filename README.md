@@ -100,6 +100,8 @@ scripts/setup_ros2.sh    # Ubuntu 24.04 → Jazzy，22.04 → Humble；ros-*-ros
 
 第二行是 06b 合入之后重跑开阔区六档。ROS 2 对账用 medium 的 seed 0：`--form ros2 --seeds 0`。
 
+票 06c 在提案窗口内按退避补齐还没到的 ACK，不新开预留。同一条六档命令的前后表在 `docs/results/06c-drop20.md`。drop 20% 到达率 0.533 → 1.000，combined 0.967 → 1.000，机间碰撞仍是 0。
+
 `rclpy` 导入不了时，`tests/test_ros2_form.py`、`tests/test_ros2_formation.py` 和 `tests/test_ros2_six.py` 里的 ROS 用例跳过，原因里写明要跑 `scripts/setup_ros2.sh`。进程内回归不依赖 ROS。自己开解释器时再 `source /opt/ros/<jazzy|humble>/setup.bash`；启动器会自己把已安装的发行版加进模块路径。
 
 批准计划对象留在本进程。动力学要 `sample` 策略交出来的那一个（上游偏航和 certified 运行时都挂在上面），ROS 消息里是观测和计划令牌。编队协议载荷用 `float.hex` 往返，计划哈希和占用规范形式不变。

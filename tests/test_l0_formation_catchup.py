@@ -97,19 +97,60 @@ def test_dropped_departure_ack_rejoins(monkeypatch, drone_id):
     assert r["arrived"] == 3 and form["arrival_rate"] == 1.0
     assert r["min_inter_drone_distance_m"] > 2.0 * radius
     assert form["local_aborts"][drone_id] >= 1
+    assert form["deadline_aborts"][drone_id] == form["local_aborts"][drone_id]
     assert form["local_commits"][drone_id] >= 1
     assert form["committed_t_switch_s"][drone_id] > form["t_go_s"]
+    # 这一轮的 ACK 全丢。窗口内补齐请求会再要一次，仍然拿不到，才超时 RELEASE 走追赶。
+    assert 1 <= form["fill_requests"][drone_id] <= FormationFleet.FILL_MAX
     for other in DRONES:
         if other == drone_id:
             continue
         assert form["local_aborts"][other] == 0
+        assert form["fill_requests"][other] == 0
         assert form["local_commits"][other] == 1
         assert form["committed_t_switch_s"][other] <= form["t_go_s"] + 1e-9
-    assert r["bus"]["dropped"] == 2
+    assert r["bus"]["dropped"] == (len(DRONES) - 1) * (1 + form["fill_requests"][drone_id])
     for row in out.ticks:
         assert row["approved_owner"] == row["uav"]
         assert np.linalg.norm(row["cmd_v"]) <= limits.v_max + 1e-6
         assert np.linalg.norm(row["cmd_a"]) <= limits.a_max + 1e-6
+
+
+def _drop_first_ack(monkeypatch):
+    """每个 (预留, 投票方) 的第一张 ACK 丢掉，随后的补齐请求照常送达。"""
+    seen: set[tuple] = set()
+    orig = MessageBus.publish
+
+    def publish(self, now, *, src, dest, topic, payload):
+        msg = payload.get("msg") if isinstance(payload, dict) else None
+        if isinstance(msg, Vote) and msg.decision is Decision.ACK:
+            key = (msg.reservation_id, src, dest)
+            if key not in seen:
+                seen.add(key)
+                self.published += 1
+                self.dropped += 1
+                return None
+        return orig(self, now, src=src, dest=dest, topic=topic, payload=payload)
+
+    monkeypatch.setattr(MessageBus, "publish", publish)
+
+
+def test_fill_request_commits_inside_the_departure_window(monkeypatch):
+    """首张 ACK 丢失时，同一 reservation 在 t_start 前补齐，不改成追赶计划。"""
+    card = load_card(CARD)
+    _drop_first_ack(monkeypatch)
+    out = _run(card, seed=0, duration_s=2.0, shadow=False)
+    r = out.result
+    form = r["formation"]
+    assert form["local_commits"] == {did: 1 for did in DRONES}
+    assert form["local_aborts"] == {did: 0 for did in DRONES}
+    assert form["deadline_aborts"] == {did: 0 for did in DRONES}
+    assert all(form["fill_requests"][did] >= 1 for did in DRONES)
+    assert all(form["committed_t_switch_s"][did] <= form["t_go_s"] + 1e-9 for did in DRONES)
+    assert r["bus"]["dropped"] == 2 * len(DRONES)
+    for row in out.ticks:
+        assert row["approved_owner"] == row["uav"]
+        assert row["approved_seq"] in (0, 1)
 
 
 def test_random_drop_reorder_reports_catchup():

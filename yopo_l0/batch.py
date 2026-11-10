@@ -228,7 +228,8 @@ def _tier_section(card, policy: str, tier: dict, rows: list[dict], form: str, wa
         lines.append("")
         lines.append(
             "有飞机的 `local_commits` 仍为 0，没有飞出起点，队形误差因此变大。"
-            "06b 会在后续窗口沿本槽追赶；这一档里这些飞机没有形成提交。"
+            "06c 在本窗口内对缺的 ACK 做有界补齐；用尽后 06b 才在后续窗口沿本槽追赶。"
+            "这一档里这些飞机仍然没有形成提交。"
         )
     over = [r for r in rows if r.get("batching_plan")]
     if over:

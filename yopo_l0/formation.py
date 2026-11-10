@@ -12,6 +12,12 @@
 COMMIT/RELEASE 用 resend_period 从总线上重发，免得对端的预留一直占着槽位。
 下一轮轮到本机，重新提案一条追赶：从当前悬停点沿本槽弧长接到时刻表（或终点保持），
 速度和加速度不超过计划限幅。动力学仍然只跟踪本机已经 COMMIT 的计划。
+
+票 06c：提案在窗口里只发一次时，丢一票 ACK 就要等到 t_start 才 RELEASE，下一窗口
+才重新提案。六机 drop 20% 下这一次往往收不齐，首个 COMMIT 被 DEADLINE 拖过同步出发，
+外槽追赶再被速度限幅挡掉，飞机就停在起点。窗口内对还没 ACK 的邻机做有界、退避的补齐
+请求：重发同一份在途提案（同一个 reservation_id），不新开预留，也不提前执行。
+补齐仍失败才走 06b 的超时 RELEASE 和下一窗口追赶。
 """
 
 from __future__ import annotations
@@ -441,6 +447,13 @@ class FormationFleet:
     # 票 10b 传输钩子。None：下面的 exchange 用调用方传入的进程内总线。
     # ROS 形态只在一次 run 期间把话题传输放在这里。06b 若重写 exchange，请保留第一行的 _transport_or_bus。
     transport_override = None
+    # 票 06c。缺 ACK 时先等一个来回（盖住 G3 时延上界 0.05 s 的提案+应答），再按指数退避重发，
+    # 封顶后保持。截止前留一个仿真步，免得补齐请求落到下一窗口被 NACK 掉这一轮。
+    FILL_GRACE_MS = 100
+    FILL_BASE_MS = 20
+    FILL_CAP_MS = 40
+    FILL_MAX = 8
+    FILL_SLACK_MS = 20
 
     def __init__(self, card: dict, physics_dt: float, *, record_inputs: bool):
         task = card["task"]
@@ -520,6 +533,7 @@ class FormationFleet:
         }
         self._follow = {did: {"hash": None, "sampler": None} for did in self.members}
         self._last_rec = {}
+        self._fill: dict[str, dict] = {}
 
     @classmethod
     def from_card(cls, card: dict, physics_dt: float, *, record_inputs: bool = False) -> "FormationFleet":
@@ -608,9 +622,15 @@ class FormationFleet:
 
     def exchange(self, bus, now: float) -> None:
         bus = self._transport_or_bus(bus)
-        for did in self.members:
-            for msg in self.nodes[did].on_tick(now):
-                self._emit(bus, now, did, msg)
+        self._pump(bus, now, prime=True)
+        if self._fill_requests(bus, now):
+            self._pump(bus, now, prime=False)
+
+    def _pump(self, bus, now: float, *, prime: bool) -> None:
+        if prime:
+            for did in self.members:
+                for msg in self.nodes[did].on_tick(now):
+                    self._emit(bus, now, did, msg)
         for _ in range(8):
             envs = bus.poll(now)
             if not envs:
@@ -622,6 +642,53 @@ class FormationFleet:
                 for reply in self.nodes[env.dest].on_message(env.payload["msg"], now):
                     self._emit(bus, now, env.dest, reply)
         raise RuntimeError("协议消息在一个 tick 内没有投递完")
+
+    @staticmethod
+    def _ms(t: float) -> int:
+        return int(round(float(t) * 1000.0))
+
+    def _fill_requests(self, bus, now: float) -> bool:
+        """向还没 ACK 的邻机重发在途提案。同一 reservation_id，不新开预留，收齐才 COMMIT。"""
+        sent = False
+        now_ms = self._ms(now)
+        live: set[str] = set()
+        for did in self.members:
+            node = self.nodes[did]
+            flight = node.in_flight
+            if flight is None:
+                continue
+            missing = sorted(peer for peer in node.peers if peer not in flight.acks)
+            if not missing:
+                continue
+            rid = flight.proposal.reservation_id
+            live.add(did)
+            state = self._fill.get(did)
+            if state is None or state["rid"] != rid:
+                state = {"rid": rid, "n": 0, "next_ms": now_ms + self.FILL_GRACE_MS}
+                self._fill[did] = state
+            if state["n"] >= self.FILL_MAX or now_ms < state["next_ms"]:
+                continue
+            if now_ms >= self._ms(flight.record.t_start) - self.FILL_SLACK_MS:
+                continue
+            attempt = state["n"] + 1
+            node._log(
+                "fill_request",
+                rid=rid,
+                attempt=attempt,
+                missing=missing,
+                t_start=flight.record.t_start,
+            )
+            for peer in missing:
+                msg = replace(flight.proposal, ctx=node.next_ctx(), dest=peer)
+                self._emit(bus, now, did, msg)
+                sent = True
+            state["n"] = attempt
+            gap = min(self.FILL_CAP_MS, self.FILL_BASE_MS * (2 ** (attempt - 1)))
+            state["next_ms"] = now_ms + gap
+        for did in list(self._fill):
+            if did not in live:
+                self._fill.pop(did, None)
+        return sent
 
     def track(self, drone_id: str, now: float):
         rec = self.nodes[drone_id].executing(now)
@@ -663,20 +730,28 @@ class FormationFleet:
     def summary(self, arrived: int, n_drones: int) -> dict:
         commits: dict[str, int] = {}
         aborts: dict[str, int] = {}
+        deadlines: dict[str, int] = {}
+        fills: dict[str, int] = {}
         switches: dict[str, float] = {}
         proposals = acks = nacks = 0
         hashes = {}
         for did, node in self.nodes.items():
             n_commit = 0
             n_abort = 0
+            n_deadline = 0
+            n_fill = 0
             for event in node.events:
                 kind = event["event"]
                 if kind == "commit":
                     n_commit += 1
                 elif kind == "abort":
                     n_abort += 1
+                    if event.get("reason") == "DEADLINE":
+                        n_deadline += 1
                 elif kind == "propose":
                     proposals += 1
+                elif kind == "fill_request":
+                    n_fill += 1
                 elif kind == "vote":
                     if event.get("decision") == "ACK":
                         acks += 1
@@ -684,6 +759,8 @@ class FormationFleet:
                         nacks += 1
             commits[did] = n_commit
             aborts[did] = n_abort
+            deadlines[did] = n_deadline
+            fills[did] = n_fill
             switches[did] = float(node.committed.t_start)
             hashes[did] = node.committed.plan_hash
         catchup = {}
@@ -712,6 +789,8 @@ class FormationFleet:
             "catchup_time_s": max(catchup.values()) if catchup else 0.0,
             "catchup_time_by_drone_s": catchup,
             "local_aborts": aborts,
+            "deadline_aborts": deadlines,
+            "fill_requests": fills,
             "committed_t_switch_s": switches,
             "frozen": self.frozen,
             "adjudicator": None,

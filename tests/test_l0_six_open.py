@@ -73,11 +73,31 @@ def test_open_six_none_reaches_and_is_deterministic():
     assert r["formation_error_p95_m"] < 0.2
     assert r["min_inter_drone_distance_m"] > 2.5
     assert r["formation"]["local_commits"] == {f"uav{i}": 1 for i in range(6)}
+    assert r["formation"]["fill_requests"] == {f"uav{i}": 0 for i in range(6)}
     assert r["formation"]["adjudicator"] is None
     assert isinstance(r["shadow_reject_rate"], float)
     assert r["wall_time_s"] < 60.0
     assert _strip(r) == _strip(again.result)
     assert out.ticks == again.ticks
+
+
+def test_drop20_seed0_commits_the_departure_plan():
+    """票 06c：drop 20% 的 seed 0 原先有飞机停在起点。补齐后六机都在 t_go 前提交自己的计划。"""
+    card = load_card(CARD)
+    out = run(card, RunConfig(seed=0, policy="formation", shadow=False, bus=BusFaults(drop=0.20)))
+    r = out.result
+    form = r["formation"]
+    assert r["outcome"] == "SUCCESS", r
+    assert r["arrived"] == 6 and form["arrival_rate"] == 1.0
+    assert r["outcome"] != "COLLISION"
+    assert r["min_inter_drone_distance_m"] > 2.0 * card.card["criteria"]["body_radius_m"]
+    assert form["local_commits"] == {f"uav{i}": 1 for i in range(6)}
+    assert form["local_aborts"] == {f"uav{i}": 0 for i in range(6)}
+    assert form["deadline_aborts"] == {f"uav{i}": 0 for i in range(6)}
+    assert sum(form["fill_requests"].values()) > 0
+    assert all(form["committed_t_switch_s"][f"uav{i}"] <= form["t_go_s"] + 1e-9 for i in range(6))
+    for row in out.ticks:
+        assert row["approved_owner"] == row["uav"]
 
 
 def test_total_loss_leaves_the_wedge_hovering():
