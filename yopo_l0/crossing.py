@@ -1,15 +1,24 @@
 """票 07：三机交叉避障。队形尽力而为，避障优先。
 
 每机在自己的提案窗口里，用深度图跑上游 YOPO（走廊准入 + 最高分），把编队槽位
-融进目标当作偏置，不读场景几何。选出的多项式接到本机已提交计划在 t_start 的
+融进目标当作偏置。三机和柱林不读场景几何。选出的多项式接到本机已提交计划在 t_start 的
 状态上，经轮转窗口和预留 ACK/COMMIT 之后才交给动力学。跟邻机占用冲突就放弃
 这次提案，继续飞本机已经批准的计划。没有中央裁决者。
+
+票 11c：六机穿林时轮转周期（6×0.25 s）长于承诺地平线（1.0 s），每圈都会飞进
+末端急刹；急刹按计划契约的 a_max=80 生成，L0 动力学 a_max 仍是 6，机身停不住。
+同时时刻表槽位已经跑到前头，槽位线本身穿过树干，把僚机推进树里。林带里目标改成
+本机前方的 goto，侧向只在树干净空不够时挪开；YOPO 前缀铺到下一轮窗口，避免飞急刹。
+出了林带仍并回槽位。不改上游走廊 0.05 m，也不改 kp / kd / tau / a_max。
+候选顺序仍是上游的。树只用来挪目标和拒绝已经进树的那条多项式。
 """
 
 from __future__ import annotations
 
 import copy
 import hashlib
+import logging
+import math
 from dataclasses import replace
 
 import numpy as np
@@ -34,11 +43,100 @@ from yopo_swarm_core.protocol.node import ProtocolConfig, ProtocolNode
 from yopo_swarm_core.protocol.plan_occupancy import PlanConflictChecker, PlanOccupancy, hover_occupancy
 from yopo_swarm_core.trajectory import PiecewisePolynomial, PolySegment
 
+from .dynamics import PointMassLag
+from .forest import woods_x_interval
 from .policy import R_yaw, read_safe_radius, upstream_decoder
+from .scene import Box, Cylinder
 
-# 上游多项式的速度尖峰可以高出 vel_max。这里的限幅只为了计划契约肯收下那条曲线，
-# 不是安全清单；动力学仍用场景卡里的 a_max。收不进就改走刹车，不飞一条没过契约的曲线。
-_LIMITS = KinematicLimits(v_max=20.0, a_max=80.0, j_max=20000.0)
+# 机体半径 0.35 m，再留一截给点质量跟踪。只用于林中目标的侧向，不进 YOPO 准入。
+_GOAL_CLEAR_M = 0.5
+_GOAL_LOOK_M = 4.0
+_GOAL_Y_STEP_M = 2.0
+
+_LOG = logging.getLogger(__name__)
+
+# 下界 N_agents × window_len_s + 0.25。短于下界的场景卡或默认值在构造时抬高。
+# 0.25 s 是两次本机 COMMIT 之间多留的一截，避免急刹掉进下一次提交还没生效的空档。
+HORIZON_MARGIN_S = 0.25
+
+# 速度、急动度仍放宽，只为计划契约肯收下上游多项式的速度尖峰。
+# 加速度必须等于 L0 动力学。写成 80 时，急刹在契约里已经停住，点质量（a_max 6）还在滑。
+_PLAN_V_MAX = 20.0
+_PLAN_J_MAX = 20000.0
+
+
+def required_commit_horizon_s(n_agents: int, window_len_s: float) -> float:
+    """commit_horizon_s 的下界：N_agents × window_len_s + 0.25。"""
+    if isinstance(n_agents, bool) or not isinstance(n_agents, int) or n_agents < 1:
+        raise ValueError("N_agents 必须是正整数")
+    window = float(window_len_s)
+    if not math.isfinite(window) or window <= 0.0:
+        raise ValueError("window_len_s 必须为正")
+    return n_agents * window + HORIZON_MARGIN_S
+
+
+def resolve_commit_horizon_s(requested: float, n_agents: int, window_len_s: float) -> float:
+    """场景卡或默认值短于下界时抬高，并记一条日志。非正数直接报错。"""
+    need = required_commit_horizon_s(n_agents, window_len_s)
+    got = float(requested)
+    if not math.isfinite(got) or got <= 0.0:
+        raise ValueError("commit_horizon_s 必须为正")
+    if got < need - 1e-12:
+        _LOG.warning(
+            "commit_horizon_s %s 小于 N_agents*window_len_s+%.2f=%s（N=%s, window_len_s=%s）；抬高到 %s",
+            got,
+            HORIZON_MARGIN_S,
+            need,
+            int(n_agents),
+            float(window_len_s),
+            need,
+        )
+        return need
+    return got
+
+
+def dynamics_a_max(dynamics: dict | None) -> float:
+    """L0 动力学的 a_max。场景卡没写时用 PointMassLag 的默认值（当前 6）。"""
+    dyn = dict(dynamics or {})
+    if dyn.get("a_max") is None:
+        a_max = float(PointMassLag.a_max)
+    else:
+        a_max = float(dyn["a_max"])
+    if not math.isfinite(a_max) or a_max <= 0.0:
+        raise ValueError("动力学 a_max 必须为正")
+    return a_max
+
+
+def plan_limits_for_dynamics(dynamics: dict | None) -> KinematicLimits:
+    """急刹和计划契约的 a_max 与 L0 动力学相同，禁止再写死 80。"""
+    return KinematicLimits(_PLAN_V_MAX, dynamics_a_max(dynamics), _PLAN_J_MAX)
+
+
+def _forest_obstacles(card: dict) -> tuple:
+    """场景卡里的树干和矮枝。墙和地面不参与目标侧向。几何没内联时返回空。"""
+    geom = card.get("geometry")
+    if not isinstance(geom, dict):
+        return ()
+    obs = []
+    for raw in geom.get("cylinders") or []:
+        if not str(raw.get("name", "")).startswith("t"):
+            continue
+        lean = raw.get("lean_xy") or (0.0, 0.0)
+        obs.append(
+            Cylinder(
+                raw["name"],
+                (float(raw["center_xy"][0]), float(raw["center_xy"][1])),
+                float(raw["radius"]),
+                float(raw["z_lo"]),
+                float(raw["z_hi"]),
+                (float(lean[0]), float(lean[1])),
+            )
+        )
+    for raw in geom.get("boxes") or []:
+        if not str(raw.get("name", "")).startswith("t"):
+            continue
+        obs.append(Box(raw["name"], tuple(raw["lo"]), tuple(raw["hi"])))
+    return tuple(obs)
 
 
 class LocalApproval:
@@ -223,22 +321,27 @@ class CrossingFleet:
         self.frozen = bool(card["criteria"].get("frozen", False))
         self.radius = float(card["criteria"]["body_radius_m"])
         window = float(task.get("window_len_s", 0.25))
-        if window <= 0.0:
+        if not math.isfinite(window) or window <= 0.0:
             raise ValueError("window_len_s 必须为正")
         self.window = window
-        self.horizon = float(task.get("commit_horizon_s", 1.0))
+        # 缺省 1.0 只够三机 × 0.25 s。六机沿用同一张卡时在这里抬高，不改场景卡 JSON。
+        self.horizon_requested = float(task.get("commit_horizon_s", 1.0))
+        self.horizon = resolve_commit_horizon_s(self.horizon_requested, len(self.members), window)
         self.lookahead_s = float(task.get("lookahead_s", 2.0))
         self.min_ahead_m = float(task.get("min_ahead_m", 5.0))
         self.lateral_gain = float(task.get("lateral_gain", 0.25))
         self.arrive_radius = float(task.get("arrive_radius_m", 1.5))
         self.safe_radius_m = read_safe_radius(card.get("policy_params"))
         self.decoder = upstream_decoder(self.safe_radius_m)
-        if min(self.horizon, self.lookahead_s, self.min_ahead_m) <= 0.0:
-            raise ValueError("commit_horizon_s、lookahead_s、min_ahead_m 必须为正")
+        if min(self.lookahead_s, self.min_ahead_m) <= 0.0:
+            raise ValueError("lookahead_s、min_ahead_m 必须为正")
         if not 0.0 <= self.lateral_gain <= 2.0:
             raise ValueError("lateral_gain 必须在 [0, 2]")
         # 时刻表从 t=0 走。各机第一次能执行已是自己窗口的下一沿，起步差一两个窗口。
         self.t_go = float(task.get("t_go_s", 0.0))
+        # 只有带森林的六机才松队形。三机穿林、柱林穿越保持原来的槽位前瞻。
+        self.in_forest = isinstance(card.get("forest"), dict)
+        self._trees = _forest_obstacles(card) if self.in_forest else ()
         spec = task["virtual_center"]
         self.cfg = ProtocolConfig(
             members=self.members,
@@ -266,7 +369,7 @@ class CrossingFleet:
             delay_check_s=0.0,
         )
         self.pcfg = PlanConfig(
-            _LIMITS,
+            plan_limits_for_dynamics(card.get("dynamics")),
             max_branch_points=2,
             body_radius=self.radius,
             tracking_margin=0.15,
@@ -326,15 +429,90 @@ class CrossingFleet:
         """只收本机深度和航向。头状态稍后从本机已提交计划取，不用里程计位置冒充。"""
         self._sense[drone_id] = (frame, float(state.yaw))
 
+    def _forest_six(self) -> bool:
+        return self.in_forest and len(self.members) >= 6
+
+    def _loose_band(self, x: float) -> bool:
+        """六机已经进入林带。入口和出林后的空地仍用槽位前瞻。"""
+        if not self.in_forest or len(self.members) < 6:
+            return False
+        lo, hi = woods_x_interval()
+        return (lo - 1.0) <= float(x) <= (hi + 1.0)
+
+    def _commit_span(self) -> float:
+        """承诺的 YOPO 前缀要盖住本机下一轮窗口，否则末端急刹会被飞出去。"""
+        cycle = len(self.members) * self.window
+        if self._forest_six() and cycle > self.horizon + 1e-9:
+            return cycle
+        return self.horizon
+
+    def _line_clearance(self, x0: float, x1: float, y: float, z: float) -> float:
+        """从 x0 到 x1 的水平线段到树（树干和矮枝）的最小距离。没有树就是无穷。"""
+        if not self._trees or x1 <= x0:
+            return math.inf
+        best = math.inf
+        for x in np.linspace(x0, x1, 17):
+            p = np.array([float(x), float(y), float(z)])
+            for ob in self._trees:
+                best = min(best, float(ob.distance(p)))
+        return best
+
+    def _aim_y(self, head_p: np.ndarray, slot_y: float) -> float:
+        """前方几米里挑一条够宽的侧向。够宽就贴槽位；都不够就取净空最大的，避免扎进树干。"""
+        x0 = float(head_p[0])
+        x1 = x0 + _GOAL_LOOK_M
+        y_head = float(head_p[1])
+        z_fly = float(head_p[2])
+        ys = [float(slot_y), y_head]
+        ys.extend(float(y) for y in np.linspace(y_head - _GOAL_Y_STEP_M, y_head + _GOAL_Y_STEP_M, 9))
+        best_y = y_head
+        best_key = None
+        for y in ys:
+            if abs(y - y_head) > _GOAL_Y_STEP_M + 1e-9:
+                continue
+            clear = min(self._line_clearance(x0, x1, y, 1.5), self._line_clearance(x0, x1, y, z_fly))
+            if clear >= _GOAL_CLEAR_M:
+                key = (1, -abs(y - float(slot_y)), -abs(y - y_head), clear)
+            else:
+                key = (0, clear, -abs(y - float(slot_y)), -abs(y - y_head))
+            if best_key is None or key > best_key:
+                best_key = key
+                best_y = y
+        return best_y
+
+    def _motion_clearance(self, motion: PiecewisePolynomial) -> float:
+        if not self._trees:
+            return math.inf
+        best = math.inf
+        for t in np.linspace(motion.t_start, motion.t_end, 15):
+            p = np.asarray(motion.evaluate(float(t)), dtype=float)
+            for ob in self._trees:
+                best = min(best, float(ob.distance(p)))
+                if best < _GOAL_CLEAR_M:
+                    return best
+        return best
+
+    def _curve_hits_tree(self, motion: PiecewisePolynomial) -> bool:
+        """六机林里不提交已经进了树的多项式。候选顺序仍是上游的，只是跳过这一条。"""
+        return self._forest_six() and self._motion_clearance(motion) < _GOAL_CLEAR_M
+
+    def _loose_goal(self, head_p: np.ndarray, final: np.ndarray, slot_y: float) -> np.ndarray:
+        """林中各自 goto：前方 min_ahead，侧向避开正前方的树，不追已经跑远的时刻表。"""
+        aim_x = min(float(final[0]), float(head_p[0]) + self.min_ahead_m)
+        return np.array([aim_x, self._aim_y(head_p, slot_y), float(final[2])], dtype=float)
+
     def goal_for(self, drone_id: str, t: float, head_p: np.ndarray) -> np.ndarray:
         """槽位前瞻和终点槽位的混合，再加一点拉回航线的侧向偏置。
 
         目标始终在机头前方、终点以内，避免网络看见身后的目标掉头。
         避障不在这里做：进网络的是这个目标和本机深度。
+        六机在林带里不走这条混合，见 `_loose_goal`。
         """
         slot = self.slots[drone_id]
         head_p = np.asarray(head_p, dtype=float)
         final = self.goals[drone_id]
+        if self._loose_band(float(head_p[0])):
+            return self._loose_goal(head_p, final, float(slot[1]))
         ahead = self.rail.position(t + self.lookahead_s, self.t_go, slot)
         aim_x = min(float(final[0]), max(float(ahead[0]), float(head_p[0]) + self.min_ahead_m))
         aim = np.array([aim_x, float(ahead[1]), float(ahead[2])])
@@ -366,10 +544,10 @@ class CrossingFleet:
         h.update(np.ascontiguousarray(np.asarray(frame.depth)).tobytes())
         return h.hexdigest()
 
-    def _fit_yopo(self, raw: PiecewisePolynomial) -> PiecewisePolynomial | None:
-        """从长到短取过运动学的前缀。系数不变，避障形状还是这条 YOPO 曲线。"""
+    def _iter_fits(self, raw: PiecewisePolynomial):
+        """从长到短，取第一条过运动学的前缀。短步插进来会把僚机留在林子里。"""
         total = raw.t_end - raw.t_start
-        for horizon in (min(self.horizon, total), 0.7, 0.45, 0.3):
+        for horizon in (min(self._commit_span(), total), 0.7, 0.45, 0.3):
             if horizon > total + 1e-9 or horizon < 0.2:
                 continue
             try:
@@ -377,8 +555,12 @@ class CrossingFleet:
             except (ValueError, np.linalg.LinAlgError, FloatingPointError):
                 continue
             if traj is not None and _kin_ok(traj, self.pcfg.limits):
-                return traj
-        return None
+                yield traj
+                return
+
+    def _fit_yopo(self, raw: PiecewisePolynomial) -> PiecewisePolynomial | None:
+        """最长的那条过运动学的前缀。系数不变，避障形状还是这条 YOPO 曲线。"""
+        return next(self._iter_fits(raw), None)
 
     def _yopo_options(self, head: np.ndarray, t_start: float, goal: np.ndarray, depth, yaw: float):
         """一次前向。首位是上游 select_action；预留冲突时才按分数试后面的准入候选。"""
@@ -459,13 +641,37 @@ class CrossingFleet:
         reject = None
         used_alt = False
         for i, motion in enumerate(motions):
+            if self._curve_hits_tree(motion):
+                reject = "TREE_SKIP"
+                continue
             occ, reject = self._as_plan(node, t_start, head, motion)
             if occ is not None:
                 used_alt = i > 0
                 break
+        if occ is None and reject in ("CONFLICT_SKIP", "TREE_SKIP") and self._loose_band(float(head[0][0])):
+            # 正前方的 goto 撞树或被邻机预留挡住。左右错开 1.5 m 再各试一次。
+            for dy in (1.5, -1.5):
+                alt = np.array(goal, dtype=float, copy=True)
+                alt[1] = float(head[0][1]) + dy
+                try:
+                    shifted, _shift_code = self._yopo_options(head, t_start, alt, frame.depth, yaw)
+                except (ValueError, np.linalg.LinAlgError, FloatingPointError):
+                    continue
+                for motion in shifted:
+                    if self._curve_hits_tree(motion):
+                        reject = "TREE_SKIP"
+                        continue
+                    occ, reject = self._as_plan(node, t_start, head, motion)
+                    if occ is not None:
+                        self._count(node.id, "GOTO_SHIFT")
+                        return occ
         if occ is None:
             # 最高分和后面几个准入候选都和邻机预留重叠：不硬挤。能刹车就停在自己的管子里。
             brake = _brake_motion(head, t_start, self.pcfg.limits)
+            # 刹车参考要是已经进了树，就别提交。继续飞上一条计划，而不是沿速度扎进去。
+            if brake is not None and self._curve_hits_tree(brake):
+                brake = None
+                reject = "TREE_SKIP"
             if brake is not None:
                 occ, reject2 = self._as_plan(node, t_start, head, brake)
                 if occ is not None:
@@ -565,7 +771,8 @@ class CrossingFleet:
             "frozen": self.frozen,
             "adjudicator": None,
             "avoidance": "upstream-yopo",
-            "goal_bias": "slot-lookahead-blend",
+            "goal_bias": "forest-loose-goto" if self._forest_six() else "slot-lookahead-blend",
+            "commit_span_s": self._commit_span(),
             "body_radius_m": self.radius,
             "safe_radius_m": self.safe_radius_m,
             "empty_solution_count": int(self.empty_solution),

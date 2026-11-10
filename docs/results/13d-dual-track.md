@@ -1,6 +1,6 @@
 # 票 13d 双轨 Delay Check
 
-判据未冻结 / report-only。碰撞数照实写。不换 YOPO，不引入 Gurobi。偏离写在 [ADR 0011](../adr/0011-rmader-dual-track.md)。
+判据未冻结 / report-only。碰撞数照实写。不换 YOPO，不引入 Gurobi。偏离写在 [ADR 0012](../adr/0012-rmader-dual-track.md)。
 
 新轨在现有 ACK/COMMIT 上多一段等待：PROPOSED → TENTATIVE（PROPOSE 已广播）→ DELAY_CHECK → COMMITTED。编队 `delay_check_s = 0.05` s，等于六档里时延上界。没走完 Delay Check 不替换 `committed`。Delay Check 期间若邻机轨迹和新轨冲突（含迟到才到的），RELEASE 新轨，本窗口再提一份新的 `plan_seq`。
 

@@ -1,6 +1,6 @@
 """协议节点：ADR-0001 轮转提案窗口 + 预留 ACK / COMMIT / RELEASE（纯状态机，无 ROS、无 IO）。
 
-票 13d 在 ACK/COMMIT 上加 RMADER 双轨（ADR 0011）：
+票 13d 在 ACK/COMMIT 上加 RMADER 双轨（ADR 0012）：
 PROPOSED → TENTATIVE（PROPOSE 已交出，即广播）→ DELAY_CHECK → COMMITTED。
 Delay Check 没走完就提交不了。已提交的那一份一直留着，动力学在 t_start 之前仍飞它。
 Delay Check 期间若收到与新轨冲突的邻机轨迹（含迟到才到的），作废新轨并允许本窗口再提一份。
