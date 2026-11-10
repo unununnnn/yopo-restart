@@ -1,6 +1,7 @@
 """票 11a：六机开阔区楔形编队。进程内、零故障要能到终点。
 
 全丢（drop=1）仍然悬停：窗口内重发也收不到 ACK。20% 丢包的补票是票 06c。
+票 13d 把提交推迟到 Delay Check 结束，已提交轨在这之前不变。
 """
 
 import json
@@ -84,9 +85,10 @@ def test_open_six_none_reaches_and_is_deterministic():
 
 
 def test_dropped_ack_is_recovered_by_resending_the_same_proposal(monkeypatch):
-    """第一轮两张 ACK 都丢掉。0.02 s 后重发同一份提案，本窗提交，不开新的 plan_seq。"""
+    """第一轮两张 ACK 都丢掉。0.02 s 后重发同一份提案。Delay Check 到点才提交，不开新的 plan_seq。"""
     from yopo_l0.bus import MessageBus
     from yopo_l0.formation import FormationFleet
+    from yopo_swarm_core.protocol import TrackPhase
     from yopo_swarm_core.protocol.messages import Decision, Vote
 
     fleet = FormationFleet.from_card(load_card(ROOT / "scenes/formation-hold.json").card, 0.01)
@@ -112,9 +114,18 @@ def test_dropped_ack_is_recovered_by_resending_the_same_proposal(monkeypatch):
     fleet.exchange(bus, 0.0)
     node = fleet.nodes["uav0"]
     assert node.committed.plan_seq == 0 and node.in_flight is not None and node.plan_seq == 1
+    assert node.in_flight.phase is TrackPhase.DELAY_CHECK
+    held = node.in_flight.record.plan_hash
+    safe = node.committed.plan_hash
     fleet.exchange(bus, 0.02)
     assert dropped["n"] == 2
+    assert node.in_flight is not None and node.in_flight.record.plan_hash == held
+    assert node.committed.plan_hash == safe
+    assert set(node.in_flight.acks) == {"uav1", "uav2"}
+    fleet.exchange(bus, fleet.cfg.delay_check_s)
     assert node.in_flight is None and node.committed.plan_seq == 1
+    assert node.committed.plan_hash == held
+    assert node.previous is not None and node.previous.plan_hash == safe
     assert node.committed.t_start == fleet.cfg.window_len
 
 
@@ -124,6 +135,7 @@ def test_open_six_resends_the_same_proposal_inside_the_window():
     fleet = FormationFleet.from_card(load_card(CARD).card, 0.01)
     assert fleet.proposal_resend_period == 0.02
     assert fleet.proposal_resend_guard == 0.10
+    assert fleet.cfg.delay_check_s == 0.05
     assert fleet.cfg.resend_period == fleet.cfg.window_len
     assert "proposal_resend_period" not in fleet.cfg.__dataclass_fields__
 

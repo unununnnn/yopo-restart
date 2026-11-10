@@ -308,6 +308,11 @@ def generate_forest(spec: dict) -> tuple[dict, dict]:
     return geom, stats
 
 
+def woods_x_interval() -> tuple[float, float]:
+    """林带在走廊 x 上的范围。入口在这之前，空地在这之后。"""
+    return _WOODS_LO, _WOODS_HI
+
+
 def generate_forest_geometry(spec: dict) -> dict:
     return generate_forest(spec)[0]
 

@@ -128,7 +128,9 @@ def test_a_clear_curve_still_reaches_the_commit_check():
 def test_woods_slot_is_soft_and_exit_returns_to_the_rigid_slot():
     six = CrossingFleet.from_card(load_card(MEDIUM).card, 0.01)
     assert six.summary(0, 6)["goal_bias"] == "elastic-slot"
-    assert six._commit_span() == pytest.approx(1.5)
+    # 13a 把六机视界抬到 1.75 s，已盖过一轮窗口，不再另加到 1.5。
+    assert six._commit_span() == pytest.approx(1.75)
+    assert six.horizon == pytest.approx(1.75)
     head = np.array([16.0, -3.5, 1.5])
     assert six._elastic_active(16.0) is True
     assert six._slack_scale(16.0) == pytest.approx(1.0)

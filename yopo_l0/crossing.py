@@ -5,17 +5,19 @@
 状态上，经轮转窗口和预留 ACK/COMMIT 之后才交给动力学。跟邻机占用冲突就放弃
 这次提案，继续飞本机已经批准的计划。没有中央裁决者。
 
-票 13c：六机在林带里槽位是软目标。侧向、纵向只在界内松弛，避障是硬约束；出了林带
-收紧回原来的刚性槽位前瞻（11c 的前方 goto，这里把瞄准点收到还能走的那一截）。
-COMMIT 前对轨迹采样：中心到树的最小距离必须 ≥ body_radius + margin（默认 0.15 m）。
-不够就 CLEARANCE_SKIP，不把这条多项式交出去。这是 LSC「不可行走的走廊不进优化」
-的过滤，不引入 CPLEX。不改 safe_radius 默认 0.05 m，也不改 L0 的 kp / kd / tau。
+票 13a：六机构造时把 commit_horizon_s 抬到至少一轮窗口 + 0.25 s，计划 a_max 与
+L0 动力学相同，禁止再写死 80。票 13c：六机在林带里槽位是软目标。侧向、纵向只在
+界内松弛，避障是硬约束；出了林带收紧回原来的刚性槽位前瞻。COMMIT 前对轨迹采样：
+中心到树的最小距离必须 ≥ body_radius + margin（默认 0.15 m）。不够就
+CLEARANCE_SKIP，不把这条多项式交出去。这是过滤，不引入 CPLEX。不改 safe_radius
+默认 0.05 m，也不改 L0 的 kp / kd / tau。
 """
 
 from __future__ import annotations
 
 import copy
 import hashlib
+import logging
 import math
 from dataclasses import replace
 
@@ -41,15 +43,71 @@ from yopo_swarm_core.protocol.node import ProtocolConfig, ProtocolNode
 from yopo_swarm_core.protocol.plan_occupancy import PlanConflictChecker, PlanOccupancy, hover_occupancy
 from yopo_swarm_core.trajectory import PiecewisePolynomial, PolySegment
 
+from .dynamics import PointMassLag
 from .forest import _segment_distance, woods_bounds
 from .policy import R_yaw, read_safe_radius, upstream_decoder
 from .scene import Box, Cylinder
 
-# 轨迹采样步长。a=80 时 0.02 s 的弦高约 4 mm，门按采样到的最小距离判。
+# 轨迹采样步长。0.02 s 的弦高按动力学 a_max 计大约几毫米，门按采样到的最小距离判。
 _CLEARANCE_DT_S = 0.02
-# 上游多项式的速度尖峰可以高出 vel_max。这里的限幅只为了计划契约肯收下那条曲线，
-# 不是安全清单；动力学仍用场景卡里的 a_max。收不进就改走刹车，不飞一条没过契约的曲线。
-_LIMITS = KinematicLimits(v_max=20.0, a_max=80.0, j_max=20000.0)
+
+_LOG = logging.getLogger(__name__)
+
+# 下界 N_agents × window_len_s + 0.25。短于下界的场景卡或默认值在构造时抬高。
+# 0.25 s 是两次本机 COMMIT 之间多留的一截，避免急刹掉进下一次提交还没生效的空档。
+HORIZON_MARGIN_S = 0.25
+
+# 速度、急动度仍放宽，只为计划契约肯收下上游多项式的速度尖峰。
+# 加速度必须等于 L0 动力学。写成 80 时，急刹在契约里已经停住，点质量（a_max 6）还在滑。
+_PLAN_V_MAX = 20.0
+_PLAN_J_MAX = 20000.0
+
+
+def required_commit_horizon_s(n_agents: int, window_len_s: float) -> float:
+    """commit_horizon_s 的下界：N_agents × window_len_s + 0.25。"""
+    if isinstance(n_agents, bool) or not isinstance(n_agents, int) or n_agents < 1:
+        raise ValueError("N_agents 必须是正整数")
+    window = float(window_len_s)
+    if not math.isfinite(window) or window <= 0.0:
+        raise ValueError("window_len_s 必须为正")
+    return n_agents * window + HORIZON_MARGIN_S
+
+
+def resolve_commit_horizon_s(requested: float, n_agents: int, window_len_s: float) -> float:
+    """场景卡或默认值短于下界时抬高，并记一条日志。非正数直接报错。"""
+    need = required_commit_horizon_s(n_agents, window_len_s)
+    got = float(requested)
+    if not math.isfinite(got) or got <= 0.0:
+        raise ValueError("commit_horizon_s 必须为正")
+    if got < need - 1e-12:
+        _LOG.warning(
+            "commit_horizon_s %s 小于 N_agents*window_len_s+%.2f=%s（N=%s, window_len_s=%s）；抬高到 %s",
+            got,
+            HORIZON_MARGIN_S,
+            need,
+            int(n_agents),
+            float(window_len_s),
+            need,
+        )
+        return need
+    return got
+
+
+def dynamics_a_max(dynamics: dict | None) -> float:
+    """L0 动力学的 a_max。场景卡没写时用 PointMassLag 的默认值（当前 6）。"""
+    dyn = dict(dynamics or {})
+    if dyn.get("a_max") is None:
+        a_max = float(PointMassLag.a_max)
+    else:
+        a_max = float(dyn["a_max"])
+    if not math.isfinite(a_max) or a_max <= 0.0:
+        raise ValueError("动力学 a_max 必须为正")
+    return a_max
+
+
+def plan_limits_for_dynamics(dynamics: dict | None) -> KinematicLimits:
+    """急刹和计划契约的 a_max 与 L0 动力学相同，禁止再写死 80。"""
+    return KinematicLimits(_PLAN_V_MAX, dynamics_a_max(dynamics), _PLAN_J_MAX)
 
 
 def _forest_obstacles(card: dict) -> tuple:
@@ -261,18 +319,20 @@ class CrossingFleet:
         self.frozen = bool(card["criteria"].get("frozen", False))
         self.radius = float(card["criteria"]["body_radius_m"])
         window = float(task.get("window_len_s", 0.25))
-        if window <= 0.0:
+        if not math.isfinite(window) or window <= 0.0:
             raise ValueError("window_len_s 必须为正")
         self.window = window
-        self.horizon = float(task.get("commit_horizon_s", 1.0))
+        # 缺省 1.0 只够三机 × 0.25 s。六机沿用同一张卡时在这里抬高，不改场景卡 JSON。
+        self.horizon_requested = float(task.get("commit_horizon_s", 1.0))
+        self.horizon = resolve_commit_horizon_s(self.horizon_requested, len(self.members), window)
         self.lookahead_s = float(task.get("lookahead_s", 2.0))
         self.min_ahead_m = float(task.get("min_ahead_m", 5.0))
         self.lateral_gain = float(task.get("lateral_gain", 0.25))
         self.arrive_radius = float(task.get("arrive_radius_m", 1.5))
         self.safe_radius_m = read_safe_radius(card.get("policy_params"))
         self.decoder = upstream_decoder(self.safe_radius_m)
-        if min(self.horizon, self.lookahead_s, self.min_ahead_m) <= 0.0:
-            raise ValueError("commit_horizon_s、lookahead_s、min_ahead_m 必须为正")
+        if min(self.lookahead_s, self.min_ahead_m) <= 0.0:
+            raise ValueError("lookahead_s、min_ahead_m 必须为正")
         if not 0.0 <= self.lateral_gain <= 2.0:
             raise ValueError("lateral_gain 必须在 [0, 2]")
         # 净空门的余量。门槛是机体半径 + margin，默认 0.15 m。不进 YOPO 的 safe_radius。
@@ -321,9 +381,11 @@ class CrossingFleet:
             max_failed_rounds=10000,
             resend_period=None,
             heartbeat_period=None,
+            # 票 13d：穿林不打开 Delay Check。δ = 0 时收齐 ACK 当拍提交，轨迹与打开之前一致。
+            delay_check_s=0.0,
         )
         self.pcfg = PlanConfig(
-            _LIMITS,
+            plan_limits_for_dynamics(card.get("dynamics")),
             max_branch_points=2,
             body_radius=self.radius,
             tracking_margin=0.15,

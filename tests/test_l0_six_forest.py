@@ -62,6 +62,14 @@ def test_six_wedge_uses_the_three_drone_crossing_parameters():
     assert generated["task"] == six["task"]
 
 
+def test_forest_delay_check_stays_off():
+    """穿林不打开 δ_DC。提交仍是收齐 ACK 的那一拍，避免把树的碰撞数改掉。"""
+    from yopo_l0.crossing import CrossingFleet
+
+    fleet = CrossingFleet.from_card(load_card(THREE).card, 0.01)
+    assert fleet.cfg.delay_check_s == 0.0
+
+
 def test_medium_seed0_short_prefix_stays_clear_of_the_wall():
     card = load_card(MEDIUM)
     out = run(card, RunConfig(seed=0, policy="crossing", duration_s=0.4, shadow=False))
@@ -71,8 +79,10 @@ def test_medium_seed0_short_prefix_stays_clear_of_the_wall():
     assert r["outcome"] != "COLLISION"
     assert r["crossing"]["avoidance"] == "upstream-yopo"
     assert r["crossing"]["goal_bias"] == "elastic-slot"
-    assert r["crossing"]["commit_horizon_s"] == 1.0
-    assert r["crossing"]["commit_span_s"] == 1.5
+    # 场景卡仍写 1.0（与三机卡相同）；13a 在构造时抬到 N*window+0.25 = 1.75。
+    # 抬高后已盖过一轮窗口，_commit_span 不再另加到 1.5。
+    assert r["crossing"]["commit_horizon_s"] == 1.75
+    assert r["crossing"]["commit_span_s"] == 1.75
     assert r["crossing"]["clearance_margin_m"] == 0.15
     assert r["safe_radius_m"] == 0.05
     assert r["upstream_deviation"] is False
