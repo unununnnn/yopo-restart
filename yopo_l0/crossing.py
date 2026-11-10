@@ -60,6 +60,8 @@ _GOAL_Y_STEP_M = 2.0
 # 超前超过这一截才改提悬停或短前缀。落后机仍走原来的 YOPO。
 _LEADER_MARGIN_M = 1.0
 _LEADER_PREFIX_S = 0.3
+# 低分位停住时，超前机最多再让到这么远，给落后机让出航道，同时把队形误差压在这个量级。
+_YIELD_LEAD_M = 5.0
 # 上游多项式的速度尖峰可以高出 vel_max。这里的限幅只为了计划契约肯收下那条曲线，
 # 不是安全清单；动力学仍用场景卡里的 a_max。收不进就改走刹车，不飞一条没过契约的曲线。
 _LIMITS = KinematicLimits(v_max=20.0, a_max=80.0, j_max=20000.0)
@@ -615,13 +617,38 @@ class CrossingFleet:
                 return occ
         return None
 
+    def _yield_motion(self, drone_id: str, head: np.ndarray, t_start: float) -> PiecewisePolynomial | None:
+        """门控停住时，超前机沿 +x 让出一小段，侧向收回自己的槽位。不追远处目标。"""
+        lead = float(self._progress.get(drone_id, 0.0)) - self.gate_s()
+        room = _YIELD_LEAD_M - lead
+        if room < 0.4:
+            return None
+        step = min(2.0, room)
+        slot_y = float(self.slots[drone_id][1])
+        y = float(head[0][1])
+        dest = np.array(
+            [float(head[0][0]) + step, y + 0.5 * (slot_y - y), float(head[0][2])],
+            dtype=float,
+        )
+        end = np.array([dest, np.zeros(3), np.zeros(3)])
+        for duration in (1.0, 1.4, 2.0):
+            traj = PiecewisePolynomial(t_start, [quintic(head, end, duration)])
+            if _kin_ok(traj, self.gentle_limits) and not self._curve_hits_tree(traj):
+                return traj
+        return None
+
     def _leader_proposal(self, node: ProtocolNode, t_start: float, head: np.ndarray, goal: np.ndarray, frame, yaw: float):
         """超前机只提悬停，或一条短前缀。不提交盖住下一轮窗口的长曲线。
 
-        低分位停住超过一轮时，离门不太远的超前机先让一条短前缀，避免悬停预留把落后机堵死。
+        低分位停住超过两秒时，先沿航向让出一小段，避免悬停预留堵在落后机正前方。
         """
-        lead = float(self._progress.get(node.id, 0.0)) - self.gate_s()
-        if self._gate_stalled and lead <= _LEADER_MARGIN_M + 2.5:
+        if self._gate_stalled:
+            motion = self._yield_motion(node.id, head, t_start)
+            if motion is not None:
+                occ, _reject = self._as_plan(node, t_start, head, motion)
+                if occ is not None:
+                    self._count(node.id, "LEADER_YIELD")
+                    return occ
             occ = self._try_prefix(node, t_start, head, goal, frame, yaw, creep=False)
             if occ is not None:
                 self._count(node.id, "LEADER_PREFIX")
