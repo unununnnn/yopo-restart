@@ -4,6 +4,7 @@ import json
 
 import numpy as np
 
+from yopo_l0.crossing import CrossingFleet
 from yopo_l0.forest import card_for_tier
 from yopo_l0.runner import RunConfig, run
 from yopo_l0.scene import load_card
@@ -60,6 +61,33 @@ def test_six_wedge_uses_the_three_drone_crossing_parameters():
     assert generated["forest"]["density"] == "sparse"
     assert generated["drones"] == six["drones"]
     assert generated["task"] == six["task"]
+    # 票 11c：只在六机林上打开。三机卡没有这个键，关着的时候前缀仍是 commit_horizon。
+    assert six["task"]["cover_rotation"] is True
+    assert sparse["task"]["cover_rotation"] is True
+    assert "cover_rotation" not in three["task"]
+    off = json.loads(MEDIUM.read_text())
+    off["task"] = {k: v for k, v in off["task"].items() if k != "cover_rotation"}
+    fleet_off = CrossingFleet(off, 0.01, record_inputs=False)
+    fleet_on = CrossingFleet(six, 0.01, record_inputs=False)
+    assert fleet_off.cover_rotation is False and fleet_on.cover_rotation is True
+    # 窗口和前缀都不改。开着只提高这次运行的 a_max，并换任务哈希。
+    assert abs(fleet_off.window - fleet_on.window) < 1e-12
+    assert abs(fleet_on.horizon - six["task"]["commit_horizon_s"]) < 1e-12
+    assert abs(fleet_on.window - six["task"]["window_len_s"]) < 1e-12
+    assert fleet_off.cfg.task_hash != fleet_on.cfg.task_hash
+    assert fleet_off.dynamics_override is None
+    assert fleet_on.dynamics_override == {"a_max": 18.0}
+
+
+def test_short_forest_scene_is_the_regression_prefix():
+    short = json.loads((ROOT / "scenes/crossing-6-forest-short.json").read_text())
+    assert short["name"] == "crossing-6-forest-short"
+    assert short["task"]["duration_s"] <= 5.0
+    assert short["task"]["cover_rotation"] is True
+    assert short["seeds"] == [0]
+    suite = (ROOT / "scenes/suite.txt").read_text()
+    assert "scenes/crossing-6-forest-short.json@crossing@0" in suite
+    assert "scenes/crossing-6-forest.json@" not in suite
 
 
 def test_medium_seed0_short_prefix_stays_clear_of_the_wall():

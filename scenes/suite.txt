@@ -17,5 +17,7 @@ scenes/formation-switch.json@switch
 # 票 07b medium 只跑 seed 0：单次墙钟约 56 s，低于 60 s。密档不进套件。
 scenes/crossing-forest.json@crossing@0
 # 票 11a：六机开阔区楔形，进程内，零故障（档位 none）。seed 0 墙钟约 14 s，低于 60 s，所以进 regress。
-# 故障档位和 ROS 2 形态不进这条套件。票 11b 六机穿林 seed 0 墙钟约 368 s，超过 60 s，不进套件。
+# 故障档位和 ROS 2 形态不进这条套件。票 11b 六机穿林全长 seed 0 墙钟约 368 s，超过 60 s，不进套件。
 scenes/formation-6-open.json@formation
+# 票 11c：六机林只留 3 s 前缀，打开 cover_rotation。全长 medium/sparse 不进套件。
+scenes/crossing-6-forest-short.json@crossing@0

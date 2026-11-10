@@ -227,12 +227,17 @@ class CrossingFleet:
         window = float(task.get("window_len_s", 0.25))
         if window <= 0.0:
             raise ValueError("window_len_s 必须为正")
-        self.window = window
         self.horizon = float(task.get("commit_horizon_s", 1.0))
         self.lookahead_s = float(task.get("lookahead_s", 2.0))
         self.min_ahead_m = float(task.get("min_ahead_m", 5.0))
         self.lateral_gain = float(task.get("lateral_gain", 0.25))
         self.arrive_radius = float(task.get("arrive_radius_m", 1.5))
+        # 默认关。六机一轮 1.5 s，长于 1 s 前缀，参考先停住，点质量 a_max=6 跟不上，
+        # 机体冲过保持点切进树。打开后只把动力学 a_max 提到 18，计划、窗口、safe_radius 不变。
+        # 见 ADR-0011。
+        self.cover_rotation = bool(task.get("cover_rotation", False))
+        self.dynamics_override = {"a_max": 18.0} if self.cover_rotation else None
+        self.window = window
         if min(self.horizon, self.lookahead_s, self.min_ahead_m) <= 0.0:
             raise ValueError("commit_horizon_s、lookahead_s、min_ahead_m 必须为正")
         if not 0.0 <= self.lateral_gain <= 2.0:
@@ -255,6 +260,7 @@ class CrossingFleet:
                     "min_ahead_m": self.min_ahead_m,
                     "lateral_gain": self.lateral_gain,
                     "arrive_radius_m": self.arrive_radius,
+                    **({"cover_rotation": True} if self.cover_rotation else {}),
                 }
             ),
             # 冲突跳过是常态，不能三次失败就停飞。
@@ -425,7 +431,7 @@ class CrossingFleet:
         if sense is None or sense[0] is None:
             self._count(node.id, "NO_DEPTH")
             return None
-        frame, yaw = sense
+        frame, yaw = sense[0], sense[1]
         final = self.goals[node.id]
         goal = self.goal_for(node.id, t_start, head[0])
         if self.record_inputs:
@@ -567,6 +573,8 @@ class CrossingFleet:
             "decisions": dict(sorted(decisions.items())),
             "window_len_s": self.cfg.window_len,
             "commit_horizon_s": self.horizon,
+            "cover_rotation": self.cover_rotation,
+            "a_max_override": None if self.dynamics_override is None else self.dynamics_override.get("a_max"),
             "lookahead_s": self.lookahead_s,
             "t_go_s": self.t_go,
             "motion_duration_s": self.rail.T,
