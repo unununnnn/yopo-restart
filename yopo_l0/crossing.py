@@ -1,15 +1,22 @@
 """票 07：三机交叉避障。队形尽力而为，避障优先。
 
 每机在自己的提案窗口里，用深度图跑上游 YOPO（走廊准入 + 最高分），把编队槽位
-融进目标当作偏置，不读场景几何。选出的多项式接到本机已提交计划在 t_start 的
+融进目标当作偏置。三机和柱林不读场景几何。选出的多项式接到本机已提交计划在 t_start 的
 状态上，经轮转窗口和预留 ACK/COMMIT 之后才交给动力学。跟邻机占用冲突就放弃
 这次提案，继续飞本机已经批准的计划。没有中央裁决者。
+
+票 13c：六机在林带里槽位是软目标。侧向、纵向只在界内松弛，避障是硬约束；出了林带
+收紧回原来的刚性槽位前瞻（11c 的前方 goto，这里把瞄准点收到还能走的那一截）。
+COMMIT 前对轨迹采样：中心到树的最小距离必须 ≥ body_radius + margin（默认 0.15 m）。
+不够就 CLEARANCE_SKIP，不把这条多项式交出去。这是 LSC「不可行走的走廊不进优化」
+的过滤，不引入 CPLEX。不改 safe_radius 默认 0.05 m，也不改 L0 的 kp / kd / tau。
 """
 
 from __future__ import annotations
 
 import copy
 import hashlib
+import math
 from dataclasses import replace
 
 import numpy as np
@@ -34,11 +41,42 @@ from yopo_swarm_core.protocol.node import ProtocolConfig, ProtocolNode
 from yopo_swarm_core.protocol.plan_occupancy import PlanConflictChecker, PlanOccupancy, hover_occupancy
 from yopo_swarm_core.trajectory import PiecewisePolynomial, PolySegment
 
+from .forest import _segment_distance, woods_bounds
 from .policy import R_yaw, read_safe_radius, upstream_decoder
+from .scene import Box, Cylinder
 
+# 轨迹采样步长。a=80 时 0.02 s 的弦高约 4 mm，门按采样到的最小距离判。
+_CLEARANCE_DT_S = 0.02
 # 上游多项式的速度尖峰可以高出 vel_max。这里的限幅只为了计划契约肯收下那条曲线，
 # 不是安全清单；动力学仍用场景卡里的 a_max。收不进就改走刹车，不飞一条没过契约的曲线。
 _LIMITS = KinematicLimits(v_max=20.0, a_max=80.0, j_max=20000.0)
+
+
+def _forest_obstacles(card: dict) -> tuple:
+    """场景卡里的树干和矮枝。墙和地面不参与净空门。几何没内联时返回空。"""
+    geom = card.get("geometry")
+    if not isinstance(geom, dict):
+        return ()
+    obs = []
+    for raw in geom.get("cylinders") or []:
+        if not str(raw.get("name", "")).startswith("t"):
+            continue
+        lean = raw.get("lean_xy") or (0.0, 0.0)
+        obs.append(
+            Cylinder(
+                raw["name"],
+                (float(raw["center_xy"][0]), float(raw["center_xy"][1])),
+                float(raw["radius"]),
+                float(raw["z_lo"]),
+                float(raw["z_hi"]),
+                (float(lean[0]), float(lean[1])),
+            )
+        )
+    for raw in geom.get("boxes") or []:
+        if not str(raw.get("name", "")).startswith("t"):
+            continue
+        obs.append(Box(raw["name"], tuple(raw["lo"]), tuple(raw["hi"])))
+    return tuple(obs)
 
 
 class LocalApproval:
@@ -237,8 +275,25 @@ class CrossingFleet:
             raise ValueError("commit_horizon_s、lookahead_s、min_ahead_m 必须为正")
         if not 0.0 <= self.lateral_gain <= 2.0:
             raise ValueError("lateral_gain 必须在 [0, 2]")
+        # 净空门的余量。门槛是机体半径 + margin，默认 0.15 m。不进 YOPO 的 safe_radius。
+        self.clearance_margin_m = float(task.get("clearance_margin_m", 0.15))
+        if self.clearance_margin_m < 0.0:
+            raise ValueError(f"clearance_margin_m 不能为负，收到 {self.clearance_margin_m}")
+        self.lateral_slack_m = float(task.get("lateral_slack_m", 2.0))
+        if self.lateral_slack_m < 0.0:
+            raise ValueError(f"lateral_slack_m 不能为负，收到 {self.lateral_slack_m}")
+        raw_long = task.get("longitudinal_slack_m", None)
+        self.longitudinal_slack_m = self.min_ahead_m if raw_long is None else float(raw_long)
+        if self.longitudinal_slack_m <= 0.0:
+            raise ValueError(f"longitudinal_slack_m 必须为正，收到 {self.longitudinal_slack_m}")
+        self.exit_tighten_m = float(task.get("exit_tighten_m", 4.0))
+        if self.exit_tighten_m < 0.0:
+            raise ValueError(f"exit_tighten_m 不能为负，收到 {self.exit_tighten_m}")
         # 时刻表从 t=0 走。各机第一次能执行已是自己窗口的下一沿，起步差一两个窗口。
         self.t_go = float(task.get("t_go_s", 0.0))
+        # 只有带森林的六机才松槽位、才上净空门。三机穿林和柱林保持原来的槽位前瞻。
+        self.in_forest = isinstance(card.get("forest"), dict)
+        self._trees = _forest_obstacles(card) if self.in_forest else ()
         spec = task["virtual_center"]
         self.cfg = ProtocolConfig(
             members=self.members,
@@ -256,6 +311,10 @@ class CrossingFleet:
                     "lateral_gain": self.lateral_gain,
                     "arrive_radius_m": self.arrive_radius,
                     "safe_radius_m": self.safe_radius_m,
+                    "clearance_margin_m": self.clearance_margin_m,
+                    "lateral_slack_m": self.lateral_slack_m,
+                    "longitudinal_slack_m": self.longitudinal_slack_m,
+                    "exit_tighten_m": self.exit_tighten_m,
                 }
             ),
             # 冲突跳过是常态，不能三次失败就停飞。
@@ -324,15 +383,214 @@ class CrossingFleet:
         """只收本机深度和航向。头状态稍后从本机已提交计划取，不用里程计位置冒充。"""
         self._sense[drone_id] = (frame, float(state.yaw))
 
+    def _forest_six(self) -> bool:
+        return self.in_forest and len(self.members) >= 6 and bool(self._trees)
+
+    def _required_clearance(self) -> float:
+        """轨迹中心到树表面的最小距离。等于机体半径加可配 margin。"""
+        return self.radius + self.clearance_margin_m
+
+    def _commit_span(self) -> float:
+        """六机轮转长于承诺地平线时，前缀盖到下一轮窗口，少飞末端急刹。"""
+        cycle = len(self.members) * self.window
+        if self._forest_six() and cycle > self.horizon + 1e-9:
+            return cycle
+        return self.horizon
+
+    def _elastic_active(self, x: float) -> bool:
+        """前方 goto 已经探进林带，且人还没出林。出林后回到刚性槽位。"""
+        if not self._forest_six():
+            return False
+        x_lo, x_hi, _y_lo, _y_hi = woods_bounds()
+        x = float(x)
+        if x >= x_hi:
+            return False
+        return (x + self.longitudinal_slack_m) >= x_lo
+
+    def _slack_scale(self, x: float) -> float:
+        """林中为 1。出林前 exit_tighten_m 内收到 0，侧向松弛跟着收掉。"""
+        _x_lo, x_hi, _y_lo, _y_hi = woods_bounds()
+        tighten = self.exit_tighten_m
+        x = float(x)
+        if x >= x_hi or tighten <= 1e-9:
+            return 0.0 if x >= x_hi else 1.0
+        if x <= x_hi - tighten:
+            return 1.0
+        u = (x - (x_hi - tighten)) / tighten
+        smooth = u * u * (3.0 - 2.0 * u)
+        return 1.0 - smooth
+
+    def _point_clearance(self, p: np.ndarray) -> float:
+        if not self._trees:
+            return math.inf
+        best = math.inf
+        point = np.asarray(p, dtype=float)
+        for ob in self._trees:
+            best = min(best, float(ob.distance(point)))
+            if best <= 0.0:
+                return best
+        return best
+
+    def _segment_clearance(self, a: np.ndarray, b: np.ndarray, *, stop_at: float | None = None) -> float:
+        """线段到树的最小距离。树干用轴线线段，矮枝用采样。"""
+        if not self._trees:
+            return math.inf
+        a = np.asarray(a, dtype=float)
+        b = np.asarray(b, dtype=float)
+        best = math.inf
+        dist = float(np.linalg.norm(b - a))
+        n_box = max(2, int(math.ceil(dist / 0.05)) + 1)
+        for ob in self._trees:
+            if isinstance(ob, Cylinder):
+                p0, p1 = ob.axis_ends()
+                gap = _segment_distance(a, b, p0, p1) - float(ob.radius)
+                best = min(best, gap)
+            else:
+                for s in np.linspace(0.0, 1.0, n_box):
+                    best = min(best, float(ob.distance((1.0 - s) * a + s * b)))
+            if stop_at is not None and best < stop_at:
+                return best
+        return best
+
+    def _trajectory_min_clearance(self, motion: PiecewisePolynomial) -> float:
+        """已拟合轨迹上的最小中心距。没有树就是无穷。"""
+        if not self._trees:
+            return math.inf
+        span = float(motion.t_end - motion.t_start)
+        n = max(2, int(math.ceil(span / _CLEARANCE_DT_S)) + 1)
+        best = math.inf
+        need = self._required_clearance()
+        for t in np.linspace(float(motion.t_start), float(motion.t_end), n):
+            best = min(best, self._point_clearance(np.asarray(motion.evaluate(float(t)), dtype=float)))
+            if best < need:
+                return best
+        return best
+
+    def _clearance_ok(self, motion: PiecewisePolynomial) -> bool:
+        """COMMIT 前的硬净空门。三机和柱林不开这扇门。"""
+        if not self._forest_six():
+            return True
+        return self._trajectory_min_clearance(motion) + 1e-9 >= self._required_clearance()
+
+    def _y_band(self, head_y: float, slot_y: float, scale: float) -> tuple[float, float]:
+        """侧向松弛：槽位两侧各 lateral_slack，再剪到走廊里，也不一次横跳超过同一界。"""
+        _x_lo, _x_hi, y_lo, y_hi = woods_bounds()
+        slack = self.lateral_slack_m * float(scale)
+        band_lo = max(y_lo, float(slot_y) - slack)
+        band_hi = min(y_hi, float(slot_y) + slack)
+        near_lo = float(head_y) - slack
+        near_hi = float(head_y) + slack
+        lo = max(band_lo, near_lo)
+        hi = min(band_hi, near_hi)
+        if lo > hi + 1e-9:
+            edge = min(max(float(head_y), band_lo), band_hi)
+            return edge, edge
+        return lo, hi
+
+    def _candidate_ys(self, head_y: float, slot_y: float, scale: float) -> list[float]:
+        lo, hi = self._y_band(head_y, slot_y, scale)
+        raw = [float(slot_y), float(head_y), lo, hi]
+        if hi - lo > 1e-6:
+            raw.extend(float(y) for y in np.linspace(lo, hi, 9))
+        out: list[float] = []
+        for y in raw:
+            if y < lo - 1e-9 or y > hi + 1e-9:
+                continue
+            y = min(max(y, lo), hi)
+            if all(abs(y - z) > 1e-6 for z in out):
+                out.append(y)
+        if not out:
+            out.append(0.5 * (lo + hi))
+        return out
+
+    def _lane_reach(self, head: np.ndarray, y: float, z_goal: float) -> tuple[float, float, np.ndarray]:
+        """射线上整段过净空门的最远点。缩短时仍停在同一条射线上，不另画一条斜线。"""
+        head = np.asarray(head, dtype=float)
+        cap = float(self.longitudinal_slack_m)
+        need = self._required_clearance()
+        far = np.array([float(head[0]) + cap, float(y), float(z_goal)], dtype=float)
+
+        def at(dist: float) -> np.ndarray:
+            return head + (dist / cap) * (far - head)
+
+        if self._segment_clearance(head, far, stop_at=need) + 1e-9 >= need:
+            return cap, self._segment_clearance(head, far), far
+        lo, hi = 0.0, cap
+        for _ in range(12):
+            mid = 0.5 * (lo + hi)
+            if self._segment_clearance(head, at(mid), stop_at=need) + 1e-9 >= need:
+                lo = mid
+            else:
+                hi = mid
+        probe = at(min(1.0, cap))
+        return lo, self._segment_clearance(head, probe), at(lo)
+
+    def _search_goals(self, head: np.ndarray, final: np.ndarray, slot_y: float, scale: float) -> list[np.ndarray]:
+        """界内挑侧向。能走的优先贴槽位，再取更长的净空；都不能走就挑 1 m 处最干净的。"""
+        head = np.asarray(head, dtype=float)
+        z_goal = float(final[2])
+        cap = float(self.longitudinal_slack_m)
+        ranked: list[tuple] = []
+        for y in self._candidate_ys(float(head[1]), slot_y, scale):
+            reach, probe, point = self._lane_reach(head, y, z_goal)
+            far = np.array([float(head[0]) + cap, float(y), z_goal], dtype=float)
+            room = float(final[0]) - float(head[0])
+            if room <= 1.0:
+                dist = min(max(room, 0.0), cap)
+                goal = head + (dist / cap) * (far - head)
+            elif reach + 1e-9 >= 1.0:
+                goal = np.array(point, dtype=float, copy=True)
+            else:
+                goal = head + (min(1.0, cap) / cap) * (far - head)
+            goal = np.array(goal, dtype=float, copy=True)
+            if float(goal[0]) > float(final[0]):
+                goal[0] = float(final[0])
+            goal[2] = z_goal
+            if reach + 1e-9 >= 1.0:
+                key = (1, -abs(y - float(slot_y)), reach, -abs(y - float(head[1])))
+            else:
+                key = (0, probe, -abs(y - float(slot_y)), -abs(y - float(head[1])))
+            ranked.append((key, goal, float(y)))
+        ranked.sort(key=lambda item: item[0], reverse=True)
+        goals: list[np.ndarray] = []
+        chosen: list[float] = []
+        for _key, goal, y in ranked:
+            if any(abs(y - prev) <= 1e-6 for prev in chosen):
+                continue
+            chosen.append(y)
+            goals.append(goal)
+            if len(goals) == 3:
+                break
+        if not goals:
+            goals.append(np.array([min(float(final[0]), float(head[0]) + 1.0), float(slot_y), z_goal]))
+        return goals
+
+    def _elastic_goals(self, head: np.ndarray, final: np.ndarray, slot_y: float) -> list[np.ndarray]:
+        """出林收紧。收紧后的射线要是已经进树，就放回界内松弛，避障不让步。"""
+        head = np.asarray(head, dtype=float)
+        scale = self._slack_scale(float(head[0]))
+        goals = self._search_goals(head, final, slot_y, scale)
+        need = self._required_clearance()
+        if scale < 1.0 - 1e-9 and self._segment_clearance(head, goals[0], stop_at=need) + 1e-9 < need:
+            wider = self._search_goals(head, final, slot_y, 1.0)
+            wide_gap = self._segment_clearance(head, wider[0])
+            tight_gap = self._segment_clearance(head, goals[0])
+            if wide_gap + 1e-9 >= need or wide_gap > tight_gap + 1e-9:
+                return wider
+        return goals
+
     def goal_for(self, drone_id: str, t: float, head_p: np.ndarray) -> np.ndarray:
         """槽位前瞻和终点槽位的混合，再加一点拉回航线的侧向偏置。
 
         目标始终在机头前方、终点以内，避免网络看见身后的目标掉头。
         避障不在这里做：进网络的是这个目标和本机深度。
+        六机在林带里不走这条混合，槽位只是界内的软目标，见 `_elastic_goals`。
         """
         slot = self.slots[drone_id]
         head_p = np.asarray(head_p, dtype=float)
         final = self.goals[drone_id]
+        if self._elastic_active(float(head_p[0])):
+            return self._elastic_goals(head_p, final, float(slot[1]))[0]
         ahead = self.rail.position(t + self.lookahead_s, self.t_go, slot)
         aim_x = min(float(final[0]), max(float(ahead[0]), float(head_p[0]) + self.min_ahead_m))
         aim = np.array([aim_x, float(ahead[1]), float(ahead[2])])
@@ -367,7 +625,7 @@ class CrossingFleet:
     def _fit_yopo(self, raw: PiecewisePolynomial) -> PiecewisePolynomial | None:
         """从长到短取过运动学的前缀。系数不变，避障形状还是这条 YOPO 曲线。"""
         total = raw.t_end - raw.t_start
-        for horizon in (min(self.horizon, total), 0.7, 0.45, 0.3):
+        for horizon in (min(self._commit_span(), total), 0.7, 0.45, 0.3):
             if horizon > total + 1e-9 or horizon < 0.2:
                 continue
             try:
@@ -439,31 +697,50 @@ class CrossingFleet:
             return None
         code = "OK"
         motions: list[PiecewisePolynomial] = []
-        if float(np.linalg.norm(head[0] - final)) < self.arrive_radius:
+        goal_list = [goal]
+        arriving = float(np.linalg.norm(head[0] - final)) < self.arrive_radius
+        if arriving:
             motion = _stop_at(head, t_start, final, self.pcfg.limits)
+            if motion is not None and not self._clearance_ok(motion):
+                # 停到槽位的这段已经进树：不提交。继续飞上一份计划。
+                self._count(node.id, "CLEARANCE_SKIP")
+                return None
             if motion is not None:
                 motions = [motion]
                 code = "ARRIVED_HOLD"
             else:
                 code = "ARRIVE_KIN_FALLBACK"
-        else:
-            try:
-                motions, code = self._yopo_options(head, t_start, goal, frame.depth, yaw)
-            except (ValueError, np.linalg.LinAlgError, FloatingPointError):
-                motions, code = [], "YOPO_FAIL"
-            if code == "CORRIDOR_EMPTY_HOVER":
-                self.empty_solution += 1
+        elif self._elastic_active(float(head[0][0])):
+            goal_list = self._elastic_goals(head[0], final, float(self.slots[node.id][1]))
         occ = None
         reject = None
         used_alt = False
-        for i, motion in enumerate(motions):
-            occ, reject = self._as_plan(node, t_start, head, motion)
-            if occ is not None:
-                used_alt = i > 0
-                break
+        shifted = False
+        if arriving:
+            occ, reject, used_alt = self._take_motions(node, t_start, head, motions)
+        else:
+            for gi, g in enumerate(goal_list):
+                try:
+                    motions, code = self._yopo_options(head, t_start, g, frame.depth, yaw)
+                except (ValueError, np.linalg.LinAlgError, FloatingPointError):
+                    motions, code = [], "YOPO_FAIL"
+                if code == "CORRIDOR_EMPTY_HOVER":
+                    # 和原来一样：这一次前向没有准入走廊，记一次无解。换一条界内目标再试。
+                    if gi == 0:
+                        self.empty_solution += 1
+                    reject = code
+                    continue
+                occ, reject, used_alt = self._take_motions(node, t_start, head, motions)
+                if occ is not None:
+                    shifted = gi > 0
+                    break
         if occ is None:
-            # 最高分和后面几个准入候选都和邻机预留重叠：不硬挤。能刹车就停在自己的管子里。
+            # 最高分和后面几个准入候选都和邻机预留重叠，或净空不够：不硬挤。
+            # 能刹车就停在自己的管子里。刹车要是已经进树，也不提交。
             brake = _brake_motion(head, t_start, self.pcfg.limits)
+            if brake is not None and not self._clearance_ok(brake):
+                brake = None
+                reject = "CLEARANCE_SKIP"
             if brake is not None:
                 occ, reject2 = self._as_plan(node, t_start, head, brake)
                 if occ is not None:
@@ -472,8 +749,26 @@ class CrossingFleet:
                 reject = reject2 or reject
             self._count(node.id, "CONFLICT_SKIP" if reject == "CONFLICT_SKIP" else (reject or code))
             return None
-        self._count(node.id, "YOPO_ALT" if used_alt else code)
+        if shifted:
+            self._count(node.id, "SLOT_SHIFT")
+        else:
+            self._count(node.id, "YOPO_ALT" if used_alt else code)
         return occ
+
+    def _take_motions(self, node: ProtocolNode, t_start: float, head: np.ndarray, motions: list[PiecewisePolynomial]):
+        """净空不够的多项式不进 _as_plan，也就不会被提案、不会 COMMIT。"""
+        occ = None
+        reject = None
+        used_alt = False
+        for i, motion in enumerate(motions):
+            if not self._clearance_ok(motion):
+                reject = "CLEARANCE_SKIP"
+                continue
+            occ, reject = self._as_plan(node, t_start, head, motion)
+            if occ is not None:
+                used_alt = i > 0
+                break
+        return occ, reject, used_alt
 
     def _emit(self, bus, now: float, src: str, msg) -> None:
         dests = [msg.dest] if getattr(msg, "dest", None) else [m for m in self.members if m != src]
@@ -563,7 +858,12 @@ class CrossingFleet:
             "frozen": self.frozen,
             "adjudicator": None,
             "avoidance": "upstream-yopo",
-            "goal_bias": "slot-lookahead-blend",
+            "goal_bias": "elastic-slot" if self._forest_six() else "slot-lookahead-blend",
+            "clearance_margin_m": self.clearance_margin_m,
+            "clearance_required_m": self._required_clearance(),
+            "commit_span_s": self._commit_span(),
+            "lateral_slack_m": self.lateral_slack_m,
+            "longitudinal_slack_m": self.longitudinal_slack_m,
             "body_radius_m": self.radius,
             "safe_radius_m": self.safe_radius_m,
             "empty_solution_count": int(self.empty_solution),

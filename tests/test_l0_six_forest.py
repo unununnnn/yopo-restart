@@ -70,5 +70,12 @@ def test_medium_seed0_short_prefix_stays_clear_of_the_wall():
     assert r["forest_density"] == "medium"
     assert r["outcome"] != "COLLISION"
     assert r["crossing"]["avoidance"] == "upstream-yopo"
+    assert r["crossing"]["goal_bias"] == "elastic-slot"
+    assert r["crossing"]["commit_horizon_s"] == 1.0
+    assert r["crossing"]["commit_span_s"] == 1.5
+    assert r["crossing"]["clearance_margin_m"] == 0.15
+    assert r["safe_radius_m"] == 0.05
+    assert r["upstream_deviation"] is False
     assert r["crossing"]["adjudicator"] is None
     assert r["min_inter_drone_distance_m"] > 2 * 0.35
+    assert card.card["dynamics"] == {"model": "point_mass_lag", "tau_s": 0.1, "kp": 4.0, "kd": 3.0, "a_max": 6.0}
