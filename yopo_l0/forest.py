@@ -1,7 +1,10 @@
-"""票 07b：泊松盘树干林。几何只由种子和密度档决定，不进规划器。
+"""票 07b：泊松盘树干林。几何只由种子和密度档决定。
 
 沿走廊的净距是变的：入口疏、中段密、密林之后是空地。
 密度档只改中段树干表面的最小净距，不改规划参数。
+
+票 13c：六机穿林会读这里生成的树干做弹性槽位和提交前净空门。生成规则不变。
+三机和柱林的规划器仍不读这份几何。
 
 - ``dense`` 的中段最小净距落在 1.5–2.0 m（树干表面，不是圆心）。
 - 树干半径从三角分布里抽，约 0.10–0.40 m。
@@ -312,6 +315,16 @@ def woods_x_interval() -> tuple[float, float]:
 
 def generate_forest_geometry(spec: dict) -> dict:
     return generate_forest(spec)[0]
+
+
+def woods_x_interval() -> tuple[float, float]:
+    """林带在走廊 x 上的范围。入口在这之前，空地在这之后。"""
+    return _WOODS_LO, _WOODS_HI
+
+
+def woods_bounds() -> tuple[float, float, float, float]:
+    """林带 x 范围和走廊 y 范围。弹性槽位的侧向松弛剪在这个 y 区间里。"""
+    return _WOODS_LO, _WOODS_HI, _Y_LO, _Y_HI
 
 
 def card_for_tier(card: dict, tier: str) -> dict:

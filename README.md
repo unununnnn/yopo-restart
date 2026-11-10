@@ -76,7 +76,7 @@ scripts/setup_ros2.sh    # Ubuntu 24.04 → Jazzy，22.04 → Humble；ros-*-ros
 
 ## 六机开阔区 + 故障档位（票 11a，M4）
 
-楔形六机在开阔区保持队形。判据未冻结，表上只报数。柱林六机（11b）不在这张票里。丢 20% 时收不齐 ACK 的补票是票 06c：窗口内重发同一份提案，不改追赶轨迹和跟踪参数。全丢仍然停在起点。
+楔形六机在开阔区保持队形。判据未冻结，表上只报数。柱林六机（11b）不在这张票里。丢 20% 时收不齐 ACK 的补票是票 06c：窗口内重发同一份提案，不改追赶轨迹和跟踪参数。票 13d 在此之上把新轨留在 Delay Check，δ_DC = 0.05 s，已提交轨到提交前都不换。全丢仍然停在起点。穿林不打开这段等待。
 
 ```bash
 .venv/bin/python -m yopo_l0.batch scenes/formation-6-open.json@formation \
@@ -87,7 +87,7 @@ scripts/setup_ros2.sh    # Ubuntu 24.04 → Jazzy，22.04 → Humble；ros-*-ros
 
 ## 六机穿林（票 11b）
 
-同一只楔形穿过 07b 的 medium 林，sparse 用同一张规划参数再跑一遍。避障是上游 YOPO。林带外面，队形只偏置目标，和票 07 同一套。林带里面六机不追已经跑远的槽位：目标改成本机前方的 goto，侧向让到树干净空够的位置；承诺的 YOPO 前缀盖住下一轮窗口，避免飞末端急刹。曲线要是已经进了树，就不提交，左右错开目标再试。出了林带再并回槽位。票 13b 起虚拟中心按全队沿中心投影的低分位走（默认 min），不再按墙钟 × speed 开环推进；超前机只提案悬停或短前缀。开阔区编队卡写 `progress_gate=false`，时刻表不变。seeds 0–9。判据未冻结。虚拟中心起点在 x=6 m，好让最后一排停在后墙前面。L0 仍是 upstream，safe_radius 仍是 0.05 m，kp / kd / tau / a_max 不改。
+同一只楔形穿过 07b 的 medium 林，sparse 用同一张规划参数再跑一遍。避障是上游 YOPO。林带外面，队形只偏置目标，和票 07 同一套。林带里面（票 13c）六机的槽位是软目标：侧向、纵向只在界内松弛，瞄准一条还能走的前方 goto；出林再收紧回刚性槽位。COMMIT 前有一道硬净空门，轨迹采样的最小距离要 ≥ 机体半径 + margin（默认 0.15 m），不够就 `CLEARANCE_SKIP`，不提交。承诺视界按 13a 盖住一轮窗口，计划 a_max 与动力学相同。票 13b 起虚拟中心按全队沿中心投影的低分位走（默认 min），不再按墙钟 × speed 开环推进；超前机只提案悬停或短前缀。开阔区编队卡写 `progress_gate=false`，时刻表不变。seeds 0–9。判据未冻结。虚拟中心起点在 x=6 m，好让最后一排停在后墙前面。L0 仍是 upstream，safe_radius 仍是 0.05 m，kp / kd / tau / a_max 不改。
 
 ```bash
 .venv/bin/python -m yopo_l0.batch \

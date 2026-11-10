@@ -14,8 +14,12 @@ COMMIT/RELEASE 用 resend_period 从总线上重发，免得对端的预留一�
 速度和加速度不超过计划限幅。动力学仍然只跟踪本机已经 COMMIT 的计划。
 
 票 06c：提案和 ACK 原来都不重传，六机一轮要 5 张票，丢 20% 时这一窗基本收不齐。
-vendored 协议节点不动。exchange 在截止前按 0.02 s 重发同一份提案，对端再 ACK；
-截止前 0.10 s 不再重发，避免时延副本掉进下一窗口被当成 NACK。追赶轨迹和跟踪参数不动。
+exchange 在截止前按 0.02 s 重发同一份提案，对端再 ACK。票齐了就停；截止前 0.10 s
+也不再重发，避免时延副本掉进下一窗口被当成 NACK。追赶轨迹和跟踪参数不动。
+
+票 13d：新轨走 PROPOSED → TENTATIVE → DELAY_CHECK → COMMITTED。δ_DC = 0.05 s，
+等于故障档时延上界。Delay Check 没结束不提交；已提交的安全轨一直留着。
+窗口内重发的是同一 reservation，Delay Check 作废后重提的是新 plan_seq。
 """
 
 from __future__ import annotations
@@ -44,6 +48,8 @@ _MAX_SEGMENTS = 240
 # guard 盖住故障档最大时延 0.05 s 的一个来回（提案 + ACK）。
 _PROPOSAL_RESEND_PERIOD = 0.02
 _PROPOSAL_RESEND_GUARD = 0.10
+# RMADER δ_DC。故障档 delay 上界是 0.05 s，取等号。必须小于 window_len_s（0.5）。
+_DELAY_CHECK_S = 0.05
 
 
 class LocalApproval:
@@ -507,6 +513,7 @@ class FormationFleet:
             # 超时后重发 RELEASE/COMMIT。默认关掉的话，丢了的 RELEASE 会让对端预留一直占着本槽。
             resend_period=window,
             heartbeat_period=None,
+            delay_check_s=_DELAY_CHECK_S,
             # 默认 3 次失败就停提案。丢包下要一直重新提案才能追上，不能中途 HALT。
             max_failed_rounds=10_000,
         )
@@ -632,6 +639,9 @@ class FormationFleet:
         inflight = node.in_flight
         if inflight is None:
             return
+        # 票齐之后只剩 Delay Check 在等时间。再重发会多出 ACK，也会把副本送进下一窗。
+        if node._quorum(inflight):
+            return
         if now + self.proposal_resend_guard >= inflight.record.t_start:
             return
         last = self._proposal_sent_at[node.id]
@@ -642,15 +652,7 @@ class FormationFleet:
         node._log("resend_proposal", rid=msg.reservation_id, t=now)
         self._emit(bus, now, node.id, msg)
 
-    def exchange(self, bus, now: float) -> None:
-        bus = self._transport_or_bus(bus)
-        for did in self.members:
-            node = self.nodes[did]
-            for msg in node.on_tick(now):
-                if getattr(msg, "kind", None) == "PROPOSE":
-                    self._proposal_sent_at[did] = now
-                self._emit(bus, now, did, msg)
-            self._resend_open_proposal(bus, node, now)
+    def _pump(self, bus, now: float) -> None:
         for _ in range(8):
             envs = bus.poll(now)
             if not envs:
@@ -662,6 +664,22 @@ class FormationFleet:
                 for reply in self.nodes[env.dest].on_message(env.payload["msg"], now):
                     self._emit(bus, now, env.dest, reply)
         raise RuntimeError("协议消息在一个 tick 内没有投递完")
+
+    def exchange(self, bus, now: float) -> None:
+        bus = self._transport_or_bus(bus)
+        for did in self.members:
+            node = self.nodes[did]
+            for msg in node.on_tick(now):
+                if getattr(msg, "kind", None) == "PROPOSE":
+                    self._proposal_sent_at[did] = now
+                self._emit(bus, now, did, msg)
+            self._resend_open_proposal(bus, node, now)
+        # 先把本拍到期的邻机轨迹和 ACK 看完，再决定 Delay Check 能不能提交。
+        self._pump(bus, now)
+        for did in self.members:
+            for msg in self.nodes[did].finalize_delay_check(now):
+                self._emit(bus, now, did, msg)
+        self._pump(bus, now)
 
     def track(self, drone_id: str, now: float):
         rec = self.nodes[drone_id].executing(now)

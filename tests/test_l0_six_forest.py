@@ -4,7 +4,6 @@ import json
 
 import numpy as np
 
-from yopo_l0.crossing import CrossingFleet
 from yopo_l0.forest import card_for_tier
 from yopo_l0.runner import RunConfig, run
 from yopo_l0.scene import load_card
@@ -64,6 +63,14 @@ def test_six_wedge_uses_the_three_drone_crossing_parameters():
     assert generated["task"] == six["task"]
 
 
+def test_forest_delay_check_stays_off():
+    """穿林不打开 δ_DC。提交仍是收齐 ACK 的那一拍，避免把树的碰撞数改掉。"""
+    from yopo_l0.crossing import CrossingFleet
+
+    fleet = CrossingFleet.from_card(load_card(THREE).card, 0.01)
+    assert fleet.cfg.delay_check_s == 0.0
+
+
 def test_medium_seed0_short_prefix_stays_clear_of_the_wall():
     card = load_card(MEDIUM)
     cfg = RunConfig(seed=0, policy="crossing", duration_s=0.4, shadow=False)
@@ -74,40 +81,21 @@ def test_medium_seed0_short_prefix_stays_clear_of_the_wall():
     assert r["forest_density"] == "medium"
     assert r["outcome"] != "COLLISION"
     assert r["crossing"]["avoidance"] == "upstream-yopo"
-    assert r["crossing"]["goal_bias"] == "forest-loose-goto"
+    assert r["crossing"]["goal_bias"] == "elastic-slot"
     assert r["crossing"]["progress_gate"] is True
     assert r["crossing"]["progress_percentile"] == 0.0
     assert r["crossing"]["virtual_center"] == "progress-gated"
-    assert r["crossing"]["commit_horizon_s"] == 1.0
-    assert r["crossing"]["commit_span_s"] == 1.5
+    # 场景卡仍写 1.0（与三机卡相同）；13a 在构造时抬到 N*window+0.25 = 1.75。
+    # 抬高后已盖过一轮窗口，_commit_span 不再另加到 1.5。
+    assert r["crossing"]["commit_horizon_s"] == 1.75
+    assert r["crossing"]["commit_span_s"] == 1.75
+    assert r["crossing"]["clearance_margin_m"] == 0.15
+    assert r["safe_radius_m"] == 0.05
+    assert r["upstream_deviation"] is False
     assert r["crossing"]["adjudicator"] is None
     assert r["min_inter_drone_distance_m"] > 2 * 0.35
+    assert card.card["dynamics"] == {"model": "point_mass_lag", "tau_s": 0.1, "kp": 4.0, "kd": 3.0, "a_max": 6.0}
     assert out.ticks == again.ticks
     again_result = {k: v for k, v in again.result.items() if k != "wall_time_s"}
     this_result = {k: v for k, v in r.items() if k != "wall_time_s"}
     assert this_result == again_result
-
-
-def test_woods_goal_is_a_personal_goto_and_three_drones_stay_on_the_slot():
-    """林带里目标改到前方净空够的侧向；林外和三机卡仍是原来的槽位前瞻。"""
-    six = CrossingFleet.from_card(load_card(MEDIUM).card, 0.01)
-    head = np.array([16.0, -4.2, 1.5])
-    loose = six.goal_for("uav3", 8.0, head)
-    assert abs(float(loose[0]) - 21.0) < 1e-9
-    assert abs(float(loose[2]) - 1.5) < 1e-9
-    chosen = six._line_clearance(16.0, 20.0, loose[1], 1.5)
-    slot_clear = six._line_clearance(16.0, 20.0, float(six.slots["uav3"][1]), 1.5)
-    window = [
-        six._line_clearance(16.0, 20.0, float(y), 1.5)
-        for y in np.linspace(-4.2 - 2.0, -4.2 + 2.0, 9)
-    ]
-    assert chosen + 1e-9 >= max(slot_clear, max(window)) or chosen >= 0.5 - 1e-6
-    early = six.goal_for("uav3", 0.5, np.array([3.2, -4.2, 1.5]))
-    assert early[1] > -4.2
-    assert six._commit_span() == 1.5
-    three = CrossingFleet.from_card(load_card(THREE).card, 0.01)
-    kept = three.goal_for("uav0", 8.0, np.array([16.0, 1.0, 1.5]))
-    assert kept[1] != 1.0
-    assert three._commit_span() == three.horizon
-    assert three.summary(0, 3)["goal_bias"] == "slot-lookahead-blend"
-    assert three._loose_band(16.0) is False

@@ -19,6 +19,7 @@ from yopo_swarm_core.protocol.node import (
     PlanRecord,
     ProtocolConfig,
     ProtocolNode,
+    TrackPhase,
     default_planner,
 )
 from yopo_swarm_core.protocol.occupancy import (
@@ -44,6 +45,7 @@ __all__ = [
     "Reason",
     "Release",
     "Span",
+    "TrackPhase",
     "VersionContext",
     "Vote",
     "default_planner",
