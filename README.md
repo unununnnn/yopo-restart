@@ -87,7 +87,7 @@ scripts/setup_ros2.sh    # Ubuntu 24.04 → Jazzy，22.04 → Humble；ros-*-ros
 
 ## 六机穿林（票 11b）
 
-同一只楔形穿过 07b 的 medium 林，sparse 用同一张规划参数再跑一遍。避障是上游 YOPO，队形只偏置目标，和票 07 同一套。seeds 0–9。判据未冻结。虚拟中心起点在 x=6 m，好让最后一排停在后墙前面。
+同一只楔形穿过 07b 的 medium 林，sparse 用同一张规划参数再跑一遍。避障是上游 YOPO。林带外面，队形只偏置目标，和票 07 同一套。林带里面六机不追已经跑远的槽位：目标改成本机前方的 goto，侧向让到树干净空够的位置；承诺的 YOPO 前缀盖住下一轮窗口，避免飞末端急刹。曲线要是已经进了树，就不提交，左右错开目标再试。出了林带再并回槽位。seeds 0–9。判据未冻结。虚拟中心起点在 x=6 m，好让最后一排停在后墙前面。L0 仍是 upstream，safe_radius 仍是 0.05 m，kp / kd / tau / a_max 不改。
 
 ```bash
 .venv/bin/python -m yopo_l0.batch \

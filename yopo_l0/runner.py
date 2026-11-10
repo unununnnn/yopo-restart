@@ -160,10 +160,6 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
     else:
         tol = float(crit["hover_tolerance_m"])
     model = make_model(c["dynamics"])
-    override = getattr(fleet, "dynamics_override", None) if fleet is not None else None
-    if override:
-        # 只在场景卡打开 cover_rotation 时有这份覆盖。默认 a_max 仍是卡上的 6。
-        model = make_model({**c["dynamics"], **override})
     cam_cfg = CameraConfig.from_card(c["camera"])
 
     root = np.random.SeedSequence(cfg.seed)

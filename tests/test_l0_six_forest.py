@@ -61,29 +61,25 @@ def test_six_wedge_uses_the_three_drone_crossing_parameters():
     assert generated["forest"]["density"] == "sparse"
     assert generated["drones"] == six["drones"]
     assert generated["task"] == six["task"]
-    # 票 11c：只在六机林上打开。三机卡没有这个键，关着的时候前缀仍是 commit_horizon。
-    assert six["task"]["cover_rotation"] is True
-    assert sparse["task"]["cover_rotation"] is True
-    assert "cover_rotation" not in three["task"]
+    # 票 11c：编队偏离默认开，只在六机林里生效。forest_loose=false 退回槽位前瞻。
+    assert "forest_loose" not in six["task"]
+    assert "cover_rotation" not in six["task"]
+    fleet = CrossingFleet(six, 0.01, record_inputs=False)
+    assert fleet.forest_loose is True and fleet._forest_six() is True
+    assert fleet._commit_span() == 1.5
     off = json.loads(MEDIUM.read_text())
-    off["task"] = {k: v for k, v in off["task"].items() if k != "cover_rotation"}
+    off["task"] = {**off["task"], "forest_loose": False}
     fleet_off = CrossingFleet(off, 0.01, record_inputs=False)
-    fleet_on = CrossingFleet(six, 0.01, record_inputs=False)
-    assert fleet_off.cover_rotation is False and fleet_on.cover_rotation is True
-    # 窗口和前缀都不改。开着只提高这次运行的 a_max，并换任务哈希。
-    assert abs(fleet_off.window - fleet_on.window) < 1e-12
-    assert abs(fleet_on.horizon - six["task"]["commit_horizon_s"]) < 1e-12
-    assert abs(fleet_on.window - six["task"]["window_len_s"]) < 1e-12
-    assert fleet_off.cfg.task_hash != fleet_on.cfg.task_hash
-    assert fleet_off.dynamics_override is None
-    assert fleet_on.dynamics_override == {"a_max": 18.0}
+    assert fleet_off._forest_six() is False
+    assert fleet_off._commit_span() == fleet_off.horizon
+    assert fleet_off.cfg.task_hash != fleet.cfg.task_hash
 
 
 def test_short_forest_scene_is_the_regression_prefix():
     short = json.loads((ROOT / "scenes/crossing-6-forest-short.json").read_text())
     assert short["name"] == "crossing-6-forest-short"
     assert short["task"]["duration_s"] <= 5.0
-    assert short["task"]["cover_rotation"] is True
+    assert "cover_rotation" not in short["task"]
     assert short["seeds"] == [0]
     suite = (ROOT / "scenes/suite.txt").read_text()
     assert "scenes/crossing-6-forest-short.json@crossing@0" in suite
@@ -92,11 +88,45 @@ def test_short_forest_scene_is_the_regression_prefix():
 
 def test_medium_seed0_short_prefix_stays_clear_of_the_wall():
     card = load_card(MEDIUM)
-    out = run(card, RunConfig(seed=0, policy="crossing", duration_s=0.4, shadow=False))
+    cfg = RunConfig(seed=0, policy="crossing", duration_s=0.4, shadow=False)
+    out = run(card, cfg)
+    again = run(card, cfg)
     r = out.result
     assert r["n_drones"] == 6 and r["task"] == "crossing" and r["policy"] == "crossing"
     assert r["forest_density"] == "medium"
     assert r["outcome"] != "COLLISION"
     assert r["crossing"]["avoidance"] == "upstream-yopo"
+    assert r["crossing"]["goal_bias"] == "forest-loose-goto"
+    assert r["crossing"]["commit_horizon_s"] == 1.0
+    assert r["crossing"]["commit_span_s"] == 1.5
     assert r["crossing"]["adjudicator"] is None
     assert r["min_inter_drone_distance_m"] > 2 * 0.35
+    assert out.ticks == again.ticks
+    again_result = {k: v for k, v in again.result.items() if k != "wall_time_s"}
+    this_result = {k: v for k, v in r.items() if k != "wall_time_s"}
+    assert this_result == again_result
+
+
+def test_woods_goal_is_a_personal_goto_and_three_drones_stay_on_the_slot():
+    """林带里目标改到前方净空够的侧向；林外和三机卡仍是原来的槽位前瞻。"""
+    six = CrossingFleet.from_card(load_card(MEDIUM).card, 0.01)
+    head = np.array([16.0, -4.2, 1.5])
+    loose = six.goal_for("uav3", 8.0, head)
+    assert abs(float(loose[0]) - 21.0) < 1e-9
+    assert abs(float(loose[2]) - 1.5) < 1e-9
+    chosen = six._line_clearance(16.0, 20.0, loose[1], 1.5)
+    slot_clear = six._line_clearance(16.0, 20.0, float(six.slots["uav3"][1]), 1.5)
+    window = [
+        six._line_clearance(16.0, 20.0, float(y), 1.5)
+        for y in np.linspace(-4.2 - 2.0, -4.2 + 2.0, 9)
+    ]
+    assert chosen + 1e-9 >= max(slot_clear, max(window)) or chosen >= 0.5 - 1e-6
+    early = six.goal_for("uav3", 0.5, np.array([3.2, -4.2, 1.5]))
+    assert early[1] > -4.2
+    assert six._commit_span() == 1.5
+    three = CrossingFleet.from_card(load_card(THREE).card, 0.01)
+    kept = three.goal_for("uav0", 8.0, np.array([16.0, 1.0, 1.5]))
+    assert kept[1] != 1.0
+    assert three._commit_span() == three.horizon
+    assert three.summary(0, 3)["goal_bias"] == "slot-lookahead-blend"
+    assert three._loose_band(16.0) is False
