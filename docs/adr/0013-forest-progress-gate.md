@@ -6,6 +6,8 @@ Scope: L0 crossing virtual center; formation schedule unchanged
 
 # 穿林进度门控，开阔区保持开环时刻表
 
+> 票 13e 起，六机 medium / sparse 林带卡暂关本门控（`progress_gate=false`），原因和数字见 [ADR 0015](0015-ghost-brake-stops.md)。门控代码和场景卡开关保留。
+
 编号是 0013。0011 已由票 13a 占用（`docs/adr/0011-brake-gap-horizon-and-amax.md`）。0012 留给票 13d。0014 留给票 13c。本决定不改 yopo-swarm。
 
 ## Context

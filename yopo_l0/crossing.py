@@ -852,9 +852,27 @@ class CrossingFleet:
         if not isinstance(res, Plan):
             return None, "CONTRACT_" + "+".join(item.value for item in res)
         occ = PlanOccupancy(res, self.pcfg)
-        if node.conflicts_with_neighbors(occ):
+        if self._conflicts_with_live(node, occ):
             return None, "CONFLICT_SKIP"
         return occ, None
+
+    def _conflicts_with_live(self, node: ProtocolNode, occ: PlanOccupancy) -> bool:
+        """提案前的自检，口径对齐邻机投票。
+
+        邻机 ACK 时只拿自己的 committed + previous（own_possible）和已 ACK 的预留来比。
+        本机的 peers[m].plans 却留着该邻机全部历史计划：截断只砍名义段，刹车分支的 Hold 到 inf，
+        被替换的旧计划停点永远挡路。六机穿林里超前机悬停留下的这些停点，正好堵住落后机的通道。
+        这里每个邻机只看最后两份已提交计划（等于它的 committed + previous）加预留。三机和柱林不变。
+        """
+        if not self._forest_six():
+            return node.conflicts_with_neighbors(occ)
+        for _m, peer in sorted(node.peers.items()):
+            recs = list(peer.plans[-2:]) + [r for _, r in sorted(peer.reservations.items())]
+            if self.cfg.delay_check_s > 0:
+                recs += [r for _, r in sorted(peer.heard.items())]
+            if any(node.checker.conflicts(occ, r.occupancy) for r in recs):
+                return True
+        return False
 
     def _planner(self, node: ProtocolNode, now: float, t_start: float):
         parent = node.committed.occupancy.plan
