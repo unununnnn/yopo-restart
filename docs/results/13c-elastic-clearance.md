@@ -1,6 +1,6 @@
 # 票 13c 六机林带弹性槽位
 
-判据未冻结 / report-only。碰撞数照实写。L0，策略仍是上游 YOPO，`safe_radius` 仍是 0.05 m，结果里「偏离上游」为否。动力学仍是场景卡上的 kp 4、kd 3、tau 0.1、a_max 6。没有改候选排序，也没有引入 CPLEX。
+判据未冻结 / report-only。碰撞数照实写。决定见 [ADR 0014](../adr/0014-elastic-slot-clearance-gate.md)。L0，策略仍是上游 YOPO，`safe_radius` 仍是 0.05 m，结果里「偏离上游」为否。动力学仍是场景卡上的 kp 4、kd 3、tau 0.1、a_max 6。没有改候选排序，也没有引入 CPLEX。不改 yopo-swarm。
 
 净空 = 机体中心到障碍表面的距离 − body_radius（0.35 m）。场景卡哈希与 #18 相同：medium `128eb7412296bad460bc3503e922f5614c1b2b97175d659fe9f28e64373de587`，sparse `6931bead71b44239e2225be44004a2040b49de4f5ee9c1ccd010ecb1a18b4b69`。
 

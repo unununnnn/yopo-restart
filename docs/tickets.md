@@ -47,6 +47,6 @@ frank 拍板卡片未回；父代理代定（仅 L0，L1 不动）：
 
 07d：修法 1 做成 `safe_radius` 开关。场景卡 `policy_params.upstream.safe_radius` 或 CLI `--safe-radius`。默认 0.05 m（上游 d5e1e60）。0.35 m 才是修法。结果表标出半径，非 0.05 m 写「偏离上游」。不改 L0 跟踪增益。疏/中/密对照在 `docs/results/07d-safe-radius.md`。
 
-13c：六机林带里槽位改成软目标。侧向在 `lateral_slack_m`（默认 2 m）内、纵向在 `longitudinal_slack_m`（默认等于 `min_ahead_m`）内松弛，只挑整段净空够的射线；出林前 `exit_tighten_m`（默认 4 m）把松弛收到 0，出林后回到原来的刚性槽位前瞻。避障是硬的：COMMIT 前对轨迹按 0.02 s 采样，中心到树的最小距离必须 ≥ `body_radius + clearance_margin_m`（默认 margin 0.15 m，场景卡 `task.clearance_margin_m` 可改）。不够记 `CLEARANCE_SKIP`，不提案、不提交。这是过滤，不进优化器，也不引入 CPLEX。只对带森林的六机生效。不改 `safe_radius` 默认 0.05 m，不改 kp / kd / tau / a_max。前后表在 `docs/results/13c-elastic-clearance.md`。判据仍是 report-only。
+13c：六机林带里槽位改成软目标。侧向在 `lateral_slack_m`（默认 2 m）内、纵向在 `longitudinal_slack_m`（默认等于 `min_ahead_m`）内松弛，只挑整段净空够的射线；出林前 `exit_tighten_m`（默认 4 m）把松弛收到 0，出林后回到原来的刚性槽位前瞻。避障是硬的：COMMIT 前对轨迹按 0.02 s 采样，中心到树的最小距离必须 ≥ `body_radius + clearance_margin_m`（默认 margin 0.15 m，场景卡 `task.clearance_margin_m` 可改）。不够记 `CLEARANCE_SKIP`，不提案、不提交。这是过滤，不进优化器，也不引入 CPLEX。只对带森林的六机生效。不改 `safe_radius` 默认 0.05 m，不改 kp / kd / tau / a_max，也不改 yopo-swarm。决定记在 ADR 0014（0011 留给 13a，0012 留给 13d，0013 留给 13b）。前后表在 `docs/results/13c-elastic-clearance.md`。判据仍是 report-only。
 
 08：一种变阵，横排 ↔ 纵列。开阔区中间有一道窄门（两根柱子）。各机用场景几何量前方走廊净空，低于阈值就在自己的窗口里提案切到纵列槽位，出了窄门再提案切回横排。新计划从父计划在 t_start 的状态接上，经 ACK/COMMIT 才飞，不瞬移。失败拒绝码 `SWITCH:NO_ACK`、`SWITCH:CONFLICT`。判据未冻结（report-only）。过渡期碰撞是硬失败，照实入表。
