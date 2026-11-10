@@ -1,11 +1,16 @@
 """协议节点：ADR-0001 轮转提案窗口 + 预留 ACK / COMMIT / RELEASE（纯状态机，无 ROS、无 IO）。
 
+票 13d 在 ACK/COMMIT 上加 RMADER 双轨（ADR 0011）：
+PROPOSED → TENTATIVE（PROPOSE 已交出，即广播）→ DELAY_CHECK → COMMITTED。
+Delay Check 没走完就提交不了。已提交的那一份一直留着，动力学在 t_start 之前仍飞它。
+Delay Check 期间若收到与新轨冲突的邻机轨迹（含迟到才到的），作废新轨并允许本窗口再提一份。
+
 安全规则（方案书 V0.3 B01/B02、V0.2 5.3）：
 - 只有当前窗口拥有者能提出运动更新；每机最多一个在途提案。
 - ACK = 对该提案的排他预留：绑定 reservation_id、plan_hash、有效期、依赖摘要；不会同时 ACK 两个不兼容提案。
 - 预留只在收到 COMMIT（转为对端已提交计划）或 RELEASE（提案者明确放弃）时释放，
   绝不因本地等待超时释放；未收到 COMMIT 不等于对端没有执行。
-- 收齐当前成员表内 N-1 个绑定一致的 ACK 才提交；提交的计划在 t_start 前不执行。
+- 收齐当前成员表内 N-1 个绑定一致的 ACK，并且 Delay Check 时间已到，才提交；提交的计划在 t_start 前不执行。
 - 版本上下文不一致、seq 倒退、非有限数值的消息一律丢弃且不改状态；对端重启（新 boot_id）、
   本机 clock reset / task reset 直接结束本次任务（P0 不做重加入）。
 """
@@ -45,6 +50,15 @@ class NodeMode(Enum):
     HALTED = "HALTED"  # 停止新的任务进度，只执行已批准计划（含终端保持）
 
 
+class TrackPhase(Enum):
+    """新轨在提交前的阶段。COMMITTED 只出现在日志里：提交后新轨变成 committed。"""
+
+    PROPOSED = "PROPOSED"
+    TENTATIVE = "TENTATIVE"  # PROPOSE 已交给调用方广播
+    DELAY_CHECK = "DELAY_CHECK"
+    COMMITTED = "COMMITTED"
+
+
 @dataclass(frozen=True)
 class ProtocolConfig:
     members: tuple[str, ...]
@@ -56,6 +70,8 @@ class ProtocolConfig:
     resend_period: float | None = 1.0  # COMMIT/RELEASE 重发周期；None 关闭
     regions: tuple[str, ...] | None = None  # 抽象规划器可选区域
     max_proposals: int | None = None  # 有界穷举用：每个 boot 最多发起的提案数
+    # RMADER δ_DC。0 表示收齐 ACK 当拍提交（原行为）。必须小于窗口长，否则本窗提不出提案。
+    delay_check_s: float = 0.0
 
     def window_index(self, t: float) -> int:
         return math.floor(t / self.window_len)
@@ -120,6 +136,9 @@ class InFlight:
     proposal: Proposal
     record: PlanRecord
     acks: dict[str, Vote] = field(default_factory=dict)
+    phase: TrackPhase = TrackPhase.PROPOSED
+    broadcast_t: float = 0.0
+    delay_until: float = 0.0
 
 
 @dataclass
@@ -128,6 +147,8 @@ class PeerState:
     last_seq: int = -1
     plans: list[PlanRecord] = field(default_factory=list)  # 已知已提交（旧的已截断）
     reservations: dict[str, PlanRecord] = field(default_factory=dict)  # 已 ACK 未结
+    # 见过、尚未提交的邻机新轨。delay_check_s > 0 时规划会躲开它。
+    heard: dict[str, PlanRecord] = field(default_factory=dict)
 
 
 Planner = Callable[["ProtocolNode", float, float], Any]
@@ -208,6 +229,8 @@ class ProtocolNode:
             else {
                 "rid": self.in_flight.proposal.reservation_id,
                 "acks": sorted(self.in_flight.acks),
+                "phase": self.in_flight.phase.value,
+                "delay_until": canonical(self.in_flight.delay_until),
             },
             "failed": self.failed_rounds,
             "last_window": self.last_window_proposed,
@@ -220,6 +243,7 @@ class ProtocolNode:
                     "plans": [r.plan_hash for r in p.plans],
                     "plan_ends": [canonical(r.occupancy.execution_end()) for r in p.plans],
                     "res": sorted(p.reservations),
+                    "heard": sorted(p.heard),
                 }
                 for m, p in sorted(self.peers.items())
             },
@@ -264,6 +288,8 @@ class ProtocolNode:
                 continue
             out += [(m, r) for r in p.plans]
             out += [(m, r) for _, r in sorted(p.reservations.items())]
+            if self.cfg.delay_check_s > 0:
+                out += [(m, r) for _, r in sorted(p.heard.items())]
         return out
 
     def conflicts_with_neighbors(self, occ: Any) -> bool:
@@ -324,17 +350,40 @@ class ProtocolNode:
             dependency_digest=self.dependency_digest(),
         )
         record = PlanRecord(self.id, self.plan_seq, h, parent, t_start, occupancy)
-        self.in_flight = InFlight(prop, record)
+        self.in_flight = InFlight(prop, record, phase=TrackPhase.PROPOSED, broadcast_t=now)
         self.last_window_proposed = w
+        self._log("phase", phase=TrackPhase.PROPOSED, rid=rid)
+        # 返回值就是要广播的 PROPOSE。TENTATIVE = 已交给调用方。
+        self.in_flight.phase = TrackPhase.TENTATIVE
+        self.in_flight.broadcast_t = now
+        self._log("phase", phase=TrackPhase.TENTATIVE, rid=rid)
+        self.in_flight.phase = TrackPhase.DELAY_CHECK
+        self.in_flight.delay_until = now + float(self.cfg.delay_check_s)
+        self._log("phase", phase=TrackPhase.DELAY_CHECK, rid=rid, until=self.in_flight.delay_until)
         self._log("propose", rid=rid, plan_hash=h, t_start=t_start, window=w)
         return prop
 
-    def _abort(self, reason: Reason) -> list[Message]:
+    def _quorum(self, flight: InFlight) -> bool:
+        return set(flight.acks) == set(self.peers)
+
+    def _delay_check_open(self) -> bool:
+        flight = self.in_flight
+        return (
+            flight is not None
+            and flight.phase is TrackPhase.DELAY_CHECK
+            and self.cfg.delay_check_s > 0
+        )
+
+    def _abort(self, reason: Reason, *, repropose: bool = False) -> list[Message]:
         assert self.in_flight is not None
+        window = self.in_flight.proposal.window_index
         rid, h = self.in_flight.proposal.reservation_id, self.in_flight.record.plan_hash
         self.in_flight = None
         self.failed_rounds += 1
-        self._log("abort", rid=rid, reason=reason)
+        if repropose:
+            # 同一窗口还能再提一份新轨。06c 重发的是同一 reservation，这里是新的 plan_seq。
+            self.last_window_proposed = window - 1
+        self._log("abort", rid=rid, reason=reason, repropose=repropose)
         rel = Release(ctx=self.next_ctx(), reservation_id=rid, plan_hash=h)
         self.resend = [rel]
         if self.failed_rounds >= self.cfg.max_failed_rounds:
@@ -350,7 +399,9 @@ class ProtocolNode:
         self.committed = rec
         self.in_flight = None
         self.failed_rounds = 0
-        self._log("commit", rid=f"{self.id}/{self.boot_id}/{rec.plan_seq}", plan_hash=rec.plan_hash)
+        rid = f"{self.id}/{self.boot_id}/{rec.plan_seq}"
+        self._log("phase", phase=TrackPhase.COMMITTED, rid=rid)
+        self._log("commit", rid=rid, plan_hash=rec.plan_hash)
         c = Commit(
             ctx=self.next_ctx(),
             reservation_id=f"{self.id}/{self.boot_id}/{rec.plan_seq}",
@@ -359,10 +410,32 @@ class ProtocolNode:
         self.resend = [c]
         return [c]
 
+    def finalize_delay_check(self, now: float) -> list[Message]:
+        """本拍消息已经投递完之后调用。收齐 ACK 且 δ_DC 已到，才把新轨提交。
+
+        同一拍上 on_tick 不提交（`now > delay_until` 才在下一拍兜底），这样
+        deliver_at == now 的迟到邻机轨迹能先被看见。
+        """
+        flight = self.in_flight
+        if flight is None or not self._quorum(flight):
+            return []
+        if now + 1e-12 < flight.delay_until:
+            return []
+        if now >= flight.record.t_start:
+            return self._abort(Reason.DEADLINE)
+        return self._commit()
+
     def on_tick(self, now: float) -> list[Message]:
         out: list[Message] = []
         if self.in_flight is not None and now >= self.in_flight.record.t_start:
             out += self._abort(Reason.DEADLINE)
+        elif (
+            self.in_flight is not None
+            and self._quorum(self.in_flight)
+            and now > self.in_flight.delay_until + 1e-12
+            and now < self.in_flight.record.t_start
+        ):
+            out += self._commit()
         hb_due = self.hello_pending or (
             self.cfg.heartbeat_period is not None
             and now - self.last_heartbeat >= self.cfg.heartbeat_period
@@ -388,6 +461,10 @@ class ProtocolNode:
             and (self.cfg.max_proposals is None or self.plan_seq < self.cfg.max_proposals)
         ):
             t_start = (w + 1) * self.cfg.window_len
+            if now + self.cfg.delay_check_s >= t_start - 1e-12:
+                self.last_window_proposed = w
+                self._log("skip", window=w, reason=Reason.DEADLINE)
+                return out
             occ = self.planner(self, now, t_start)
             if occ is None:
                 self.last_window_proposed = w
@@ -440,7 +517,7 @@ class ProtocolNode:
         if isinstance(msg, Vote):
             return self._on_vote(msg)
         if isinstance(msg, Commit):
-            return self._on_commit(msg)
+            return self._on_commit(msg, now)
         if isinstance(msg, Release):
             return self._on_release(msg)
         return []
@@ -462,6 +539,29 @@ class ProtocolNode:
             )
         ]
 
+    def _conflicts_with_new_track(self, occ: Any) -> bool:
+        if not self._delay_check_open():
+            return False
+        if occ is None or not occ.is_finite():
+            return False
+        flight = self.in_flight
+        assert flight is not None
+        return self.checker.conflicts(flight.record.occupancy, occ)
+
+    def _remember(self, p: Proposal) -> None:
+        """delay_check_s > 0 时记下邻机新轨，重提时躲开。δ = 0 不记，避免改原来的规划视图。"""
+        if self.cfg.delay_check_s <= 0 or not p.occupancy.is_finite():
+            return
+        self.peers[p.ctx.sender_id].heard[p.reservation_id] = PlanRecord(
+            p.proposer_id, p.plan_seq, p.plan_hash, p.parent_plan_hash, p.t_start, p.occupancy
+        )
+
+    def _yield_new_track(self, p: Proposal, reason: Reason) -> list[Message]:
+        if not self._conflicts_with_new_track(p.occupancy):
+            return []
+        self._remember(p)
+        return self._abort(reason, repropose=True)
+
     def _on_proposal(self, p: Proposal, now: float) -> list[Message]:
         if self.mode is NodeMode.HALTED:
             return self._vote(p, Decision.NACK_STALE, Reason.HALTED)
@@ -471,15 +571,27 @@ class ProtocolNode:
             or self.cfg.owner(w) != p.proposer_id
             or p.proposer_id != p.ctx.sender_id
         ):
-            return self._vote(p, Decision.NACK_STALE, Reason.WINDOW)
+            return self._yield_new_track(p, Reason.LATE) + self._vote(
+                p, Decision.NACK_STALE, Reason.WINDOW
+            )
         if p.t_start <= now:
-            return self._vote(p, Decision.NACK_STALE, Reason.LATE)
+            return self._yield_new_track(p, Reason.LATE) + self._vote(
+                p, Decision.NACK_STALE, Reason.LATE
+            )
         expect = plan_hash_of(
             p.proposer_id, p.plan_seq, p.parent_plan_hash, p.t_start, p.occupancy, self.cfg
         )
         if expect != p.plan_hash or p.validity != (p.t_start, p.occupancy.end_time()):
             self._reject(Reason.MALFORMED, p)
             return self._vote(p, Decision.NACK_STALE, Reason.MALFORMED)
+        self._remember(p)
+        flight = self.in_flight
+        if flight is not None and self._conflicts_with_new_track(p.occupancy):
+            reason = Reason.LATE if p.t_start <= flight.broadcast_t else Reason.CONFLICT
+            return self._abort(reason, repropose=True) + self._decide_proposal(p)
+        return self._decide_proposal(p)
+
+    def _decide_proposal(self, p: Proposal) -> list[Message]:
         mine = self.own_possible()
         # 已为第三方（或该提案者的其他提案）ACK 的预留都要排他：不同时 ACK 两个不兼容提案
         reserved = [
@@ -514,11 +626,13 @@ class ProtocolNode:
         if v.decision is not Decision.ACK:
             return self._abort(Reason.NACKED)
         f.acks[v.ctx.sender_id] = v
-        if set(f.acks) == set(self.peers):
+        # δ_DC > 0 时不在这张 ACK 上提交。同一拍里还可能有迟到邻机轨迹，
+        # 由 finalize_delay_check 在投递完之后提交。δ = 0 保持收齐即提交。
+        if self._quorum(f) and self.cfg.delay_check_s <= 0:
             return self._commit()
         return []
 
-    def _on_commit(self, c: Commit) -> list[Message]:
+    def _on_commit(self, c: Commit, _now: float) -> list[Message]:
         peer = self.peers[c.ctx.sender_id]
         rec = peer.reservations.get(c.reservation_id)
         if rec is None or rec.plan_hash != c.plan_hash:
@@ -526,13 +640,20 @@ class ProtocolNode:
                 self._reject(Reason.UNKNOWN_RESERVATION, c)
             return []
         del peer.reservations[c.reservation_id]
+        peer.heard.pop(c.reservation_id, None)
         peer.plans = [replace(r, occupancy=r.occupancy.truncated(rec.t_start)) for r in peer.plans]
         peer.plans = [r for r in peer.plans if not r.occupancy.is_empty()] + [rec]
         self._log("learn_commit", peer=c.ctx.sender_id, plan_hash=rec.plan_hash)
+        if self._conflicts_with_new_track(rec.occupancy):
+            flight = self.in_flight
+            assert flight is not None
+            reason = Reason.LATE if rec.t_start <= flight.broadcast_t else Reason.CONFLICT
+            return self._abort(reason, repropose=True)
         return []
 
     def _on_release(self, r: Release) -> list[Message]:
         peer = self.peers[r.ctx.sender_id]
+        peer.heard.pop(r.reservation_id, None)
         rec = peer.reservations.get(r.reservation_id)
         if rec is not None and rec.plan_hash == r.plan_hash:
             del peer.reservations[r.reservation_id]

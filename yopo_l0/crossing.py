@@ -262,6 +262,8 @@ class CrossingFleet:
             max_failed_rounds=10000,
             resend_period=None,
             heartbeat_period=None,
+            # 票 13d：穿林不打开 Delay Check。δ = 0 时收齐 ACK 当拍提交，轨迹与打开之前一致。
+            delay_check_s=0.0,
         )
         self.pcfg = PlanConfig(
             _LIMITS,

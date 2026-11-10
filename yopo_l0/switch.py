@@ -435,6 +435,7 @@ class SwitchFleet:
                 }
             ),
             # 冲突或丢 ACK 是变阵失败的常态，不能三次就停飞。拒绝码留在结果里。
+            # delay_check_s 保持默认 0：变阵仍是收齐 ACK 当拍提交。
             max_failed_rounds=10000,
             resend_period=None,
             heartbeat_period=None,

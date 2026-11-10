@@ -10,5 +10,6 @@
 | [0008](0008-report-only-until-frozen.md) | M0–M4 判据冻结前只报数 |
 | [0009](0009-stop-at-goal-vs-hold-here.md) | 终端用 `stop_at_goal`，半径 1.5 m 已采纳 |
 | [0010](0010-certified-env-unknown-reported.md) | certified 的 `ENV:UNKNOWN` 上报、不作为合入门 |
+| [0011](0011-rmader-dual-track.md) | 编队新轨走 RMADER Delay Check，不换 YOPO、不用 Gurobi |
 
 M0 样例表：[docs/results/m0-g2-pillar.md](../results/m0-g2-pillar.md)。

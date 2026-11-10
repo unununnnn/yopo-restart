@@ -1,4 +1,8 @@
-"""票 11a：六机开阔区楔形编队。进程内、零故障要能到终点。丢包仍会悬停，那是票 06b。"""
+"""票 11a：六机开阔区楔形编队。进程内、零故障要能到终点。
+
+全丢（drop=1）仍然悬停：窗口内重发也收不到 ACK。20% 丢包的补票是票 06c。
+票 13d 把提交推迟到 Delay Check 结束，已提交轨在这之前不变。
+"""
 
 import json
 
@@ -80,8 +84,64 @@ def test_open_six_none_reaches_and_is_deterministic():
     assert out.ticks == again.ticks
 
 
+def test_dropped_ack_is_recovered_by_resending_the_same_proposal(monkeypatch):
+    """第一轮两张 ACK 都丢掉。0.02 s 后重发同一份提案。Delay Check 到点才提交，不开新的 plan_seq。"""
+    from yopo_l0.bus import MessageBus
+    from yopo_l0.formation import FormationFleet
+    from yopo_swarm_core.protocol import TrackPhase
+    from yopo_swarm_core.protocol.messages import Decision, Vote
+
+    fleet = FormationFleet.from_card(load_card(ROOT / "scenes/formation-hold.json").card, 0.01)
+    bus = MessageBus()
+    dropped = {"n": 0}
+    orig = MessageBus.publish
+
+    def publish(self, now, *, src, dest, topic, payload):
+        msg = payload.get("msg") if isinstance(payload, dict) else None
+        if (
+            isinstance(msg, Vote)
+            and msg.decision is Decision.ACK
+            and msg.reservation_id == "uav0/0/1"
+            and dropped["n"] < 2
+        ):
+            dropped["n"] += 1
+            self.published += 1
+            self.dropped += 1
+            return None
+        return orig(self, now, src=src, dest=dest, topic=topic, payload=payload)
+
+    monkeypatch.setattr(MessageBus, "publish", publish)
+    fleet.exchange(bus, 0.0)
+    node = fleet.nodes["uav0"]
+    assert node.committed.plan_seq == 0 and node.in_flight is not None and node.plan_seq == 1
+    assert node.in_flight.phase is TrackPhase.DELAY_CHECK
+    held = node.in_flight.record.plan_hash
+    safe = node.committed.plan_hash
+    fleet.exchange(bus, 0.02)
+    assert dropped["n"] == 2
+    assert node.in_flight is not None and node.in_flight.record.plan_hash == held
+    assert node.committed.plan_hash == safe
+    assert set(node.in_flight.acks) == {"uav1", "uav2"}
+    fleet.exchange(bus, fleet.cfg.delay_check_s)
+    assert node.in_flight is None and node.committed.plan_seq == 1
+    assert node.committed.plan_hash == held
+    assert node.previous is not None and node.previous.plan_hash == safe
+    assert node.committed.t_start == fleet.cfg.window_len
+
+
+def test_open_six_resends_the_same_proposal_inside_the_window():
+    from yopo_l0.formation import FormationFleet
+
+    fleet = FormationFleet.from_card(load_card(CARD).card, 0.01)
+    assert fleet.proposal_resend_period == 0.02
+    assert fleet.proposal_resend_guard == 0.10
+    assert fleet.cfg.delay_check_s == 0.05
+    assert fleet.cfg.resend_period == fleet.cfg.window_len
+    assert "proposal_resend_period" not in fleet.cfg.__dataclass_fields__
+
+
 def test_total_loss_leaves_the_wedge_hovering():
-    # 票 06b 之前收不齐 ACK 就不再追赶。这里只确认现状，不改 formation.py。
+    # drop=1 时重发也到不了。飞机停在起点，不是规划器把追赶关掉了。
     card = load_card(CARD)
     out = run(card, RunConfig(seed=0, duration_s=2.0, bus=BusFaults(drop=1.0)))
     r = out.result
