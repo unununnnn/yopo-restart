@@ -16,18 +16,19 @@ THREE = ROOT / "scenes/crossing-forest.json"
 
 
 def _rigid_goal(fleet: CrossingFleet, drone_id: str, t: float, head_p: np.ndarray) -> np.ndarray:
-    """出林 / 三机用的槽位前瞻。和改弹性槽位之前的公式一致。"""
+    """出林 / 三机用的槽位前瞻。门控开时锚在 schedule_s，与 crossing.goal_for 一致。"""
     slot = fleet.slots[drone_id]
     head_p = np.asarray(head_p, dtype=float)
     final = fleet.goals[drone_id]
-    ahead = fleet.rail.position(t + fleet.lookahead_s, fleet.t_go, slot)
+    s = fleet.schedule_s(t)
+    ahead = fleet.rail.at(s + fleet.lookahead_s * fleet.rail.speed, slot)
     aim_x = min(float(final[0]), max(float(ahead[0]), float(head_p[0]) + fleet.min_ahead_m))
     aim = np.array([aim_x, float(ahead[1]), float(ahead[2])])
     remain = max(float(final[0] - ahead[0]), 0.0)
     reach = max(fleet.lookahead_s * fleet.rail.speed, 1e-6)
     w_final = 1.0 - min(remain / reach, 1.0)
     goal = (1.0 - w_final) * aim + w_final * final
-    lane_y = float(fleet.rail.position(t, fleet.t_go, slot)[1])
+    lane_y = float(fleet.rail.at(s, slot)[1])
     goal = np.array(goal, dtype=float, copy=True)
     goal[1] += fleet.lateral_gain * (lane_y - float(head_p[1]))
     goal[2] = float(final[2])

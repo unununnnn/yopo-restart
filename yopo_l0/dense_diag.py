@@ -339,6 +339,9 @@ def dense_card(root: Path | None = None) -> tuple[dict, Path]:
 
 def run_seed(seed: int, *, shadow: bool = False) -> tuple[dict, object]:
     raw, root = dense_card()
+    # 07c 定位的是开环时刻表上的那次撞树。穿林卡现在默认开进度门控，
+    # 这里关掉，避免把 ADR 0013 的悬停码写进当时的撞前窗口。
+    raw["task"]["progress_gate"] = False
     path = root / "scenes/crossing-forest.json"
     # load_card 读 forest.density。密档用临时卡，避免改仓库里的 medium 默认档。
     tmp = path.with_name(f".crossing-forest-dense-diag-{seed}.json")

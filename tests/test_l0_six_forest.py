@@ -17,6 +17,7 @@ THREE = ROOT / "scenes/crossing-forest.json"
 _TASK_KEYS = (
     "type", "duration_s", "window_len_s", "commit_horizon_s", "lookahead_s",
     "min_ahead_m", "lateral_gain", "arrive_radius_m", "t_go_s",
+    "progress_gate", "progress_percentile",
 )
 _RAIL_KEYS = ("length_m", "speed_mps")
 _WEDGE = {
@@ -72,13 +73,18 @@ def test_forest_delay_check_stays_off():
 
 def test_medium_seed0_short_prefix_stays_clear_of_the_wall():
     card = load_card(MEDIUM)
-    out = run(card, RunConfig(seed=0, policy="crossing", duration_s=0.4, shadow=False))
+    cfg = RunConfig(seed=0, policy="crossing", duration_s=0.4, shadow=False)
+    out = run(card, cfg)
+    again = run(card, cfg)
     r = out.result
     assert r["n_drones"] == 6 and r["task"] == "crossing" and r["policy"] == "crossing"
     assert r["forest_density"] == "medium"
     assert r["outcome"] != "COLLISION"
     assert r["crossing"]["avoidance"] == "upstream-yopo"
     assert r["crossing"]["goal_bias"] == "elastic-slot"
+    assert r["crossing"]["progress_gate"] is True
+    assert r["crossing"]["progress_percentile"] == 0.0
+    assert r["crossing"]["virtual_center"] == "progress-gated"
     # 场景卡仍写 1.0（与三机卡相同）；13a 在构造时抬到 N*window+0.25 = 1.75。
     # 抬高后已盖过一轮窗口，_commit_span 不再另加到 1.5。
     assert r["crossing"]["commit_horizon_s"] == 1.75
@@ -89,3 +95,7 @@ def test_medium_seed0_short_prefix_stays_clear_of_the_wall():
     assert r["crossing"]["adjudicator"] is None
     assert r["min_inter_drone_distance_m"] > 2 * 0.35
     assert card.card["dynamics"] == {"model": "point_mass_lag", "tau_s": 0.1, "kp": 4.0, "kd": 3.0, "a_max": 6.0}
+    assert out.ticks == again.ticks
+    again_result = {k: v for k, v in again.result.items() if k != "wall_time_s"}
+    this_result = {k: v for k, v in r.items() if k != "wall_time_s"}
+    assert this_result == again_result

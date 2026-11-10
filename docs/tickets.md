@@ -52,6 +52,8 @@ frank 拍板卡片未回；父代理代定（仅 L0，L1 不动）：
 
 11c：#18 的六机 medium 有 6 个 seed 撞树，sparse 的 seed 2 也撞。首撞都是已提交的计划。主因是轮转 1.5 s 长于承诺地平线 1.0 s，末端急刹按 a_max=80 生成，动力学 a_max=6 停不住；同时槽位时刻表把目标线段拉进树干。林带里改为前方 goto，侧向让到净空够的位置，前缀盖住下一轮窗口，进树的多项式不提交。不改 safe_radius 0.05 m，也不改 kp / kd / tau / a_max。前后表在 `docs/results/11c-six-forest.md`。判据仍是 report-only。
 
+13b：穿林虚拟中心按全队沿中心投影进度的 min 或低分位推进（`progress_percentile` 默认 0，即 min），不再用墙钟 × speed。落后机门控；超前机只提案悬停或短前缀。开阔区 `FormationFleet` 明确 `progress_gate=false`，时刻表仍是开环。场景卡可写这两个字段。决定是 ADR 0013（0011 留给 13a，0012 留给 13d，0014 留给 13c）。六机 medium / sparse seeds 0–9 的前后表在 `docs/results/13b-progress-gate.md`。判据仍是 report-only。不换 YOPO，不引入外部求解器，不改 yopo-swarm。
+
 13c：六机林带里槽位改成软目标。侧向在 `lateral_slack_m`（默认 2 m）内、纵向在 `longitudinal_slack_m`（默认等于 `min_ahead_m`）内松弛，只挑整段净空够的射线；出林前 `exit_tighten_m`（默认 4 m）把松弛收到 0，出林后回到原来的刚性槽位前瞻。避障是硬的：COMMIT 前对轨迹按 0.02 s 采样，中心到树的最小距离必须 ≥ `body_radius + clearance_margin_m`（默认 margin 0.15 m，场景卡 `task.clearance_margin_m` 可改）。不够记 `CLEARANCE_SKIP`，不提案、不提交。这是过滤，不进优化器，也不引入 CPLEX。只对带森林的六机生效。不改 `safe_radius` 默认 0.05 m，不改 kp / kd / tau / a_max，也不改 yopo-swarm。决定记在 ADR 0014。前后表在 `docs/results/13c-elastic-clearance.md`。判据仍是 report-only。
 
 08：一种变阵，横排 ↔ 纵列。开阔区中间有一道窄门（两根柱子）。各机用场景几何量前方走廊净空，低于阈值就在自己的窗口里提案切到纵列槽位，出了窄门再提案切回横排。新计划从父计划在 t_start 的状态接上，经 ACK/COMMIT 才飞，不瞬移。失败拒绝码 `SWITCH:NO_ACK`、`SWITCH:CONFLICT`。判据未冻结（report-only）。过渡期碰撞是硬失败，照实入表。

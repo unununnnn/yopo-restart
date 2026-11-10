@@ -14,6 +14,7 @@
     "type": "formation",
     "duration_s": 40.0,
     "window_len_s": 0.5,
+    "progress_gate": false,
     "virtual_center": {
       "origin_enu": [0.0, 0.0, 1.5],
       "straight_m": 5.0,

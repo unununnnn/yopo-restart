@@ -38,6 +38,8 @@ from yopo_swarm_core.protocol.node import ProtocolConfig, ProtocolNode
 from yopo_swarm_core.protocol.plan_occupancy import PlanConflictChecker, PlanOccupancy, hover_occupancy
 from yopo_swarm_core.trajectory import PiecewisePolynomial, PolySegment
 
+from .progress import read_progress_settings
+
 # 最小急动度标量曲线 σ(u)=10u³-15u⁴+6u⁵ 的速度峰值（u=1/2）。
 _MINJERK_V_PEAK = 1.875
 _FIT_TOL_M = 0.02
@@ -460,6 +462,14 @@ class FormationFleet:
         task = card["task"]
         if task["type"] != "formation":
             raise ValueError("FormationFleet 只接受 formation 任务")
+        # frank 2026-11-09：开阔区进度门控关闭。开关写明 false，时刻表仍按墙钟开环走。
+        gate, pct = read_progress_settings(task, default_gate=False)
+        if gate:
+            raise ValueError(
+                "开阔区进度门控关闭（frank 2026-11-09）：FormationFleet 保持开环时刻表，progress_gate 必须为 false"
+            )
+        self.progress_gate = False
+        self.progress_percentile = pct
         drones = card["drones"]
         if len(drones) < 1:
             raise ValueError("编队至少一架飞机")
@@ -772,5 +782,7 @@ class FormationFleet:
             "motion_duration_s": self.path.T,
             "final_slots_enu": {did: self.goals[did].tolist() for did in self.members},
             "committed_plan_hash": hashes,
+            "progress_gate": self.progress_gate,
+            "progress_percentile": self.progress_percentile,
             "virtual_center": "scheduled",
         }
