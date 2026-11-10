@@ -21,7 +21,11 @@ HOLD = ROOT / "scenes/formation-hold.json"
 
 
 def test_percentile_zero_is_the_min_and_leaders_are_those_ahead_of_it():
-    fleet = CrossingFleet.from_card(load_card(SIX).card, 0.01)
+    # 票 13e 起六机林带卡默认关门控（ADR 0015）。门控代码保留，这里在卡上打开来测。
+    card = copy.deepcopy(load_card(SIX).card)
+    assert card["task"]["progress_gate"] is False
+    card["task"]["progress_gate"] = True
+    fleet = CrossingFleet.from_card(card, 0.01)
     assert fleet.progress_gate is True
     assert fleet.progress_percentile == 0.0
     values = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0]

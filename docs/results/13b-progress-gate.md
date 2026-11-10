@@ -1,5 +1,7 @@
 # 票 13b 穿林进度门控
 
+> 注：下面的「前 / 后」表都是在 13b 分支上相对 11c 测的，没有叠 13c 弹性槽位和 13a 视界。叠上之后 main 上六机穿林是 medium 0/60、sparse 9/60；林带门控暂关、自检修正之后的新数见 [13e 结果](13e-ghost-stops.md) 和 [ADR 0015](../adr/0015-ghost-brake-stops.md)。
+
 判据未冻结 / report-only。碰撞数照实写。决定见 [ADR 0013](../adr/0013-forest-progress-gate.md)。
 
 飞行代码是 `d16426334f3c`（合并 06c 之前）。06c 只改开阔区 `FormationFleet.exchange` 的窗口内重发，不改 `CrossingFleet`。影子盾开，`safe_radius` 0.05 m。动力学仍是 kp 4、kd 3、tau 0.1、a_max 6。没有改候选排序，也没有改 yopo-swarm。

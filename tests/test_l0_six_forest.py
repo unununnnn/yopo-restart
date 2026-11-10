@@ -17,7 +17,7 @@ THREE = ROOT / "scenes/crossing-forest.json"
 _TASK_KEYS = (
     "type", "duration_s", "window_len_s", "commit_horizon_s", "lookahead_s",
     "min_ahead_m", "lateral_gain", "arrive_radius_m", "t_go_s",
-    "progress_gate", "progress_percentile",
+    "progress_percentile",
 )
 _RAIL_KEYS = ("length_m", "speed_mps")
 _WEDGE = {
@@ -41,6 +41,9 @@ def test_six_wedge_uses_the_three_drone_crossing_parameters():
     assert six["rates_hz"] == three["rates_hz"]
     for key in _TASK_KEYS:
         assert six["task"][key] == three["task"][key]
+    # 票 13e：六机林带暂关进度门控（ADR 0015）。三机穿林卡不变，门控代码保留，开关在场景卡。
+    assert six["task"]["progress_gate"] is False
+    assert three["task"]["progress_gate"] is True
     for key in _RAIL_KEYS:
         assert six["task"]["virtual_center"][key] == three["task"]["virtual_center"][key]
     # 后墙在 x=-3。楔形纵深 6 m，虚拟中心放到 x=6，最后一排落在 x=0，离后墙和三机卡一样。
@@ -82,9 +85,9 @@ def test_medium_seed0_short_prefix_stays_clear_of_the_wall():
     assert r["outcome"] != "COLLISION"
     assert r["crossing"]["avoidance"] == "upstream-yopo"
     assert r["crossing"]["goal_bias"] == "elastic-slot"
-    assert r["crossing"]["progress_gate"] is True
+    assert r["crossing"]["progress_gate"] is False
     assert r["crossing"]["progress_percentile"] == 0.0
-    assert r["crossing"]["virtual_center"] == "progress-gated"
+    assert r["crossing"]["virtual_center"] == "straight-rail"
     # 场景卡仍写 1.0（与三机卡相同）；13a 在构造时抬到 N*window+0.25 = 1.75。
     # 抬高后已盖过一轮窗口，_commit_span 不再另加到 1.5。
     assert r["crossing"]["commit_horizon_s"] == 1.75
