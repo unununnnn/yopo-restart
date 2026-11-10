@@ -426,10 +426,17 @@ class CrossingFleet:
         return self.rail.arc(t, self.t_go)
 
     def _ahead_of_gate(self, drone_id: str, head_p: np.ndarray) -> bool:
+        """超前看本机刚观测到的投影，不看 t_start 上的计划头。
+
+        计划头已经沿着上一条曲线往前探。拿它来比的话，落后机也会被当成超前，
+        下一扇窗口就把自己的前进提案换成悬停，时刻表走不动。
+        """
         if not self.progress_gate:
             return False
-        s = self.rail.along(np.asarray(head_p, dtype=float), self.slots[drone_id])
-        return s > self.gate_s() + _LEADER_MARGIN_M
+        s = self._progress.get(drone_id)
+        if s is None:
+            s = self.rail.along(np.asarray(head_p, dtype=float), self.slots[drone_id])
+        return float(s) > self.gate_s() + _LEADER_MARGIN_M
 
     def _forest_six(self) -> bool:
         return self.in_forest and len(self.members) >= 6

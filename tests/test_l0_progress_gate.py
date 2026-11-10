@@ -32,10 +32,16 @@ def test_percentile_zero_is_the_min_and_leaders_are_those_ahead_of_it():
     assert fleet.gate_s() == pytest.approx(10.0)
     fleet.progress_percentile = 0.0
     front = fleet.rail.at(10.0, fleet.slots["uav0"])
-    back = fleet.rail.at(0.0, fleet.slots["uav5"])
     assert fleet.rail.along(front, fleet.slots["uav0"]) == pytest.approx(10.0)
+    for did in fleet.members:
+        fleet._progress[did] = 0.0
+    fleet._progress["uav0"] = 10.0
+    assert fleet.gate_s() == 0.0
     assert fleet._ahead_of_gate("uav0", front) is True
-    assert fleet._ahead_of_gate("uav5", back) is False
+    assert fleet._ahead_of_gate("uav5", fleet.rail.at(0.0, fleet.slots["uav5"])) is False
+    # 计划头可以已经探到前面。门控仍看观测到的投影，落后机不被误判成超前。
+    probed = fleet.rail.at(12.0, fleet.slots["uav5"])
+    assert fleet._ahead_of_gate("uav5", probed) is False
 
 
 def test_open_loop_schedule_ignores_progress_and_gated_goal_uses_the_percentile():
