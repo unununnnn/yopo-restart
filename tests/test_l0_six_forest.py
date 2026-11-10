@@ -63,6 +63,14 @@ def test_six_wedge_uses_the_three_drone_crossing_parameters():
     assert generated["task"] == six["task"]
 
 
+def test_forest_delay_check_stays_off():
+    """穿林不打开 δ_DC。提交仍是收齐 ACK 的那一拍，避免把树的碰撞数改掉。"""
+    from yopo_l0.crossing import CrossingFleet
+
+    fleet = CrossingFleet.from_card(load_card(THREE).card, 0.01)
+    assert fleet.cfg.delay_check_s == 0.0
+
+
 def test_medium_seed0_short_prefix_stays_clear_of_the_wall():
     card = load_card(MEDIUM)
     cfg = RunConfig(seed=0, policy="crossing", duration_s=0.4, shadow=False)

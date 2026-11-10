@@ -8,4 +8,5 @@
 - 上游金样：`pytest -m upstream` 会按钉定 SHA d5e1e60 把 YOPO 上游取到 `~/.cache/yopo-swarm`，校验权重 sha256 后在 CPU 上跑前向并和 `tests/golden/minco_d5e1e60_cpu.npz` 比对。
 - `test_upstream_branch_head_has_not_moved` 联网查上游分支 head；2026-11-09 上游已推进到 d81e9c0（钉定仍是 d5e1e60）。按 ADR-0006 这需要先修订 ADR 再决定是否跟进，不在本仓库自动处理；回归里排除这一条。
 - 规则：改 vendored 代码要在本文件记一笔；`certified` 策略下这些测试和金样必须保持不变。
-- `VENDORED.sha256`：vendor 时全部文件的 sha256，`tests/test_policies.py::test_vendored_core_unchanged` 校验（certified 路径不变的守卫）。L0 适配代码在 `yopo_l0/`，不改 core。
+- `VENDORED.sha256`：记录下来的 sha256，`tests/test_policies.py::test_vendored_core_unchanged` 校验。改了 core 就要同时改这份清单。
+- 2026-11-10 票 13d：`protocol/node.py` 与 `protocol/__init__.py` 增加 Delay Check 状态机（ADR 0012）。`delay_check_s` 默认 0，certified 规划、金样和 YOPO 权重没动。新测试在 `core/tests/test_protocol_delay_check.py`，不在原始 vendor 清单里。
