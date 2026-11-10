@@ -94,9 +94,47 @@ class _TrajPlan:
         return p, v, a, self.yaw
 
 
+# 上游 test_yopo_ros.py 的 safe_radius。非这个值就是偏离 d5e1e60，结果表要标出来。
+UPSTREAM_SAFE_RADIUS_M = 0.05
+_EMPTY_SOLUTION = ("CORRIDOR_EMPTY_HOVER", "BRAKE_ONLY", "CONFLICT_BRAKE")
+
+
+def upstream_decoder(safe_radius: float | None = None):
+    """复制解码器只改准入半径。默认返回原来的 UPSTREAM_DECODER，金样比较不受影响。"""
+    from dataclasses import replace
+
+    from yopo_swarm_core.candidates import UPSTREAM_DECODER
+
+    radius = UPSTREAM_SAFE_RADIUS_M if safe_radius is None else float(safe_radius)
+    if not radius > 0.0:
+        raise ValueError(f"safe_radius 必须为正，收到 {safe_radius}")
+    if abs(radius - float(UPSTREAM_DECODER.safe_radius)) <= 1e-12:
+        return UPSTREAM_DECODER
+    return replace(UPSTREAM_DECODER, safe_radius=radius)
+
+
+def read_safe_radius(params: dict | None) -> float:
+    raw = ((params or {}).get("upstream") or {}).get("safe_radius", UPSTREAM_SAFE_RADIUS_M)
+    radius = float(raw)
+    if not radius > 0.0:
+        raise ValueError(f"safe_radius 必须为正，收到 {raw}")
+    return radius
+
+
+def deviates_from_upstream(radius: float) -> bool:
+    return abs(float(radius) - UPSTREAM_SAFE_RADIUS_M) > 1e-9
+
+
+def empty_solution_count(plan_codes: dict | None) -> int:
+    """无解后的悬停或刹车次数。不含正常的 OK / YOPO_ALT。"""
+    codes = plan_codes or {}
+    return sum(int(codes.get(name, 0)) for name in _EMPTY_SOLUTION)
+
+
 class UpstreamPolicy:
     """参数（场景卡 policy_params.upstream）：
     - plan_from_reference（默认 True，上游注释「用位置控制器飞时设 True」；L0/L1 都跟踪位置设定点）
+    - safe_radius：走廊准入半径，默认 0.05 m，与上游 d5e1e60 一致。0.35 m 是票 07d 的可选修法。
     - arrive_radius_m / arrive_mode：上游进入到达半径（上游 5 m）后停止重规划，`hold_here` 原地保持（上游原样）。
       上游网络不会在目标点减速停住（训练目标是远处目标，goal 截断到 10 m），按 G2 oracle 0.4 m / 0.2 m/s / 1 s
       判到达时几乎总是绕圈超时，所以加一条项目终端规则 `stop_at_goal`：进入半径后用一段五次多项式从期望状态
@@ -104,7 +142,13 @@ class UpstreamPolicy:
     """
 
     name = "upstream"
-    DEFAULTS = {"plan_from_reference": True, "arrive_radius_m": 1.5, "arrive_mode": "stop_at_goal", "stop_time_s": 2.0}
+    DEFAULTS = {
+        "plan_from_reference": True,
+        "arrive_radius_m": 1.5,
+        "arrive_mode": "stop_at_goal",
+        "stop_time_s": 2.0,
+        "safe_radius": UPSTREAM_SAFE_RADIUS_M,
+    }
 
     def __init__(self, ctx: PolicyContext):
         from .net import InProcessSource
@@ -118,13 +162,14 @@ class UpstreamPolicy:
 
     def plan(self, obs: Observation) -> Plan:
         from yopo_swarm_core.candidates import (
-            UPSTREAM_DECODER as dec,
             corridor_mu_lo,
             decode_params,
             minco_two_piece,
             select_action,
         )
         from yopo_swarm_core.plan import hold_traj
+
+        dec = upstream_decoder(self.p["safe_radius"])
 
         s, now = obs.state, obs.now
         yaw = s.yaw if self.plan_obj is None else self.plan_obj.yaw
