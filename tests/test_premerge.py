@@ -393,6 +393,30 @@ def test_comment_reports_sha_counts_table_and_blocks_merge_on_trailer(tmp_path):
     assert len(_git(repo, "worktree", "list").stdout.strip().splitlines()) == 1
 
 
+def test_squash_allows_trailer_lists_it_and_merges(tmp_path):
+    repo, sha, fixture_path, make_log = _pr_repo(
+        tmp_path, trailer="Co-authored-by: Bot <bot@example.com>"
+    )
+    proc, calls = _run_premerge(
+        tmp_path, repo, sha, fixture_path, make_log, "27", "--squash", title="票：premerge-squash"
+    )
+    assert proc.returncode == 0, proc.stderr
+    merges = [c for c in calls if c["argv"][1] == "merge"]
+    assert len(merges) == 1
+    argv = merges[0]["argv"]
+    assert "--squash" in argv
+    assert "--merge" not in argv
+    assert argv[argv.index("--match-head-commit") + 1] == sha
+    for line in merges[0]["body"].splitlines():
+        assert not line.lower().lstrip().startswith("co-authored-by:")
+    comment = [c for c in calls if c["argv"][1] == "comment"][0]["body"]
+    assert f"`{sha}` Co-authored-by: Bot <bot@example.com>" in comment
+    assert "Co-authored-by | 有" in comment
+    assert "已合并（squash）" in comment
+    assert "| 退出码 | 0 |" in comment
+    assert "未执行（检查未过）" not in comment
+
+
 def test_merge_flag_ready_and_match_head_when_clean(tmp_path):
     repo, sha, fixture_path, make_log = _pr_repo(tmp_path)
     proc, calls = _run_premerge(

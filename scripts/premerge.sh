@@ -7,7 +7,9 @@
 # 3. 在 worktree 里 make venv（共享依赖 venv + uv 缓存）并跑 scripts/regress.sh。
 # 4. 解析 L0 / core 的 passed、skipped，以及批跑 Markdown 表。
 # 5. 在 PR 上留一条评论：head sha、计数、退出码、批跑表。
-# 6. 检查 PR 相对基线的每个提交都没有 Co-authored-by trailer，并写进评论。
+# 6. 检查 PR 相对基线各提交的 Co-authored-by trailer，并写进评论。
+#    --squash 时正文已用 premerge_strip_coauthor_lines 去掉 trailer，有 trailer 不把 gate 置 1。
+#    --merge（以及不带合并旗标的检查）仍然把 trailer 当失败。
 # 7. 任一检查失败则退出码非 0。
 #
 # 不带 --merge / --squash 时绝不合并。不会推送分支，也不会强行改写远端历史。
@@ -140,12 +142,13 @@ premerge_usage() {
 用法：scripts/premerge.sh <PR号> [--merge|--squash]
 
 在临时 worktree 里跑 scripts/regress.sh，把 head sha、L0/core 的
-passed/skipped、退出码和批跑表写到 PR 评论。检查每个提交都没有
-Co-authored-by trailer。
+passed/skipped、退出码和批跑表写到 PR 评论。各提交的 Co-authored-by
+trailer 会写进评论：--squash 时不挡门（正文已去掉 trailer），--merge
+时仍然拦截。
 
   --merge   全部通过后：gh pr ready && gh pr merge --merge --match-head-commit <sha>
   --squash  全部通过后：gh pr ready && gh pr merge --squash --match-head-commit <sha>
-            提交说明由各提交拼成，并去掉 Co-authored-by 行
+            提交说明由各提交拼成，并去掉 Co-authored-by 行；原提交里的 trailer 不挡门
 
 不带这两个参数时只检查、不合并。不会推送分支。
 EOF
@@ -361,7 +364,9 @@ premerge_main() {
   if [[ "$l0f" != 0 || "$cf" != 0 || "$l0e" != 0 || "$ce" != 0 ]]; then gate=1; fi
   if [[ "$batch_ok" != 1 ]]; then gate=1; fi
   if [[ "$co_rc" -ne 0 ]]; then gate=1; fi
-  if [[ -n "$coauthors" ]]; then gate=1; fi
+  # squash 正文已经去掉 trailer，有 trailer 只写进评论，不挡门。
+  # --merge 会保留原提交，无旗标的检查同样把 trailer 当失败。
+  if [[ -n "$coauthors" && "$mode" != "squash" ]]; then gate=1; fi
 
   local merge_note="未请求" final=$gate body_file="$TMP/squash.md" merge_rc=0
   if [[ -n "$mode" ]]; then
