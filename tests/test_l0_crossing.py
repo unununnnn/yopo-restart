@@ -102,10 +102,10 @@ def test_report_table_lists_the_ticket_columns():
     }
     text = format_report([row])
     assert "未冻结 / report-only" in text
-    for header in ("到达率", "障碍碰撞", "机间碰撞", "最小机间距离 m", "最小障碍净空 m", "队形误差 p95 m", "影子拒绝率"):
+    for header in ("到达率", "障碍碰撞", "机间碰撞", "最小机间距离 m", "最小障碍净空 m", "队形误差 p95 m", "影子拒绝率", "safe_radius m", "偏离上游", "无解次数"):
         assert header in text
     assert "0.67 (2/3)" in text
-    assert "| 3 | 0.67 (2/3) | 1 | 0 | 1.800 | -0.150 | 0.800 | 0.400 | COLLISION uav1:TRUTH_POSITION |" in text
+    assert "| 3 | 0.67 (2/3) | 1 | 0 | 1.800 | -0.150 | 0.800 | 0.400 | — | — | — | COLLISION uav1:TRUTH_POSITION |" in text
     assert "seed 3: COLLISION uav1:TRUTH_POSITION" in text
 
 

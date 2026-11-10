@@ -15,7 +15,6 @@ from dataclasses import replace
 import numpy as np
 
 from yopo_swarm_core.candidates import (
-    UPSTREAM_DECODER,
     decode_params,
     minco_two_piece,
     rank_candidates,
@@ -35,9 +34,8 @@ from yopo_swarm_core.protocol.node import ProtocolConfig, ProtocolNode
 from yopo_swarm_core.protocol.plan_occupancy import PlanConflictChecker, PlanOccupancy, hover_occupancy
 from yopo_swarm_core.trajectory import PiecewisePolynomial, PolySegment
 
-from .policy import R_yaw
+from .policy import R_yaw, read_safe_radius, upstream_decoder
 
-_DEC = UPSTREAM_DECODER
 # 上游多项式的速度尖峰可以高出 vel_max。这里的限幅只为了计划契约肯收下那条曲线，
 # 不是安全清单；动力学仍用场景卡里的 a_max。收不进就改走刹车，不飞一条没过契约的曲线。
 _LIMITS = KinematicLimits(v_max=20.0, a_max=80.0, j_max=20000.0)
@@ -238,6 +236,8 @@ class CrossingFleet:
         self.cover_rotation = bool(task.get("cover_rotation", False))
         self.dynamics_override = {"a_max": 18.0} if self.cover_rotation else None
         self.window = window
+        self.safe_radius_m = read_safe_radius(card.get("policy_params"))
+        self.decoder = upstream_decoder(self.safe_radius_m)
         if min(self.horizon, self.lookahead_s, self.min_ahead_m) <= 0.0:
             raise ValueError("commit_horizon_s、lookahead_s、min_ahead_m 必须为正")
         if not 0.0 <= self.lateral_gain <= 2.0:
@@ -260,6 +260,7 @@ class CrossingFleet:
                     "min_ahead_m": self.min_ahead_m,
                     "lateral_gain": self.lateral_gain,
                     "arrive_radius_m": self.arrive_radius,
+                    "safe_radius_m": self.safe_radius_m,
                     **({"cover_rotation": True} if self.cover_rotation else {}),
                 }
             ),
@@ -297,6 +298,7 @@ class CrossingFleet:
         self._sense: dict[str, tuple] = {}
         self._codes: dict[str, dict[str, int]] = {did: {} for did in self.members}
         self._last_code = {did: "LOCAL_HOVER" for did in self.members}
+        self.empty_solution = 0
         self._source = None
 
     @classmethod
@@ -386,11 +388,12 @@ class CrossingFleet:
         """一次前向。首位是上游 select_action；预留冲突时才按分数试后面的准入候选。"""
         R = R_yaw(yaw)
         params, score, radius = self.source.forward_raw(depth, head[1], head[2], goal, head[0], R)
-        inner_b, tail_b, durations = decode_params(params, _DEC)
+        dec = self.decoder
+        inner_b, tail_b, durations = decode_params(params, dec)
         inner_w = inner_b @ R.T + head[0]
         tail_w = np.einsum("ij,nkj->nki", R, tail_b)
         tail_w[:, 0] += head[0]
-        ranking = rank_candidates(score, radius, _DEC, inner_w)
+        ranking = rank_candidates(score, radius, dec, inner_w)
         if ranking.corridor_empty:
             return [], "CORRIDOR_EMPTY_HOVER"
         motions = []
@@ -454,6 +457,8 @@ class CrossingFleet:
                 motions, code = self._yopo_options(head, t_start, goal, frame.depth, yaw)
             except (ValueError, np.linalg.LinAlgError, FloatingPointError):
                 motions, code = [], "YOPO_FAIL"
+            if code == "CORRIDOR_EMPTY_HOVER":
+                self.empty_solution += 1
         occ = None
         reject = None
         used_alt = False
@@ -566,6 +571,8 @@ class CrossingFleet:
             "avoidance": "upstream-yopo",
             "goal_bias": "slot-lookahead-blend",
             "body_radius_m": self.radius,
+            "safe_radius_m": self.safe_radius_m,
+            "empty_solution_count": int(self.empty_solution),
             "local_commits": commits,
             "proposals": proposals,
             "acks": acks,
@@ -611,8 +618,8 @@ def format_report(rows: list[dict], *, title: str | None = None) -> str:
         "",
         "净空 = 机体中心到障碍表面的距离 − body_radius。碰撞（障碍或机间）是硬失败，仿真在第一次碰撞处停下。",
         "",
-        "| seed | 到达率 | 障碍碰撞 | 机间碰撞 | 最小机间距离 m | 最小障碍净空 m | 队形误差 p95 m | 影子拒绝率 | 失败原因 |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "| seed | 到达率 | 障碍碰撞 | 机间碰撞 | 最小机间距离 m | 最小障碍净空 m | 队形误差 p95 m | 影子拒绝率 | safe_radius m | 偏离上游 | 无解次数 | 失败原因 |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     obs_sum = inter_sum = 0
     for r in rows:
@@ -636,8 +643,16 @@ def format_report(rows: list[dict], *, title: str | None = None) -> str:
         if clearance is None and r.get("min_obstacle_distance_m") is not None:
             clearance = float(r["min_obstacle_distance_m"]) - radius
         reason = "" if r.get("outcome") == "SUCCESS" else f"{r.get('outcome')} {r.get('reason')}"
+        rad = r.get("safe_radius_m")
+        if rad is None:
+            rad_cell, dev = "—", "—"
+        else:
+            rad_cell = f"{float(rad):.2f}"
+            dev = "偏离上游" if r.get("upstream_deviation") else "否"
+        empty = r.get("empty_solution_count")
+        empty_cell = "—" if empty is None else str(int(empty))
         lines.append(
-            "| {seed} | {rate} | {obs} | {inter} | {gap} | {clear} | {p95} | {shadow} | {why} |".format(
+            "| {seed} | {rate} | {obs} | {inter} | {gap} | {clear} | {p95} | {shadow} | {rad} | {dev} | {empty} | {why} |".format(
                 seed=r.get("seed"),
                 rate=rate_cell,
                 obs=obs,
@@ -646,6 +661,9 @@ def format_report(rows: list[dict], *, title: str | None = None) -> str:
                 clear=_fmt(clearance),
                 p95=_fmt(r.get("formation_error_p95_m")),
                 shadow=_fmt(r.get("shadow_reject_rate")),
+                rad=rad_cell,
+                dev=dev,
+                empty=empty_cell,
                 why=reason,
             )
         )
