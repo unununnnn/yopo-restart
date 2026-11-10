@@ -105,7 +105,9 @@ def test_dropped_departure_ack_rejoins(monkeypatch, drone_id):
         assert form["local_aborts"][other] == 0
         assert form["local_commits"][other] == 1
         assert form["committed_t_switch_s"][other] <= form["t_go_s"] + 1e-9
-    assert r["bus"]["dropped"] == 2
+    # 出发提案会在窗口内重发，每轮仍然是这两张 ACK 被丢掉。次数随重发周期变，不再是恰好 2。
+    assert r["bus"]["dropped"] >= 2
+    assert r["bus"]["dropped"] % (len(DRONES) - 1) == 0
     for row in out.ticks:
         assert row["approved_owner"] == row["uav"]
         assert np.linalg.norm(row["cmd_v"]) <= limits.v_max + 1e-6

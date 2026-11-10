@@ -12,6 +12,10 @@
 COMMIT/RELEASE 用 resend_period 从总线上重发，免得对端的预留一直占着槽位。
 下一轮轮到本机，重新提案一条追赶：从当前悬停点沿本槽弧长接到时刻表（或终点保持），
 速度和加速度不超过计划限幅。动力学仍然只跟踪本机已经 COMMIT 的计划。
+
+票 06c：提案和 ACK 原来都不重传，六机一轮要 5 张票，丢 20% 时这一窗基本收不齐。
+vendored 协议节点不动。exchange 在截止前按 0.02 s 重发同一份提案，对端再 ACK；
+截止前 0.10 s 不再重发，避免时延副本掉进下一窗口被当成 NACK。追赶轨迹和跟踪参数不动。
 """
 
 from __future__ import annotations
@@ -34,6 +38,10 @@ from yopo_swarm_core.trajectory import PiecewisePolynomial, PolySegment
 _MINJERK_V_PEAK = 1.875
 _FIT_TOL_M = 0.02
 _MAX_SEGMENTS = 240
+# 窗口内重发同一份提案。0.02 s 在 0.5 s 窗口、截止前 0.10 s 静默时大约 20 次。
+# guard 盖住故障档最大时延 0.05 s 的一个来回（提案 + ACK）。
+_PROPOSAL_RESEND_PERIOD = 0.02
+_PROPOSAL_RESEND_GUARD = 0.10
 
 
 class LocalApproval:
@@ -520,6 +528,9 @@ class FormationFleet:
         }
         self._follow = {did: {"hash": None, "sampler": None} for did in self.members}
         self._last_rec = {}
+        self.proposal_resend_period = _PROPOSAL_RESEND_PERIOD
+        self.proposal_resend_guard = _PROPOSAL_RESEND_GUARD
+        self._proposal_sent_at = {did: -math.inf for did in self.members}
 
     @classmethod
     def from_card(cls, card: dict, physics_dt: float, *, record_inputs: bool = False) -> "FormationFleet":
@@ -606,11 +617,30 @@ class FormationFleet:
             return bus
         return transport.carrying(bus)
 
+    def _resend_open_proposal(self, bus, node, now: float) -> None:
+        """同一 reservation 再发一次，向还没把 ACK 送回来的对端再要一票。不新开一轮。"""
+        inflight = node.in_flight
+        if inflight is None:
+            return
+        if now + self.proposal_resend_guard >= inflight.record.t_start:
+            return
+        last = self._proposal_sent_at[node.id]
+        if now - last + 1e-12 < self.proposal_resend_period:
+            return
+        self._proposal_sent_at[node.id] = now
+        msg = replace(inflight.proposal, ctx=node.next_ctx())
+        node._log("resend_proposal", rid=msg.reservation_id, t=now)
+        self._emit(bus, now, node.id, msg)
+
     def exchange(self, bus, now: float) -> None:
         bus = self._transport_or_bus(bus)
         for did in self.members:
-            for msg in self.nodes[did].on_tick(now):
+            node = self.nodes[did]
+            for msg in node.on_tick(now):
+                if getattr(msg, "kind", None) == "PROPOSE":
+                    self._proposal_sent_at[did] = now
                 self._emit(bus, now, did, msg)
+            self._resend_open_proposal(bus, node, now)
         for _ in range(8):
             envs = bus.poll(now)
             if not envs:
