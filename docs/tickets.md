@@ -23,6 +23,7 @@ frank 拍板卡片未回；父代理代定（仅 L0，L1 不动）：
 | 07 | 三机交叉避障（M2） | 06, 04 | done |
 | 07b | 不规则林（泊松盘、疏密档） | 07 | done |
 | 07c | 密档撞树定位（不改规划器） | 07b | done |
+| 07d | 可选 safe_radius，默认仍是上游 0.05 m | 07c | done |
 | 08 | 一种变阵（M3 前半） | 07 | done |
 | 09 | L1 抽检通道（M3 后半）。Orin 驱动是 `scripts/run_g2.sh nominal`，不是 `ros2 launch`。L1 策略记 `deployed-certified` | 03, 04 | in-progress |
 | 10 | ROS 2 形态 | 06 | done（M1 三机同 seed：到达/碰撞/队形误差 p95/机间距离/影子拒绝率与进程内一致；机间消息走 ROS 话题） |
@@ -38,7 +39,10 @@ frank 拍板卡片未回；父代理代定（仅 L0，L1 不动）：
 07：三机穿柱林。每机用本机深度跑上游 YOPO，编队槽位只作为目标偏置，避障优先；运动更新仍走轮转窗口和预留，只飞本机 COMMIT 的计划。判据未冻结（report-only），碰撞数照实入表。
 
 07b：同一套规划，换成泊松盘树干林。`forest.density` 选 sparse / medium / dense。密档若碰撞或到不了，照实写进结果表，不改规划器去掩盖。
+
 07c：只定位密档 uav0 撞树。不改上游选择，也不改票 07 的规划参数。类别和撞前 1 s 的表在 `docs/results/07c-dense-diag.md`。
+
+07d：修法 1 做成 `safe_radius` 开关。场景卡 `policy_params.upstream.safe_radius` 或 CLI `--safe-radius`。默认 0.05 m（上游 d5e1e60）。0.35 m 才是修法。结果表标出半径，非 0.05 m 写「偏离上游」。不改 L0 跟踪增益。疏/中/密对照在 `docs/results/07d-safe-radius.md`。
 
 11c：#18 的六机 medium 有 6 个 seed 撞树，sparse 的 seed 2 也撞。首撞都是已提交的计划。主因是轮转 1.5 s 长于承诺地平线 1.0 s，末端急刹按 a_max=80 生成，动力学 a_max=6 停不住；同时槽位时刻表把目标线段拉进树干。林带里改为前方 goto，侧向让到净空够的位置，前缀盖住下一轮窗口，进树的多项式不提交。不改 safe_radius 0.05 m，也不改 kp / kd / tau / a_max。前后表在 `docs/results/11c-six-forest.md`。判据仍是 report-only。
 

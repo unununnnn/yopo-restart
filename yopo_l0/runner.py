@@ -28,7 +28,14 @@ import numpy as np
 
 from .bus import BusFaults, MessageBus
 from .dynamics import HoverPlan, State, make_model
-from .policy import POLICIES, Observation, PolicyContext
+from .policy import (
+    POLICIES,
+    Observation,
+    PolicyContext,
+    deviates_from_upstream,
+    empty_solution_count,
+    read_safe_radius,
+)
 from .scene import SceneCard
 from .sensor import CameraConfig, DepthCamera
 from .shadow import DroneShadow, aggregate, aggregate_drones, approved_pva, gate_status
@@ -48,6 +55,7 @@ class RunConfig:
     duration_s: float | None = None  # None = 用场景卡 task.duration_s
     record_planner_inputs: bool = False
     bus: BusFaults | None = None  # None = 场景卡 bus，缺省零故障
+    safe_radius_m: float | None = None  # None = 场景卡，缺省 0.05 m（上游 d5e1e60）
 
 
 @dataclass
@@ -98,11 +106,23 @@ def _note_pairs(drones: list[dict], radius: float, min_inter: float | None, outc
     return min_inter, outcome, reason
 
 
+def _card_for_run(card_dict: dict, cfg: RunConfig) -> dict:
+    """CLI 的 safe_radius 盖过场景卡。不改传入的卡，场景卡哈希保持原样。"""
+    if cfg.safe_radius_m is None:
+        return card_dict
+    params = dict(card_dict.get("policy_params") or {})
+    upstream = dict(params.get("upstream") or {})
+    upstream["safe_radius"] = float(cfg.safe_radius_m)
+    params["upstream"] = upstream
+    return {**card_dict, "policy_params": params}
+
+
 def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
     if cfg.tier != "L0":
         raise ValueError("本运行器只实现 L0")
     wall0 = time.perf_counter()
     c = card.card
+    tuned = _card_for_run(c, cfg)
     rates = c["rates_hz"]
     phys, cam_hz, plan_hz = int(rates["physics"]), int(rates["camera"]), int(rates["planner"])
     dt = 1.0 / phys
@@ -126,7 +146,7 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         from .crossing import CrossingFleet
         from .crossing import LocalApproval as CrossingApproval
 
-        fleet = CrossingFleet.from_card(c, dt, record_inputs=cfg.record_planner_inputs)
+        fleet = CrossingFleet.from_card(tuned, dt, record_inputs=cfg.record_planner_inputs)
         approval_cls = CrossingApproval
     elif task["type"] == "switch":
         from .switch import SwitchFleet
@@ -152,7 +172,7 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
             policy = approval_cls()
         else:
             goal = np.asarray(d["goal_enu"] if track_goal else d.get("hover_enu", start), dtype=float)
-            ctx = PolicyContext(d["id"], dt, dict(c.get("policy_params", {})))
+            ctx = PolicyContext(d["id"], dt, dict(tuned.get("policy_params", {})))
             policy = POLICIES[cfg.policy](ctx)
         drones.append({
             "id": d["id"],
@@ -375,6 +395,17 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         result[getattr(fleet, "result_key", "formation")] = fleet_block
         result["formation_error_p95_m"] = fleet_block["error_p95_m"]
         result["arrival_rate"] = fleet_block["arrival_rate"]
+    uses_corridor = cfg.policy == "upstream" or (
+        fleet is not None and getattr(fleet, "uses_network", False)
+    )
+    if uses_corridor:
+        radius_m = read_safe_radius(tuned.get("policy_params"))
+        result["safe_radius_m"] = radius_m
+        result["upstream_deviation"] = deviates_from_upstream(radius_m)
+        if fleet is not None and hasattr(fleet, "empty_solution"):
+            result["empty_solution_count"] = int(fleet.empty_solution)
+        else:
+            result["empty_solution_count"] = empty_solution_count(result["plan_codes"])
     return RunOutput(result, ticks, inputs)
 
 

@@ -2,7 +2,7 @@
 
 判据未冻结 / report-only。碰撞数照实写。L0，策略仍是上游 YOPO，`safe_radius` 仍是 0.05 m。动力学仍是场景卡上的 kp 4、kd 3、tau 0.1、a_max 6。没有改候选排序。
 
-飞行时工作区是 `3d91e5275ced` 加上本分支的编队改动，所以 `result.json` 的 commit 带 `-dirty`。场景卡哈希与 #18 相同：medium `128eb7412296bad460bc3503e922f5614c1b2b97175d659fe9f28e64373de587`，sparse `6931bead71b44239e2225be44004a2040b49de4f5ee9c1ccd010ecb1a18b4b69`。三机 medium 在 #13 是 10/10、障碍碰撞 0，用的是同一条上游和同一个 0.05 m。
+飞行在合并 07d 之前，用的就是默认 `safe_radius` 0.05 m（07d 的默认值与当时的上游解码器相同）。`result.json` 的 commit 是 `3d91e5275ced-dirty`，因为结果文档当时还没提交。场景卡哈希与 #18 相同：medium `128eb7412296bad460bc3503e922f5614c1b2b97175d659fe9f28e64373de587`，sparse `6931bead71b44239e2225be44004a2040b49de4f5ee9c1ccd010ecb1a18b4b69`。三机 medium 在 #13 是 10/10、障碍碰撞 0，用的是同一条上游和同一个 0.05 m。
 
 ## 首撞（改之前）
 

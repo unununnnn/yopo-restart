@@ -54,7 +54,18 @@ def test_serve_and_client_sequence_and_errors():
             if path.exists():
                 break
             threading.Event().wait(0.01)
-        cli = ipc.IpcClient(path)
+        # bind 已经写出套接字文件，listen 可能还没跟上。连早了就是 ConnectionRefused。
+        cli = None
+        refused: ConnectionRefusedError | None = None
+        for _ in range(50):
+            try:
+                cli = ipc.IpcClient(path)
+                break
+            except ConnectionRefusedError as exc:
+                refused = exc
+                threading.Event().wait(0.02)
+        if cli is None:
+            raise refused  # type: ignore[misc]
         depth = np.ones((1, 1, 96, 160), np.float32)
         p, s, r = cli.forward(depth, np.ones((1, 9), np.float32))
         assert p.shape == (1, 15, 14) and np.all(p == 1.0)
