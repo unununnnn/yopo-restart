@@ -27,7 +27,7 @@ frank 拍板卡片未回；父代理代定（仅 L0，L1 不动）：
 | 08 | 一种变阵（M3 前半） | 07 | done |
 | 09 | L1 抽检通道（M3 后半）。Orin 驱动是 `scripts/run_g2.sh nominal`，不是 `ros2 launch`。L1 策略记 `deployed-certified` | 03, 04 | closed（frank 2026-11-09 关闭：09b 跑的是旧仓 deployed-certified，不验证新方案；L1 等新方案接 PX4 SITL 另开票。通道代码 09a/09b 保留） |
 | 10 | ROS 2 形态 | 06 | done（M1 三机同 seed：到达/碰撞/队形误差 p95/机间距离/影子拒绝率与进程内一致；机间消息走 ROS 话题） |
-| 11 | 六机 + 故障注入（M4） | 07, 08, 10 | in-progress（11a 开阔区楔形已进 `suite.txt`。11b：同一楔形穿 07b 的 medium / sparse 林，`scenes/crossing-6-forest.json` 与 `scenes/crossing-6-forest-sparse.json`，seeds 0–9，规划参数与三机穿林卡相同，避障仍是上游 YOPO。06b 合入后重跑开阔区六档。判据未冻结。柱林六机若单次超过 60 s 不进 `suite.txt`） |
+| 11 | 六机 + 故障注入（M4） | 07, 08, 10 | in-progress（11a 开阔区楔形已进 `suite.txt`。11b：同一楔形穿 07b 的 medium / sparse 林，`scenes/crossing-6-forest.json` 与 `scenes/crossing-6-forest-sparse.json`，seeds 0–9，规划参数与三机穿林卡相同，避障仍是上游 YOPO。11c：六机林中撞树定位后，只改编队层。06b 合入后重跑开阔区六档。判据未冻结。柱林六机若单次超过 60 s 不进 `suite.txt`） |
 | 12 | 交付包（M5） | 11 | todo |
 
 09：Orin 工单由 `scripts/l1_spotcheck.sh --prepare-only --scene scenes/g2-pillar.json --seed 0 --out out/l1/g2-pillar` 写到 `out/l1/g2-pillar/job-card.json`（schema `yopo-restart/l1-job-card/1`）。全量命令是 `YOPO_SWARM_ROOT=<yopo-swarm> PX4_PARAM_DUMP_CMD='<只读 param show>' scripts/l1_spotcheck.sh --scene scenes/g2-pillar.json --seed 0 --out out/l1/g2-pillar`。脚本内部执行 `YOPO_SIM_SEED=<seed> bash "$YOPO_SWARM_ROOT/scripts/run_g2.sh" nominal`，超时 1800 s。产物是 `bundle/scene.json`、`bundle/run.json`、`log/orin-result.json`、`log/events/`、`log/result.json`、`guard/` 里的参数表和安全文件哈希。过：`run_g2.sh` 退出码 0，参数表和安全哈希前后一致，且收下了 `result.json`。不过：退出码非 0、参数或安全文件有差异、没有 `result.json`，或命令里出现 param set/save/load/reset/import。已知缺口：这条路径仍是已部署的 certified 栈，不接受 `--policy upstream`；对照表写 `policy=deployed-certified`。把 upstream 移植进 L1 要等以后的 yopo-swarm 票，本仓库不改那个仓库。宿主上不要 `make venv`（aarch64 没有 torch cpu wheel）；export/import/report 只用 numpy，缺解释器时用已有镜像 `yopo-swarm:orin-infer-cu13`。
@@ -43,5 +43,7 @@ frank 拍板卡片未回；父代理代定（仅 L0，L1 不动）：
 07c：只定位密档 uav0 撞树。不改上游选择，也不改票 07 的规划参数。类别和撞前 1 s 的表在 `docs/results/07c-dense-diag.md`。
 
 07d：修法 1 做成 `safe_radius` 开关。场景卡 `policy_params.upstream.safe_radius` 或 CLI `--safe-radius`。默认 0.05 m（上游 d5e1e60）。0.35 m 才是修法。结果表标出半径，非 0.05 m 写「偏离上游」。不改 L0 跟踪增益。疏/中/密对照在 `docs/results/07d-safe-radius.md`。
+
+11c：#18 的六机 medium 有 6 个 seed 撞树，sparse 的 seed 2 也撞。首撞都是已提交的计划。主因是轮转 1.5 s 长于承诺地平线 1.0 s，末端急刹按 a_max=80 生成，动力学 a_max=6 停不住；同时槽位时刻表把目标线段拉进树干。林带里改为前方 goto，侧向让到净空够的位置，前缀盖住下一轮窗口，进树的多项式不提交。不改 safe_radius 0.05 m，也不改 kp / kd / tau / a_max。前后表在 `docs/results/11c-six-forest.md`。判据仍是 report-only。
 
 08：一种变阵，横排 ↔ 纵列。开阔区中间有一道窄门（两根柱子）。各机用场景几何量前方走廊净空，低于阈值就在自己的窗口里提案切到纵列槽位，出了窄门再提案切回横排。新计划从父计划在 t_start 的状态接上，经 ACK/COMMIT 才飞，不瞬移。失败拒绝码 `SWITCH:NO_ACK`、`SWITCH:CONFLICT`。判据未冻结（report-only）。过渡期碰撞是硬失败，照实入表。
