@@ -74,8 +74,10 @@ def test_medium_seed0_short_prefix_stays_clear_of_the_wall():
     assert r["outcome"] != "COLLISION"
     assert r["crossing"]["avoidance"] == "upstream-yopo"
     assert r["crossing"]["goal_bias"] == "forest-loose-goto"
-    assert r["crossing"]["commit_horizon_s"] == 1.0
-    assert r["crossing"]["commit_span_s"] == 1.5
+    # 场景卡仍写 1.0（与三机卡相同）；13a 在构造时抬到 N*window+0.25 = 1.75。
+    # 抬高后已盖过一轮窗口，_commit_span 不再另加到 1.5。
+    assert r["crossing"]["commit_horizon_s"] == 1.75
+    assert r["crossing"]["commit_span_s"] == 1.75
     assert r["crossing"]["adjudicator"] is None
     assert r["min_inter_drone_distance_m"] > 2 * 0.35
     assert out.ticks == again.ticks
@@ -100,7 +102,8 @@ def test_woods_goal_is_a_personal_goto_and_three_drones_stay_on_the_slot():
     assert chosen + 1e-9 >= max(slot_clear, max(window)) or chosen >= 0.5 - 1e-6
     early = six.goal_for("uav3", 0.5, np.array([3.2, -4.2, 1.5]))
     assert early[1] > -4.2
-    assert six._commit_span() == 1.5
+    assert six.horizon == 1.75
+    assert six._commit_span() == 1.75
     three = CrossingFleet.from_card(load_card(THREE).card, 0.01)
     kept = three.goal_for("uav0", 8.0, np.array([16.0, 1.0, 1.5]))
     assert kept[1] != 1.0
