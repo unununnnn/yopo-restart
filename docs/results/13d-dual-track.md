@@ -4,7 +4,7 @@
 
 新轨在现有 ACK/COMMIT 上多一段等待：PROPOSED → TENTATIVE（PROPOSE 已广播）→ DELAY_CHECK → COMMITTED。编队 `delay_check_s = 0.05` s，等于六档里时延上界。没走完 Delay Check 不替换 `committed`。Delay Check 期间若邻机轨迹和新轨冲突（含迟到才到的），RELEASE 新轨，本窗口再提一份新的 `plan_seq`。
 
-#20 还没合。窗口内重发同一 reservation（0.02 s 一次，截止前 0.10 s 静默）放在这条分支里。票齐之后不再重发，Delay Check 只等时间；等到 δ_DC 才提交。
+窗口内重发来自已合入的票 06c（同一 reservation，0.02 s 一次，截止前 0.10 s 静默）。票齐之后不再重发，Delay Check 只等时间；等到 δ_DC 才提交。
 
 穿林和变阵的 `delay_check_s` 保持 0。收齐 ACK 仍当拍提交，YOPO 候选和跟踪参数不动。
 

@@ -32,7 +32,7 @@ frank 拍板卡片未回；父代理代定（仅 L0，L1 不动）：
 
 06b：同步出发那一轮收不齐 ACK 时，本机在 t_start 超时 RELEASE，并按 resend_period 重发 RELEASE/COMMIT。下一轮自己的窗口重新提案，沿本槽弧长追到当前时刻表（速度/加速度不超过计划限幅），只飞本机已提交的计划。随机丢包+乱序只报数。
 
-06c：06b 之后 drop 20% 的到达率仍低，是因为提案和 ACK 在窗口内不重传（COMMIT/RELEASE 才按窗口长重发）。六机一轮要 5 张票，单次成功概率约 0.8^10。错过前几窗之后追赶拟合也不再产出轨迹，有的飞机 `local_commits=0` 停在起点。修复在 `FormationFleet.exchange`：同一 reservation 在截止前按 0.02 s 重发，静默 0.10 s。不改单机规划和 L0 跟踪参数。#20 未合入时，13d 这条分支把同一段重发带上。判据未冻结（report-only）。
+06c：06b 之后 drop 20% 的到达率仍低，是因为提案和 ACK 在窗口内不重传（COMMIT/RELEASE 才按窗口长重发）。六机一轮要 5 张票，单次成功概率约 0.8^10。错过前几窗之后追赶拟合也不再产出轨迹，有的飞机 `local_commits=0` 停在起点；晚提交的轨迹终点落在 40 s 之后，到不了。修复在 `FormationFleet.exchange`：同一 reservation 在截止前按 0.02 s 重发，静默 0.10 s。06c 本身不改 vendored 协议，也不改单机规划和 L0 跟踪参数。判据未冻结（report-only）。数字在 `docs/results/06c-drop20.md`。票 13d 合入时票齐后不再重发，免得 Delay Check 把同一份提案再送出去。
 
 13d：在 ACK/COMMIT 上增加 PROPOSED → TENTATIVE（已广播）→ DELAY_CHECK → COMMITTED。编队 δ_DC = 0.05 s。Delay Check 期间收到冲突或迟到的邻机轨迹就作废新轨，已提交的安全轨留下，本窗口还能再提。穿林和变阵的 `delay_check_s` 保持 0，不换 YOPO，不引入 Gurobi。偏离写在 ADR 0011。数字在 `docs/results/13d-dual-track.md`。
 

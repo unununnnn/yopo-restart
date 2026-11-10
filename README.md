@@ -76,7 +76,7 @@ scripts/setup_ros2.sh    # Ubuntu 24.04 → Jazzy，22.04 → Humble；ros-*-ros
 
 ## 六机开阔区 + 故障档位（票 11a，M4）
 
-楔形六机在开阔区保持队形。判据未冻结，表上只报数。柱林六机（11b）不在这张票里。丢 20% 时收不齐 ACK 的补票是票 06c：窗口内重发同一份提案。票 13d 在此之上把新轨留在 Delay Check，δ_DC = 0.05 s，已提交轨到提交前都不换。全丢仍然停在起点。穿林不打开这段等待。
+楔形六机在开阔区保持队形。判据未冻结，表上只报数。柱林六机（11b）不在这张票里。丢 20% 时收不齐 ACK 的补票是票 06c：窗口内重发同一份提案，不改追赶轨迹和跟踪参数。票 13d 在此之上把新轨留在 Delay Check，δ_DC = 0.05 s，已提交轨到提交前都不换。全丢仍然停在起点。穿林不打开这段等待。
 
 ```bash
 .venv/bin/python -m yopo_l0.batch scenes/formation-6-open.json@formation \
