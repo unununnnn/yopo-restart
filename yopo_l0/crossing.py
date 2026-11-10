@@ -313,6 +313,9 @@ class CrossingFleet:
         # 超前机的悬停用场景加速度，形状上避开 a_max=80 的急刹。契约检查仍用 _LIMITS。
         self.gentle_limits = KinematicLimits(v_max=_LIMITS.v_max, a_max=a_track, j_max=_LIMITS.j_max)
         self._progress = {did: 0.0 for did in self.members}
+        self._gate_mark = 0.0
+        self._gate_mark_t = 0.0
+        self._gate_stalled = False
         spec = task["virtual_center"]
         self.cfg = ProtocolConfig(
             members=self.members,
@@ -572,19 +575,22 @@ class CrossingFleet:
         """最长的那条过运动学的前缀。系数不变，避障形状还是这条 YOPO 曲线。"""
         return next(self._iter_fits(raw), None)
 
-    def _fit_short(self, raw: PiecewisePolynomial) -> PiecewisePolynomial | None:
-        """超前机的短前缀。尾巴用场景 a_max 停住，避免再飞 a_max=80 的急刹。"""
+    def _fit_horizon(self, raw: PiecewisePolynomial, horizon: float, limits: KinematicLimits) -> PiecewisePolynomial | None:
         total = raw.t_end - raw.t_start
-        horizon = min(_LEADER_PREFIX_S, total)
+        horizon = min(float(horizon), total)
         if horizon < 0.2:
             return None
         try:
-            traj = _append_stop(_prefix(raw, raw.t_start + horizon), self.gentle_limits)
+            traj = _append_stop(_prefix(raw, raw.t_start + horizon), limits)
         except (ValueError, np.linalg.LinAlgError, FloatingPointError):
             return None
         if traj is not None and _kin_ok(traj, self.pcfg.limits):
             return traj
         return None
+
+    def _fit_short(self, raw: PiecewisePolynomial) -> PiecewisePolynomial | None:
+        """超前机的短前缀。尾巴用场景 a_max 停住，避免再飞 a_max=80 的急刹。"""
+        return self._fit_horizon(raw, _LEADER_PREFIX_S, self.gentle_limits)
 
     def _gentle_hover(self, head: np.ndarray, t_start: float) -> PiecewisePolynomial | None:
         """已经停住就保持。还在走就按场景 a_max 刹停，停点之后由 state_at 保持。"""
@@ -592,18 +598,13 @@ class CrossingFleet:
             return hold_traj(head[0], t_start, t_start + max(self._commit_span(), 0.5))
         return _brake_motion(head, t_start, self.gentle_limits)
 
-    def _leader_proposal(self, node: ProtocolNode, t_start: float, head: np.ndarray, goal: np.ndarray, frame, yaw: float):
-        """超前机只提悬停，或一条短前缀。不提交盖住下一轮窗口的长曲线。"""
-        hover = self._gentle_hover(head, t_start)
-        if hover is not None and not self._curve_hits_tree(hover):
-            occ, _reject = self._as_plan(node, t_start, head, hover)
-            if occ is not None:
-                self._count(node.id, "LEADER_HOVER")
-                return occ
+    def _try_prefix(self, node: ProtocolNode, t_start: float, head: np.ndarray, goal: np.ndarray, frame, yaw: float, *, creep: bool):
         try:
-            motions, code = self._yopo_options(head, t_start, goal, frame.depth, yaw, short=True)
+            motions, code = self._yopo_options(
+                head, t_start, goal, frame.depth, yaw, short=not creep, creep=creep
+            )
         except (ValueError, np.linalg.LinAlgError, FloatingPointError):
-            motions, code = [], "YOPO_FAIL"
+            return None
         if code == "CORRIDOR_EMPTY_HOVER":
             self.empty_solution += 1
         for motion in motions:
@@ -611,12 +612,44 @@ class CrossingFleet:
                 continue
             occ, _reject = self._as_plan(node, t_start, head, motion)
             if occ is not None:
+                return occ
+        return None
+
+    def _leader_proposal(self, node: ProtocolNode, t_start: float, head: np.ndarray, goal: np.ndarray, frame, yaw: float):
+        """超前机只提悬停，或一条短前缀。不提交盖住下一轮窗口的长曲线。
+
+        低分位停住超过一轮时，离门不太远的超前机先让一条短前缀，避免悬停预留把落后机堵死。
+        """
+        lead = float(self._progress.get(node.id, 0.0)) - self.gate_s()
+        if self._gate_stalled and lead <= _LEADER_MARGIN_M + 2.5:
+            occ = self._try_prefix(node, t_start, head, goal, frame, yaw, creep=False)
+            if occ is not None:
                 self._count(node.id, "LEADER_PREFIX")
                 return occ
+        hover = self._gentle_hover(head, t_start)
+        if hover is not None and not self._curve_hits_tree(hover):
+            occ, _reject = self._as_plan(node, t_start, head, hover)
+            if occ is not None:
+                self._count(node.id, "LEADER_HOVER")
+                return occ
+        occ = self._try_prefix(node, t_start, head, goal, frame, yaw, creep=False)
+        if occ is not None:
+            self._count(node.id, "LEADER_PREFIX")
+            return occ
         self._count(node.id, "LEADER_HOLD")
         return None
 
-    def _yopo_options(self, head: np.ndarray, t_start: float, goal: np.ndarray, depth, yaw: float, *, short: bool = False):
+    def _yopo_options(
+        self,
+        head: np.ndarray,
+        t_start: float,
+        goal: np.ndarray,
+        depth,
+        yaw: float,
+        *,
+        short: bool = False,
+        creep: bool = False,
+    ):
         """一次前向。首位是上游 select_action；预留冲突时才按分数试后面的准入候选。"""
         R = R_yaw(yaw)
         params, score, radius = self.source.forward_raw(depth, head[1], head[2], goal, head[0], R)
@@ -634,9 +667,15 @@ class CrossingFleet:
                 raw = minco_two_piece(t_start, head, tail_w[index], inner_w[index], durations[index])
             except (ValueError, np.linalg.LinAlgError, FloatingPointError):
                 continue
-            traj = self._fit_short(raw) if short else self._fit_yopo(raw)
-            if traj is not None:
-                motions.append(traj)
+            if creep:
+                fitted = [
+                    self._fit_horizon(raw, h, self.gentle_limits) for h in (0.7, 0.45, _LEADER_PREFIX_S)
+                ]
+            elif short:
+                fitted = [self._fit_short(raw)]
+            else:
+                fitted = [self._fit_yopo(raw)]
+            motions.extend(traj for traj in fitted if traj is not None)
         if not motions:
             return [], "YOPO_KIN_FALLBACK"
         return motions, "OK"
@@ -705,6 +744,16 @@ class CrossingFleet:
             if occ is not None:
                 used_alt = i > 0
                 break
+        if (
+            occ is None
+            and self.progress_gate
+            and reject in ("CONFLICT_SKIP", "TREE_SKIP")
+        ):
+            # 长前缀和邻机预留或树重叠。改试更短的一段，尾巴按场景 a_max 停，免得落后机卡死。
+            occ = self._try_prefix(node, t_start, head, goal, frame, yaw, creep=True)
+            if occ is not None:
+                self._count(node.id, "GATE_CREEP")
+                return occ
         if occ is None and reject in ("CONFLICT_SKIP", "TREE_SKIP") and self._loose_band(float(head[0][0])):
             # 正前方的 goto 撞树或被邻机预留挡住。左右错开 1.5 m 再各试一次。
             for dy in (1.5, -1.5):
@@ -751,7 +800,18 @@ class CrossingFleet:
                 payload={"kind": "protocol", "msg": clone_msg(msg)},
             )
 
+    def _touch_gate(self, now: float) -> None:
+        if not self.progress_gate:
+            self._gate_stalled = False
+            return
+        s = self.gate_s()
+        if s > self._gate_mark + 0.25:
+            self._gate_mark = s
+            self._gate_mark_t = float(now)
+        self._gate_stalled = float(now) - self._gate_mark_t >= 2.0
+
     def exchange(self, bus, now: float) -> None:
+        self._touch_gate(now)
         for did in self.members:
             for msg in self.nodes[did].on_tick(now):
                 self._emit(bus, now, did, msg)
