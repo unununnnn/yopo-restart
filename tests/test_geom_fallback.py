@@ -1,8 +1,9 @@
 """票 D1：几何回退默认关，同 seed 的现有场景卡与改前按位一致。
 
-比较时去掉 ``commit`` 和 ``wall_time_s``。前者随 HEAD 变，后者是整回路墙钟。
-其余结果字段和逐 tick 日志都进哈希。打开开关才出现 ``geometric_fallback``，
-并且不写进 runner.WALL_FIELDS，避免和 E-C3 的 plan_wall_ms 抢同一行。
+比较时去掉 ``commit`` 和 ``WALL_FIELDS``（``wall_time_s``、``plan_wall_ms``）。
+前者随 HEAD 变，后两者是墙钟。其余结果字段和逐 tick 日志都进哈希。
+打开开关才出现 ``geometric_fallback``，并且不写进 runner.WALL_FIELDS，
+避免和 E-C3 的 plan_wall_ms 抢同一行。
 """
 
 import hashlib
@@ -22,7 +23,7 @@ from yopo_l0.geom_fallback import (
     GeomSession,
     iter_times,
 )
-from yopo_l0.runner import RunConfig, run
+from yopo_l0.runner import WALL_FIELDS, RunConfig, run
 from yopo_l0.scene import Box, Ground, load_card
 
 from conftest import ROOT
@@ -33,7 +34,8 @@ FOREST = ROOT / "scenes/crossing-forest.json"
 
 
 def _canon(result, ticks) -> str:
-    kept = {k: v for k, v in result.items() if k not in ("wall_time_s", "commit")}
+    skip = set(WALL_FIELDS) | {"commit"}
+    kept = {k: v for k, v in result.items() if k not in skip}
     blob = json.dumps({"result": kept, "ticks": ticks}, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(blob.encode()).hexdigest()
 
@@ -224,7 +226,9 @@ def test_variant_short_run_records_independent_field():
     assert block["commit_horizon_s"] == pytest.approx(1.0)
     assert block["inter_drone_distance_m"] == pytest.approx(0.7)
     assert block["a_max"] == pytest.approx(6.0)
-    assert "plan_wall_ms" not in out.result
+    # E-C3 的规划墙钟仍在结果顶层；几何回退自己的计时在 check_time_ms，不占用该字段。
+    assert "plan_wall_ms" in out.result
+    assert "plan_wall_ms" not in block
     assert set(block["actions"]) == {ACTION_PREVIOUS, ACTION_BRAKE}
 
 
