@@ -1,0 +1,32 @@
+{
+  "name": "swap-8-open",
+  "note": "票 E-C4：八机开阔对向。起点均匀分布在半径 8.0 m、高度 1.5 m 的圆上（方位 0° 起、间隔 45°），各自飞向直径对侧。半径沿用 E-C2 的 8.0 m，没有另选。只跑 seed 0，不进 scenes/suite.txt，不设 criteria.frozen，不设 gates。本卡不复现 EGO-Swarm 论文表 I 的 20.3 m / 14.3 s（论文圆半径和速度上限未知）。速度与 a_max 用本仓库已有的点质量设定：场景卡无 speed_mps（goto 任务如此），dynamics.a_max=6.0、tau_s=0.1、kp=4.0、kd=3.0。机间过滤、几何回退、B 样条后段都不写进本卡，保持默认关闭。",
+  "geometry": "open-area.json",
+  "ground_z": 0.0,
+  "drones": [
+    {"id": "uav0", "start_enu": [8.0, 0.0, 1.5], "goal_enu": [-8.0, 0.0, 1.5]},
+    {"id": "uav1", "start_enu": [5.656854249492381, 5.656854249492381, 1.5], "goal_enu": [-5.656854249492381, -5.656854249492381, 1.5]},
+    {"id": "uav2", "start_enu": [0.0, 8.0, 1.5], "goal_enu": [0.0, -8.0, 1.5]},
+    {"id": "uav3", "start_enu": [-5.656854249492381, 5.656854249492381, 1.5], "goal_enu": [5.656854249492381, -5.656854249492381, 1.5]},
+    {"id": "uav4", "start_enu": [-8.0, 0.0, 1.5], "goal_enu": [8.0, 0.0, 1.5]},
+    {"id": "uav5", "start_enu": [-5.656854249492381, -5.656854249492381, 1.5], "goal_enu": [5.656854249492381, 5.656854249492381, 1.5]},
+    {"id": "uav6", "start_enu": [0.0, -8.0, 1.5], "goal_enu": [0.0, 8.0, 1.5]},
+    {"id": "uav7", "start_enu": [5.656854249492381, -5.656854249492381, 1.5], "goal_enu": [-5.656854249492381, 5.656854249492381, 1.5]}
+  ],
+  "task": {"type": "goto", "duration_s": 40.0},
+  "criteria": {
+    "body_radius_m": 0.35,
+    "goal_tolerance_m": 0.4,
+    "goal_speed_mps": 0.2,
+    "goal_hold_s": 1.0,
+    "frozen": false
+  },
+  "camera": {
+    "width": 160, "height": 96, "hfov_deg": 90.0, "vfov_deg": 60.0,
+    "min_range_m": 0.2, "max_range_m": 20.0, "noise_std_m": 0.02,
+    "mount_xyz_body": [0.13, 0.0, 0.02]
+  },
+  "dynamics": {"model": "point_mass_lag", "tau_s": 0.1, "kp": 4.0, "kd": 3.0, "a_max": 6.0},
+  "rates_hz": {"physics": 100, "camera": 30, "planner": 10},
+  "seeds": [0]
+}
