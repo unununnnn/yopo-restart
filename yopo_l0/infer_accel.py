@@ -85,7 +85,14 @@ def run_forward(model: BaselineModel, depth: np.ndarray, obs: np.ndarray) -> Can
         _ensure_torch_threads(1)
         return _ort_forward(model, depth, obs, accel_threads())
     _ensure_torch_threads(accel_threads())
-    return model.forward(depth, obs, inference_mode=name != "baseline")
+    if name == "baseline":
+        return model.forward(depth, obs)
+    import torch
+
+    # 开关在 yopo_l0 外侧包一层。vendored BaselineModel.forward 仍走内部的
+    # no_grad，不改 core/。inference_mode 包在外层时，内部 no_grad 不会退出它。
+    with torch.inference_mode():
+        return model.forward(depth, obs)
 
 
 def _ort_session(model: BaselineModel, threads: int):
