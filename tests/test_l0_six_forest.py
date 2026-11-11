@@ -5,7 +5,7 @@ import json
 import numpy as np
 
 from yopo_l0.forest import card_for_tier
-from yopo_l0.runner import RunConfig, run
+from yopo_l0.runner import WALL_FIELDS, RunConfig, run
 from yopo_l0.scene import load_card
 
 from conftest import ROOT
@@ -104,6 +104,6 @@ def test_medium_seed0_short_prefix_stays_clear_of_the_wall():
     assert r["min_inter_drone_distance_m"] > 2 * 0.35
     assert card.card["dynamics"] == {"model": "point_mass_lag", "tau_s": 0.1, "kp": 4.0, "kd": 3.0, "a_max": 6.0}
     assert out.ticks == again.ticks
-    again_result = {k: v for k, v in again.result.items() if k != "wall_time_s"}
-    this_result = {k: v for k, v in r.items() if k != "wall_time_s"}
+    again_result = {k: v for k, v in again.result.items() if k not in WALL_FIELDS}
+    this_result = {k: v for k, v in r.items() if k not in WALL_FIELDS}
     assert this_result == again_result
