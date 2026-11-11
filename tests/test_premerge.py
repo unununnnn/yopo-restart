@@ -72,6 +72,15 @@ TEST_REGRESS = textwrap.dedent(
     """\
     #!/bin/sh
     cat "$PREMERGE_FIXTURE_LOG" || exit 1
+    if [ -n "${PREMERGE_ADVANCE_BASE:-}" ]; then
+      wt=$(mktemp -d)
+      rmdir "$wt"
+      git -C "$PREMERGE_ROOT" worktree add "$wt" main >/dev/null
+      printf '%s\n' "${PREMERGE_ADVANCE_TEXT:-moved}" > "$wt/README"
+      git -C "$wt" add README
+      git -C "$wt" -c commit.gpgsign=false commit -m "main moved" >/dev/null
+      git -C "$PREMERGE_ROOT" worktree remove --force "$wt" >/dev/null
+    fi
     exit "$PREMERGE_FIXTURE_RC"
     """
 )
@@ -102,8 +111,13 @@ GH_STUB = textwrap.dedent(
         if rc != 0:
             sys.stderr.write(os.environ.get("GH_READY_STDERR", "ready failed"))
         raise SystemExit(rc)
-    if len(args) >= 2 and args[0] == "pr" and args[1] in ("comment", "merge"):
-        raise SystemExit(int(os.environ.get("GH_ACTION_RC", "0")))
+    if len(args) >= 2 and args[0] == "pr" and args[1] == "comment":
+        raise SystemExit(int(os.environ.get("GH_COMMENT_RC", os.environ.get("GH_ACTION_RC", "0"))))
+    if len(args) >= 2 and args[0] == "pr" and args[1] == "merge":
+        rc = int(os.environ.get("GH_MERGE_RC", os.environ.get("GH_ACTION_RC", "0")))
+        if rc != 0:
+            sys.stderr.write(os.environ.get("GH_MERGE_STDERR", "GraphQL: Pull Request has merge conflicts (mergePullRequest)\\n"))
+        raise SystemExit(rc)
     sys.stderr.write("unexpected gh " + " ".join(args) + "\\n")
     raise SystemExit(2)
     """
@@ -307,7 +321,7 @@ def _pr_repo(tmp_path, *, trailer=None, fixture=FIXTURE):
     return repo, sha, fixture_path, make_log
 
 
-def _run_premerge(tmp_path, repo, sha, fixture_path, make_log, *args, mergeable="MERGEABLE", ready_rc="0", ready_err="", title="feat: candidate", regress_rc="0"):
+def _run_premerge(tmp_path, repo, sha, fixture_path, make_log, *args, mergeable="MERGEABLE", ready_rc="0", ready_err="", title="feat: candidate", regress_rc="0", merge_rc="0", merge_err="", comment_rc="0", advance_base=False, advance_text="moved"):
     view = {
         "headRefOid": sha,
         "mergeable": mergeable,
@@ -328,6 +342,12 @@ def _run_premerge(tmp_path, repo, sha, fixture_path, make_log, *args, mergeable=
     env["GH_VIEW"] = str(view_path)
     env["GH_READY_RC"] = ready_rc
     env["GH_READY_STDERR"] = ready_err
+    env["GH_MERGE_RC"] = str(merge_rc)
+    env["GH_MERGE_STDERR"] = merge_err
+    env["GH_COMMENT_RC"] = str(comment_rc)
+    if advance_base:
+        env["PREMERGE_ADVANCE_BASE"] = "1"
+        env["PREMERGE_ADVANCE_TEXT"] = advance_text
     proc = subprocess.run(
         ["bash", str(PREMERGE), *args],
         cwd=tmp_path,
@@ -497,6 +517,86 @@ def test_regress_failure_skips_merge_and_reports_exit_code(tmp_path):
     assert "| 0 | L0 | hover | SUCCESS |" in body
 
 
+def test_merge_failure_exits_nonzero_and_comments(tmp_path):
+    repo, sha, fixture_path, make_log = _pr_repo(tmp_path)
+    proc, calls = _run_premerge(
+        tmp_path,
+        repo,
+        sha,
+        fixture_path,
+        make_log,
+        "42",
+        "--squash",
+        merge_rc="1",
+        merge_err="GraphQL: Pull Request has merge conflicts (mergePullRequest)\n",
+    )
+    assert proc.returncode != 0, proc.stderr + proc.stdout
+    merges = [c for c in calls if c["argv"][1] == "merge"]
+    comments = [c for c in calls if c["argv"][1] == "comment"]
+    assert len(merges) == 1
+    assert len(comments) == 1
+    body = comments[0]["body"]
+    assert "| 合并 | 合并失败 |" in body
+    assert "| 退出码 | 1 |" in body
+    assert "## 合并失败" in body
+    assert "GraphQL: Pull Request has merge conflicts (mergePullRequest)" in body
+    assert f"premerge PR #42 head {sha} 退出码 1 合并 合并失败" in proc.stderr
+
+
+def test_base_moved_is_merged_then_pr_merges(tmp_path):
+    repo, sha, fixture_path, make_log = _pr_repo(tmp_path)
+    proc, calls = _run_premerge(
+        tmp_path,
+        repo,
+        sha,
+        fixture_path,
+        make_log,
+        "8",
+        "--squash",
+        advance_base=True,
+        advance_text="from main",
+    )
+    assert proc.returncode == 0, proc.stderr + proc.stdout
+    new_sha = _git(repo, "rev-parse", "feature").stdout.strip()
+    assert new_sha != sha
+    assert "from main" in _git(repo, "show", "feature:README").stdout
+    assert _git(repo, "merge-base", "--is-ancestor", "main", "feature", check=False).returncode == 0
+    merges = [c for c in calls if c["argv"][1] == "merge"]
+    comments = [c for c in calls if c["argv"][1] == "comment"]
+    assert len(merges) == 1
+    argv = merges[0]["argv"]
+    assert argv[argv.index("--match-head-commit") + 1] == new_sha
+    body = comments[0]["body"]
+    assert "已合并（squash）" in body
+    assert "基线已前进" in body
+    assert f"`{new_sha}`" in body or new_sha[:12] in body
+
+
+def test_base_moved_conflict_comments_and_skips_merge(tmp_path):
+    repo, sha, fixture_path, make_log = _pr_repo(tmp_path)
+    (repo / "README").write_text("feature side\n")
+    sha = _commit(repo, "README", message="feature edit")
+    proc, calls = _run_premerge(
+        tmp_path,
+        repo,
+        sha,
+        fixture_path,
+        make_log,
+        "9",
+        "--squash",
+        advance_base=True,
+        advance_text="main side",
+    )
+    assert proc.returncode != 0, proc.stderr + proc.stdout
+    assert all(c["argv"][1] != "merge" for c in calls)
+    comments = [c for c in calls if c["argv"][1] == "comment"]
+    assert len(comments) == 1
+    body = comments[0]["body"]
+    assert "追上基线失败" in body
+    assert "发生冲突" in body
+    assert "| 退出码 | 1 |" in body
+
+
 def test_usage_and_script_never_pushes():
     proc = subprocess.run(
         ["bash", str(PREMERGE)], capture_output=True, text=True, check=False
@@ -511,11 +611,13 @@ def test_usage_and_script_never_pushes():
     assert both.returncode == 2
     text = PREMERGE.read_text(encoding="utf-8")
     code = "\n".join(ln for ln in text.splitlines() if not ln.lstrip().startswith("#"))
-    assert "git push" not in code
     assert "push --force" not in code
     assert "--force-with-lease" not in code
     assert "push -f" not in code
+    assert "git push -f" not in code
     assert "--admin" not in code
+    # 追上基线时允许普通 push origin <sha>:refs/heads/<branch>，禁止 force。
+    assert "push origin" in code
 
 
 def test_make_venv_idempotent_when_present():

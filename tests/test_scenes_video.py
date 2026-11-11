@@ -83,6 +83,8 @@ def test_suite_includes_g2_pillar_upstream_and_new_hover_cards():
         "scenes/formation-switch.json@switch",
         "scenes/crossing-forest.json@crossing@0",
         "scenes/formation-6-open.json@formation",
+        "scenes/crossing-6-forest.json@crossing@0",
+        "scenes/crossing-6-forest-sparse.json@crossing@0",
     ]
     for spec in specs:
         load_card(ROOT / spec.split("@", 1)[0])

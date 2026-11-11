@@ -11,9 +11,14 @@
 #    --squash 时正文已用 premerge_strip_coauthor_lines 去掉 trailer，有 trailer 不把 gate 置 1。
 #    --merge（以及不带合并旗标的检查）仍然把 trailer 当失败。
 # 7. 任一检查失败则退出码非 0。
+# 8. --merge / --squash 在合入前会 fetch 基线；基线已前进则先把 origin/<base>
+#    合进 PR 分支（普通 push，不 force），再 gh pr merge，缩短冲突窗口。
+#    追上失败或 gh pr merge 失败：退出码非 0，并在 PR 留评说明原因。
+# 9. EXIT 陷阱清理 worktree 时保留原退出码，避免合入失败被收成 0。
 #
-# 不带 --merge / --squash 时绝不合并。不会推送分支，也不会强行改写远端历史。
+# 不带 --merge / --squash 时绝不合并，也不会推送分支。
 # --merge / --squash 只在全部检查通过之后执行：
+#   如基线已前进：git merge origin/<base>，再 git push origin <sha>:refs/heads/<head>
 #   gh pr ready
 #   gh pr merge --merge|--squash --match-head-commit <sha>
 # --squash 的说明由各提交说明拼成，并删掉其中的 Co-authored-by 行。
@@ -179,11 +184,11 @@ PY
 }
 
 premerge_ready() {
-  local pr=$1 err rc
-  set +e
-  err=$(gh pr ready "$pr" 2>&1)
-  rc=$?
-  set -e
+  # 不用 set -e / set +e，避免把调用方的 errexit 状态改掉。
+  # 以前 premerge_ready 末尾的 set -e 会让后面的 gh pr merge 一失败
+  # 就直接退出主函数，评论写不上，EXIT 清理还可能把退出码收成 0。
+  local pr=$1 err rc=0
+  err=$(gh pr ready "$pr" 2>&1) || rc=$?
   if [[ "$rc" -eq 0 ]]; then
     return 0
   fi
@@ -196,12 +201,99 @@ premerge_ready() {
 
 premerge_do_merge() {
   local pr=$1 mode=$2 sha=$3 title=$4 body_file=$5
-  premerge_ready "$pr"
+  local err_file=${6:-}
+  local err rc=0
+  premerge_ready "$pr" || return $?
   if [[ "$mode" == "merge" ]]; then
-    gh pr merge "$pr" --merge --match-head-commit "$sha"
+    err=$(gh pr merge "$pr" --merge --match-head-commit "$sha" 2>&1) || rc=$?
   else
-    gh pr merge "$pr" --squash --match-head-commit "$sha" --subject "$title" --body-file "$body_file"
+    err=$(gh pr merge "$pr" --squash --match-head-commit "$sha" --subject "$title" --body-file "$body_file" 2>&1) || rc=$?
   fi
+  if [[ "$rc" -ne 0 ]]; then
+    printf '%s\n' "$err" >&2
+    if [[ -n "$err_file" ]]; then
+      printf '%s\n' "$err" >"$err_file"
+    fi
+    return "$rc"
+  fi
+  return 0
+}
+
+premerge_has_origin() {
+  git -C "$1" remote get-url origin >/dev/null 2>&1
+}
+
+premerge_base_sha() {
+  # $1 仓库 $2 基线分支名
+  local repo=$1 base_name=$2
+  if git -C "$repo" rev-parse --verify --quiet "refs/remotes/origin/${base_name}" >/dev/null; then
+    git -C "$repo" rev-parse "refs/remotes/origin/${base_name}"
+  else
+    git -C "$repo" rev-parse "refs/heads/${base_name}"
+  fi
+}
+
+premerge_fetch_base() {
+  # $1 仓库 $2 基线分支名。没有 origin 时（测试仓库）跳过 fetch。
+  local repo=$1 base_name=$2
+  if premerge_has_origin "$repo"; then
+    git -C "$repo" fetch --no-tags origin "$base_name"
+  fi
+}
+
+premerge_catch_up_base() {
+  # 基线已前进时，把新基线合进 PR head，并普通推送到 head 分支。
+  # 参数：仓库 基线名 旧基线 sha 当前 head sha 分支名 错误文件
+  # 成功时把新 head sha 打到 stdout；无需追上则原样打印 head sha。
+  # 冲突或 push 失败返回非 0，原因写进错误文件。
+  local repo=$1 base_name=$2 old_base=$3 head_sha=$4 head_name=$5 err_file=$6
+  local new_base catch new_sha
+  premerge_fetch_base "$repo" "$base_name" || {
+    printf 'fetch %s 失败\n' "$base_name" >"$err_file"
+    return 1
+  }
+  new_base=$(premerge_base_sha "$repo" "$base_name")
+  if [[ "$new_base" == "$old_base" ]]; then
+    printf '%s' "$head_sha"
+    return 0
+  fi
+  catch=$(mktemp -d "${TMPDIR:-/tmp}/premerge-catch.XXXXXX")
+  rmdir "$catch"
+  if ! git -C "$repo" worktree add --detach "$catch" "$head_sha" >"$err_file" 2>&1; then
+    printf '无法为追上基线建立 worktree\n%s\n' "$(cat "$err_file")" >"${err_file}.tmp"
+    mv "${err_file}.tmp" "$err_file"
+    rm -rf "$catch"
+    return 1
+  fi
+  if ! git -C "$catch" merge --no-edit "$new_base" >"$err_file" 2>&1; then
+    {
+      printf '基线已前进（%s → %s），合入 PR 分支时发生冲突。\n' "${old_base:0:12}" "${new_base:0:12}"
+      cat "$err_file"
+    } >"${err_file}.tmp"
+    mv "${err_file}.tmp" "$err_file"
+    git -C "$catch" merge --abort >/dev/null 2>&1 || true
+    git -C "$repo" worktree remove --force "$catch" >/dev/null 2>&1 || true
+    rm -rf "$catch"
+    return 1
+  fi
+  new_sha=$(git -C "$catch" rev-parse HEAD)
+  git -C "$repo" worktree remove --force "$catch" >/dev/null 2>&1 || true
+  rm -rf "$catch"
+  if premerge_has_origin "$repo"; then
+    if ! git -C "$repo" push origin "${new_sha}:refs/heads/${head_name}" >"${err_file}" 2>&1; then
+      {
+        printf '追上基线后 push %s 失败（非 force）。\n' "$head_name"
+        cat "$err_file"
+      } >"${err_file}.tmp"
+      mv "${err_file}.tmp" "$err_file"
+      return 1
+    fi
+  else
+    git -C "$repo" update-ref "refs/heads/${head_name}" "$new_sha"
+  fi
+  printf '%s\n' "基线已前进（${old_base:0:12} → ${new_base:0:12}），已合入 PR 并更新 ${head_name} 到 ${new_sha:0:12}。" >&2
+  printf '%s' "$new_sha"
+  return 0
 }
 
 premerge_cleanup() {
@@ -286,16 +378,23 @@ premerge_main() {
 
   TMP=$(mktemp -d "${TMPDIR:-/tmp}/premerge.XXXXXX")
   WT=""
-  trap premerge_cleanup EXIT
+  premerge_on_exit() {
+    local rc=$?
+    set +e
+    premerge_cleanup
+    exit "$rc"
+  }
+  trap premerge_on_exit EXIT
 
   local view_json="$TMP/view.json"
   gh pr view "$pr" --json headRefOid,mergeable,baseRefName,headRefName,isDraft,title >"$view_json"
   premerge_write_view "$view_json" "$TMP/view"
 
-  local sha mergeable base_name title
+  local sha mergeable base_name head_name title
   sha=$(cat "$TMP/view/headRefOid")
   mergeable=$(cat "$TMP/view/mergeable")
   base_name=$(cat "$TMP/view/baseRefName")
+  head_name=$(cat "$TMP/view/headRefName")
   title=$(tr '\n' ' ' <"$TMP/view/title" | sed 's/[[:space:]]*$//')
   [[ -n "$sha" && "$sha" =~ ^[0-9a-fA-F]{40}$ ]] || { printf 'head sha 无效：%s\n' "$sha" >&2; return 1; }
 
@@ -319,7 +418,8 @@ premerge_main() {
     baseref="origin/${base_name}"
   fi
 
-  local range
+  local range base_sha
+  base_sha=$(git rev-parse "$baseref")
   range="${baseref}..${sha}"
 
   WT="$TMP/wt"
@@ -369,31 +469,51 @@ premerge_main() {
   if [[ -n "$coauthors" && "$mode" != "squash" ]]; then gate=1; fi
 
   local merge_note="未请求" final=$gate body_file="$TMP/squash.md" merge_rc=0
+  local merge_err_file="$TMP/merge.err" catchup_note="" caught_sha=""
+  : >"$merge_err_file"
   if [[ -n "$mode" ]]; then
     if [[ "$gate" -ne 0 ]]; then
       merge_note="未执行（检查未过）"
     else
-      if [[ "$mode" == "squash" ]]; then
-        premerge_squash_body "$ROOT" "$range" >"$body_file"
-        if [[ ! -s "$body_file" ]]; then
-          printf '%s\n' "（无提交说明）" >"$body_file"
+      caught_sha=""
+      if caught_sha=$(premerge_catch_up_base "$ROOT" "$base_name" "$base_sha" "$sha" "$head_name" "$merge_err_file"); then
+        if [[ "$caught_sha" != "$sha" ]]; then
+          catchup_note="基线已前进，已先合入并更新 head ${caught_sha:0:12}。"
+          sha=$caught_sha
+          if git rev-parse --verify --quiet "refs/remotes/origin/${base_name}" >/dev/null; then
+            baseref="origin/${base_name}"
+          else
+            baseref="refs/heads/${base_name}"
+          fi
+          base_sha=$(git rev-parse "$baseref")
+          range="${baseref}..${sha}"
         fi
-        if [[ -z "$title" ]]; then
-          title="PR #${pr}"
+        if [[ "$mode" == "squash" ]]; then
+          premerge_squash_body "$ROOT" "$range" >"$body_file"
+          if [[ ! -s "$body_file" ]]; then
+            printf '%s\n' "（无提交说明）" >"$body_file"
+          fi
+          if [[ -z "$title" ]]; then
+            title="PR #${pr}"
+          fi
         fi
-      fi
-      set +e
-      premerge_do_merge "$pr" "$mode" "$sha" "$title" "$body_file"
-      merge_rc=$?
-      set -e
-      if [[ "$merge_rc" -eq 0 ]]; then
-        if [[ "$mode" == "merge" ]]; then
-          merge_note="已合并（merge）"
+        : >"$merge_err_file"
+        premerge_do_merge "$pr" "$mode" "$sha" "$title" "$body_file" "$merge_err_file" || merge_rc=$?
+        if [[ "$merge_rc" -eq 0 ]]; then
+          if [[ "$mode" == "merge" ]]; then
+            merge_note="已合并（merge）"
+          else
+            merge_note="已合并（squash）"
+          fi
+          if [[ -n "$catchup_note" ]]; then
+            merge_note="${merge_note}；${catchup_note}"
+          fi
         else
-          merge_note="已合并（squash）"
+          merge_note="合并失败"
+          final=1
         fi
       else
-        merge_note="合并失败"
+        merge_note="合并失败（追上基线失败）"
         final=1
       fi
     fi
@@ -421,6 +541,11 @@ premerge_main() {
     printf '| Co-authored-by | %s |\n' "$co_txt"
     printf '| 合并 | %s |\n' "$merge_note"
     printf '| 退出码 | %s |\n' "$final"
+    if [[ -s "$merge_err_file" ]]; then
+      printf '\n## 合并失败\n\n```\n'
+      cat "$merge_err_file"
+      printf '\n```\n'
+    fi
     if [[ -n "$coauthors" ]]; then
       printf '\n'
       local row sha_i rest
