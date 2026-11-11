@@ -11,6 +11,14 @@ scripts/demo.sh     # 产物在 out/demo/
 
 干净检出后按上面做即可复现。各跑 seed 0：单机 `g2-pillar`、三机 `formation-hold`、六机 `formation-6-open`。
 
+## 交付包（M5）
+
+- [一键 demo](scripts/demo.sh)：干净检出后先 `make venv`，再跑这条命令，一次复现单机、三机、六机（产物在 `out/demo/`）。
+- [结果总表](docs/results/SUMMARY.md)：M0–M4 各场景的到达、碰撞和冻结状态，每行带层级和 commit。
+- [视频索引](docs/results/videos.md)：每个里程碑一段不超过 60 s 的俯视录像，都是 seed 0、层级 L0。
+- [已知限制](docs/LIMITATIONS.md)：说明 L0 是假动力学、所有偏离上游的构造，以及继续只报数的清单。
+- [上游策略 vs 影子盾](docs/results/12e-upstream-vs-shield.md)：同一 commit 上上游策略与影子盾、certified 硬门的对照；影子盾只记录、不改动作。
+
 ## L0（box CPU，无界面，锁步确定性）
 
 ```bash
