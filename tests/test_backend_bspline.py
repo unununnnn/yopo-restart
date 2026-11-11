@@ -19,7 +19,8 @@ from yopo_l0.backend.bspline import (
     refine_yopo,
 )
 from yopo_l0.backend.config import BackendConfig, config_from_params
-from yopo_l0.runner import WALL_FIELDS, RunConfig, run
+from yopo_l0.batch import _strip
+from yopo_l0.runner import RunConfig, run
 from yopo_l0.scene import Box, Cylinder, Ground, load_card
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -216,10 +217,6 @@ def _policy_for(path: Path) -> str:
     return {"hover": "hover", "goto": "upstream"}.get(task, "upstream")
 
 
-def _strip(result):
-    return {k: v for k, v in result.items() if k not in WALL_FIELDS}
-
-
 @pytest.mark.parametrize("path", _task_cards(), ids=lambda p: p.name)
 def test_backend_off_is_bitwise_for_existing_cards(path, monkeypatch):
     def boom(*_args, **_kwargs):
@@ -231,5 +228,6 @@ def test_backend_off_is_bitwise_for_existing_cards(path, monkeypatch):
     first = run(card, cfg)
     second = run(card, cfg)
     assert "backend" not in first.result
+    # 与批跑的确定性比较同一套剔除：整回路墙钟、规划墙钟，以及几何回退自己的检查耗时。
     assert _strip(first.result) == _strip(second.result)
     assert first.ticks == second.ticks
