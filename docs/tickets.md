@@ -36,8 +36,8 @@ frank 拍板卡片未回；父代理代定（仅 L0，L1 不动）：
 | 12d | 已知限制文档 | 11 | done（#34，合入 `7a545ac3a645`） |
 | 12e | 上游策略 vs 影子盾对照表 | 11 | done（#37，合入 `0bb043cae739`） |
 | 12f | 收口：README 交付包入口与票表 | 12a–12e | done（本票） |
-| E-C1 | 外部跑 ego-planner-swarm，填论文同列的记录 | 无 | in-progress（#42） |
-| E-C2 | 3 机开阔对向卡，只报数 | 无 | in-progress（#40） |
+| E-C1 | 外部跑 ego-planner-swarm，填论文同列的记录 | 无 | done（#42，合入 `ad20920c8c24`） |
+| E-C2 | 3 机开阔对向卡，只报数 | 无 | done（#40，合入 `4c17a8d0b60f`） |
 | E-C3 | 结果记录增加单次规划墙钟 | 无 | done（#41，合入 `0d7e138f7a80`） |
 | E-C4 | 8 机对向，以及一张标明假设的密度场 | E-C2 | todo |
 | E-B1 | 后段接缝说明，不写求解器 | E-C1 | in-progress |
@@ -50,7 +50,7 @@ frank 拍板卡片未回；父代理代定（仅 L0，L1 不动）：
 
 12：交付包收口。12a README 一键命令（#33，`78f63bcdb9bc`）；12b 结果总表（#36，`252bae86781e`）；12c 视频索引（#35，`cf9c0b0b9832`）；12d 已知限制（#34，`7a545ac3a645`）；12e 上游策略 vs 影子盾（#37，`0bb043cae739`）；12f 本票：README 顶部增加交付包入口，并核验所有表格带层级和 commit。干净检出复现由 12a 的 `tests/test_demo.py` 覆盖。
 
-E 票：来自 `docs/research/ego-swarm-comparison.md`（#39，合入 `47a3041474a6`）。E-C3 已合（#41，`0d7e138f7a80`）。E-C1（#42）、E-C2（#40）、E-A1、E-B1、E-B2 进行中。E-C4、E-B3 仍为 todo。已冻门不动。
+E 票：来自 `docs/research/ego-swarm-comparison.md`（#39，合入 `47a3041474a6`）。E-C1（#42，`ad20920c8c24`）、E-C2（#40，`4c17a8d0b60f`）、E-C3（#41，`0d7e138f7a80`）已合。E-A1、E-B1、E-B2 进行中。E-C4、E-B3 仍为 todo。已冻门不动。
 
 D / P 票：D1 几何回退、D2 EGO-Swarm 教师数据、P1 推理加速，均为 in-progress。
 
