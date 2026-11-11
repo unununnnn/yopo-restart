@@ -41,8 +41,12 @@ class InProcessSource:
         return {"name": self.name, **provenance()}
 
     def forward_raw(self, raw_m, velocity_w, acceleration_w, goal_w, position_w, R_wb):
+        from .plan_wall import measure
+
         o = body_obs(velocity_w, acceleration_w, goal_w, position_w, R_wb)
-        out = self.model.forward(network_depth(raw_m), o)
+        depth = network_depth(raw_m)
+        with measure():
+            out = self.model.forward(depth, o)
         return out.traj_params[0], out.score[0], out.radius[0]
 
     def __call__(self, obs, dec):

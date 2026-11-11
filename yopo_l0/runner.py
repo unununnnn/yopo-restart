@@ -28,6 +28,7 @@ import numpy as np
 
 from .bus import BusFaults, MessageBus
 from .dynamics import HoverPlan, State, make_model
+from .plan_wall import PLAN_WALL_FIELD, begin as begin_plan_wall, stats as plan_wall_stats, take as take_plan_wall
 from .policy import (
     POLICIES,
     Observation,
@@ -40,7 +41,7 @@ from .scene import SceneCard
 from .sensor import CameraConfig, DepthCamera
 from .shadow import DroneShadow, aggregate, aggregate_drones, approved_pva, gate_status
 
-WALL_FIELDS = frozenset({"wall_time_s"})  # 确定性比较时排除的字段
+WALL_FIELDS = frozenset({"wall_time_s", PLAN_WALL_FIELD})  # 确定性比较时排除的字段（整回路墙钟、单次规划墙钟）
 REPO = Path(__file__).resolve().parents[1]
 # 与传感器 SeedSequence(cfg.seed) 分开，拨总线旋钮不改深度噪声。
 _BUS_SEED_SALT = 0xB05
@@ -121,6 +122,7 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
     if cfg.tier != "L0":
         raise ValueError("本运行器只实现 L0")
     wall0 = time.perf_counter()
+    begin_plan_wall()
     c = card.card
     tuned = _card_for_run(c, cfg)
     rates = c["rates_hz"]
@@ -373,6 +375,7 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
             **bus.counts(),
             "peer_deliveries": peer_deliveries,
         },
+        PLAN_WALL_FIELD: plan_wall_stats(take_plan_wall()),
         "wall_time_s": time.perf_counter() - wall0,
     }
     if isinstance(c.get("forest"), dict):

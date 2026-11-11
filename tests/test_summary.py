@@ -52,8 +52,24 @@ def test_summary_uses_only_input_numbers_and_marks_frozen_gates(tmp_path):
     hold = load_card(scenes / "formation-hold.json")
     forest6 = load_card(scenes / "crossing-6-forest.json")
     rows = [
-        _row(pillar, policy="upstream", seed=0, arrived=1, arrival_time_s=4.26, min_obstacle_distance_m=0.829),
-        _row(pillar, policy="upstream", seed=1, arrived=1, arrival_time_s=4.28, min_obstacle_distance_m=0.828),
+        _row(
+            pillar,
+            policy="upstream",
+            seed=0,
+            arrived=1,
+            arrival_time_s=4.26,
+            min_obstacle_distance_m=0.829,
+            plan_wall_ms={"count": 40, "mean": 8.1, "p50": 7.8, "p95": 12.3, "max": 15.0},
+        ),
+        _row(
+            pillar,
+            policy="upstream",
+            seed=1,
+            arrived=1,
+            arrival_time_s=4.28,
+            min_obstacle_distance_m=0.828,
+            plan_wall_ms={"count": 41, "mean": 8.4, "p50": 8.0, "p95": 13.1, "max": 16.2},
+        ),
         _row(pillar, policy="certified", seed=0, arrived=0, arrival_time_s=None, outcome="TIMEOUT", min_obstacle_distance_m=0.90),
         _row(pillar, policy="certified", seed=1, arrived=0, arrival_time_s=None, outcome="TIMEOUT", min_obstacle_distance_m=0.91),
         _row(hold, policy="formation", seed=0, arrived=3, n_drones=3, formation_error_p95_m=0.026982, min_inter_drone_distance_m=1.9865),
@@ -109,6 +125,9 @@ def test_summary_uses_only_input_numbers_and_marks_frozen_gates(tmp_path):
     assert upstream["status"] == "判据已冻结（最小净空只报数）"
     assert upstream["arrival_time_s"]["min"] == pytest.approx(4.26)
     assert upstream["arrival_time_s"]["max"] == pytest.approx(4.28)
+    assert upstream["plan_wall_ms"]["min"] == pytest.approx(12.3)
+    assert upstream["plan_wall_ms"]["max"] == pytest.approx(13.1)
+    assert "规划墙钟" not in upstream["status"]
 
     certified = by_key[("g2-pillar", "certified", None, "inprocess")]
     assert certified["arrivals"] == "0/2"
@@ -116,6 +135,7 @@ def test_summary_uses_only_input_numbers_and_marks_frozen_gates(tmp_path):
     assert certified["frozen"] is False
     assert certified["status"] == "未冻结 / report-only"
     assert certified["gates"] is None
+    assert certified["plan_wall_ms"] is None
 
     hold_row = by_key[("formation-hold", "formation", None, "inprocess")]
     assert hold_row["arrivals"] == "3/3"
@@ -161,6 +181,9 @@ def test_summary_uses_only_input_numbers_and_marks_frozen_gates(tmp_path):
     assert "本批未覆盖（不填数）" in md
     assert "里程碑" in md and "场景卡哈希" in md and "队形误差 p95" in md
     assert "最小机间距离" in md and "最小净空" in md
+    assert "规划墙钟 p95 ms（只报数）" in md
+    assert "12.300–13.100" in md
+    assert "整回路墙钟" in md
     # 脚本不能给未跑的 ROS 2 行填上进程内的 1.000。
     assert "ROS 2 全矩阵" in md
     assert "| M4 | formation-6-open（ROS 2 全矩阵） |" in md or "ROS 2 全矩阵" in md
