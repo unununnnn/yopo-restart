@@ -12,7 +12,7 @@ CUDA：未测量。本机 `torch.cuda.is_available()` 为 False，没有 GPU。
 
 ## 机器
 
-和 E-C1 那次 EGO-Swarm 基线是同一类虚拟机。EGO 的数字在分支 `cursor/ego-swarm-baseline-cbba` 的 `docs/research/ego-swarm-baseline.md`：401 次重规划，均值 1.72 ms，p95 6.3 ms。那份文件不在本分支，这里不做成链接。
+和 E-C1 那次 EGO-Swarm 基线是同一类虚拟机。EGO 的数字在 [ego-swarm-baseline.md](ego-swarm-baseline.md)：401 次重规划，均值 1.72 ms，p95 6.3 ms。
 
 | 项 | 值 |
 |---|---|
