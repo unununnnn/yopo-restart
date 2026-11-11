@@ -1,0 +1,20 @@
+[
+  {"card": "crossing-6-forest-sparse.json", "policy": "crossing", "sha256": "a62e6f675f7f5b5bb390ad934392bb2b22e1649e0fec5d787dcda4c45edaf78d"},
+  {"card": "crossing-6-forest.json", "policy": "crossing", "sha256": "5fe254120bc6368cc052464713071873fe801f5fd19ec1fc6421934cee650d40"},
+  {"card": "crossing-forest.json", "policy": "crossing", "sha256": "cc516f954a375c4de5a14ed96089c828bae440d963ee89d8b7fe07d97ef614aa"},
+  {"card": "crossing-pillars.json", "policy": "crossing", "sha256": "c118c9b7601c1754de087fd0f14dc8aef511f802042804e0a2a95e801f6883d7"},
+  {"card": "formation-6-open.json", "policy": "formation", "sha256": "d16556c1ab091c66e80b679635e1c72e954576ccb73fbe3ab191d44d42622ec3"},
+  {"card": "formation-delay.json", "policy": "formation", "sha256": "eac2a68ce4cbeb7254c92e17cb153493f0fb2b05a27845937ffa1417aed04787"},
+  {"card": "formation-drop.json", "policy": "formation", "sha256": "94620429c63a0128af84697255582dda20d00f2c839e1e230e4bc6a8aa46316b"},
+  {"card": "formation-duplicate.json", "policy": "formation", "sha256": "3630f3b30e1402e6addadcceff95a4921dfe11c3e068612cea71da2404435b44"},
+  {"card": "formation-hold.json", "policy": "formation", "sha256": "1b1f53b0cf8bee8cfd9a17b8f6760b596b0f62ac844b9d49d8ec8d9dcfd9588e"},
+  {"card": "formation-reorder.json", "policy": "formation", "sha256": "0ddbb8352c684ce57401af208d9439473392813878a82355596e079034ae7df8"},
+  {"card": "formation-switch.json", "policy": "switch", "sha256": "fbb82d3a6c736dca85cc9e56227c4a2570d16662b81cfb436f79a3fc4a70f49f"},
+  {"card": "g2-hover-lift.json", "policy": "hover", "sha256": "85999772c4a9e648c1a0a66859c1a56fae02e94e78a39eec341a3a480ea4e82a"},
+  {"card": "g2-hover.json", "policy": "hover", "sha256": "cd4b8ed5fe589b02610c9298266c35038057911438b1bc014671418431d260f0"},
+  {"card": "g2-pillar.json", "policy": "upstream", "sha256": "760ca2a7c8a09eef8bcbb9b168018609e32bffee22fef07c2cc129eca769d5a9"},
+  {"card": "narrow-corridor.json", "policy": "hover", "sha256": "e800b665984151a389500e7a43e63e53a08702b9970059b89636a022dde44090"},
+  {"card": "open-3drone.json", "policy": "hover", "sha256": "79cd8c4f3637a0d66a916fe688591c56b047ad9128ae7dea5ae8aa34a4cd87a6"},
+  {"card": "open-3drone.json", "policy": "upstream", "sha256": "23d0187fed938bd4178cabb2d68abc54d62c8bf6299205f3571cd68b8b48c0e0"},
+  {"card": "pillar-forest.json", "policy": "hover", "sha256": "cc3f978af8eec403135b298423ba2099328696f9bd296e6c2bc47c0607469a33"}
+]
