@@ -1,0 +1,1274 @@
+{
+  "rows": [
+    {
+      "label": "forest-off",
+      "seed": 0,
+      "scene": "crossing-forest-dense-bspline-off",
+      "outcome": "COLLISION",
+      "arrived": 0,
+      "n_drones": 3,
+      "arrival_time_s": null,
+      "min_obstacle_distance_m": 0.33509181269280036,
+      "min_obstacle_clearance_m": -0.014908187307199616,
+      "obstacle_collisions": 1,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": 4.687598118242105,
+      "sim_duration_s": 6.35,
+      "wall_time_s": 36.76222957599998,
+      "backend": null,
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "forest-off",
+      "seed": 1,
+      "scene": "crossing-forest-dense-bspline-off",
+      "outcome": "COLLISION",
+      "arrived": 0,
+      "n_drones": 3,
+      "arrival_time_s": null,
+      "min_obstacle_distance_m": 0.32315132885769826,
+      "min_obstacle_clearance_m": -0.026848671142301717,
+      "obstacle_collisions": 1,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": 5.4719850873195055,
+      "sim_duration_s": 9.41,
+      "wall_time_s": 53.05053608100002,
+      "backend": null,
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "forest-off",
+      "seed": 2,
+      "scene": "crossing-forest-dense-bspline-off",
+      "outcome": "COLLISION",
+      "arrived": 0,
+      "n_drones": 3,
+      "arrival_time_s": null,
+      "min_obstacle_distance_m": 0.33515440025751897,
+      "min_obstacle_clearance_m": -0.014845599742481008,
+      "obstacle_collisions": 1,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": 5.3580626309662165,
+      "sim_duration_s": 9.41,
+      "wall_time_s": 53.670550062000075,
+      "backend": null,
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "forest-off",
+      "seed": 3,
+      "scene": "crossing-forest-dense-bspline-off",
+      "outcome": "COLLISION",
+      "arrived": 0,
+      "n_drones": 3,
+      "arrival_time_s": null,
+      "min_obstacle_distance_m": 0.3364437159686695,
+      "min_obstacle_clearance_m": -0.013556284031330468,
+      "obstacle_collisions": 1,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": 5.421847325819075,
+      "sim_duration_s": 8.72,
+      "wall_time_s": 50.02259263399992,
+      "backend": null,
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "forest-off",
+      "seed": 4,
+      "scene": "crossing-forest-dense-bspline-off",
+      "outcome": "COLLISION",
+      "arrived": 0,
+      "n_drones": 3,
+      "arrival_time_s": null,
+      "min_obstacle_distance_m": 0.32379045646521243,
+      "min_obstacle_clearance_m": -0.02620954353478755,
+      "obstacle_collisions": 1,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": 5.510333387213493,
+      "sim_duration_s": 9.42,
+      "wall_time_s": 54.443241369999896,
+      "backend": null,
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "forest-off",
+      "seed": 5,
+      "scene": "crossing-forest-dense-bspline-off",
+      "outcome": "SUCCESS",
+      "arrived": 3,
+      "n_drones": 3,
+      "arrival_time_s": 26.81,
+      "min_obstacle_distance_m": 0.6367590070263096,
+      "min_obstacle_clearance_m": 0.28675900702630963,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": 5.3039208712580805,
+      "sim_duration_s": 27.81,
+      "wall_time_s": 160.41383876600003,
+      "backend": null,
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "forest-off",
+      "seed": 6,
+      "scene": "crossing-forest-dense-bspline-off",
+      "outcome": "COLLISION",
+      "arrived": 0,
+      "n_drones": 3,
+      "arrival_time_s": null,
+      "min_obstacle_distance_m": 0.34108968396184663,
+      "min_obstacle_clearance_m": -0.008910316038153343,
+      "obstacle_collisions": 1,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": 4.720663649560653,
+      "sim_duration_s": 6.33,
+      "wall_time_s": 35.82563194699969,
+      "backend": null,
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "forest-off",
+      "seed": 7,
+      "scene": "crossing-forest-dense-bspline-off",
+      "outcome": "COLLISION",
+      "arrived": 0,
+      "n_drones": 3,
+      "arrival_time_s": null,
+      "min_obstacle_distance_m": 0.33503296330393684,
+      "min_obstacle_clearance_m": -0.01496703669606314,
+      "obstacle_collisions": 1,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": 5.364641529107271,
+      "sim_duration_s": 9.43,
+      "wall_time_s": 53.56945604900011,
+      "backend": null,
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "forest-off",
+      "seed": 8,
+      "scene": "crossing-forest-dense-bspline-off",
+      "outcome": "COLLISION",
+      "arrived": 0,
+      "n_drones": 3,
+      "arrival_time_s": null,
+      "min_obstacle_distance_m": 0.3437783883761296,
+      "min_obstacle_clearance_m": -0.00622161162387036,
+      "obstacle_collisions": 1,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": 5.4308922341021955,
+      "sim_duration_s": 9.42,
+      "wall_time_s": 53.29885044999992,
+      "backend": null,
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "forest-off",
+      "seed": 9,
+      "scene": "crossing-forest-dense-bspline-off",
+      "outcome": "COLLISION",
+      "arrived": 0,
+      "n_drones": 3,
+      "arrival_time_s": null,
+      "min_obstacle_distance_m": 0.34143887334876294,
+      "min_obstacle_clearance_m": -0.008561126651237039,
+      "obstacle_collisions": 1,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": 4.812308550143624,
+      "sim_duration_s": 6.19,
+      "wall_time_s": 34.76572599500014,
+      "backend": null,
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "forest-on",
+      "seed": 0,
+      "scene": "crossing-forest-dense-bspline-on",
+      "outcome": "COLLISION",
+      "arrived": 0,
+      "n_drones": 3,
+      "arrival_time_s": null,
+      "min_obstacle_distance_m": 0.3464514926972735,
+      "min_obstacle_clearance_m": -0.003548507302726489,
+      "obstacle_collisions": 1,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": 5.392627028090178,
+      "sim_duration_s": 9.67,
+      "wall_time_s": 57.50370525999983,
+      "backend": {
+        "enabled": true,
+        "calls": 24,
+        "applied": 24,
+        "fallback": 0,
+        "iterations": {
+          "mean": 4.291666666666667,
+          "p50": 4.0,
+          "p95": 5.0,
+          "max": 5
+        },
+        "time_ms": {
+          "p50": 36.68442949992823,
+          "p95": 39.76392369985433,
+          "max": 39.882581999791
+        },
+        "clearance_gain_m": {
+          "mean": -0.0005129311582951814,
+          "min": -0.008264117813804095,
+          "max": 0.0016498383844958386
+        },
+        "reasons": {
+          "applied": 24
+        }
+      },
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "forest-on",
+      "seed": 1,
+      "scene": "crossing-forest-dense-bspline-on",
+      "outcome": "SUCCESS",
+      "arrived": 3,
+      "n_drones": 3,
+      "arrival_time_s": 25.41,
+      "min_obstacle_distance_m": 0.4078160457589849,
+      "min_obstacle_clearance_m": 0.05781604575898491,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": 3.948661863473359,
+      "sim_duration_s": 26.41,
+      "wall_time_s": 157.29128675700008,
+      "backend": {
+        "enabled": true,
+        "calls": 46,
+        "applied": 46,
+        "fallback": 0,
+        "iterations": {
+          "mean": 4.1521739130434785,
+          "p50": 4.0,
+          "p95": 5.0,
+          "max": 5
+        },
+        "time_ms": {
+          "p50": 36.4718499998844,
+          "p95": 43.46162074989479,
+          "max": 63.858094000124765
+        },
+        "clearance_gain_m": {
+          "mean": 0.0037226910283436688,
+          "min": -0.008223241689345517,
+          "max": 0.19457318205003296
+        },
+        "reasons": {
+          "applied": 46
+        }
+      },
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "forest-on",
+      "seed": 2,
+      "scene": "crossing-forest-dense-bspline-on",
+      "outcome": "SUCCESS",
+      "arrived": 3,
+      "n_drones": 3,
+      "arrival_time_s": 24.77,
+      "min_obstacle_distance_m": 0.39967363827449065,
+      "min_obstacle_clearance_m": 0.04967363827449067,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": 4.133951157169031,
+      "sim_duration_s": 25.77,
+      "wall_time_s": 154.93512290700005,
+      "backend": {
+        "enabled": true,
+        "calls": 47,
+        "applied": 47,
+        "fallback": 0,
+        "iterations": {
+          "mean": 4.212765957446808,
+          "p50": 4.0,
+          "p95": 5.0,
+          "max": 5
+        },
+        "time_ms": {
+          "p50": 36.13123400009499,
+          "p95": 40.70640879988332,
+          "max": 47.180320000052234
+        },
+        "clearance_gain_m": {
+          "mean": 0.0015345642436156814,
+          "min": -0.009617829733018057,
+          "max": 0.08899152072488326
+        },
+        "reasons": {
+          "applied": 47
+        }
+      },
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "forest-on",
+      "seed": 3,
+      "scene": "crossing-forest-dense-bspline-on",
+      "outcome": "SUCCESS",
+      "arrived": 3,
+      "n_drones": 3,
+      "arrival_time_s": 22.99,
+      "min_obstacle_distance_m": 0.3788380294730471,
+      "min_obstacle_clearance_m": 0.028838029473047144,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": 5.353518070787777,
+      "sim_duration_s": 23.99,
+      "wall_time_s": 144.066707705,
+      "backend": {
+        "enabled": true,
+        "calls": 47,
+        "applied": 47,
+        "fallback": 0,
+        "iterations": {
+          "mean": 4.170212765957447,
+          "p50": 4.0,
+          "p95": 5.0,
+          "max": 5
+        },
+        "time_ms": {
+          "p50": 35.80072000022483,
+          "p95": 42.86217519995716,
+          "max": 54.69091600025422
+        },
+        "clearance_gain_m": {
+          "mean": 0.00191918573770552,
+          "min": -0.0077169730690460625,
+          "max": 0.101392850135687
+        },
+        "reasons": {
+          "applied": 47
+        }
+      },
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "forest-on",
+      "seed": 4,
+      "scene": "crossing-forest-dense-bspline-on",
+      "outcome": "SUCCESS",
+      "arrived": 3,
+      "n_drones": 3,
+      "arrival_time_s": 25.1,
+      "min_obstacle_distance_m": 0.3812720010563042,
+      "min_obstacle_clearance_m": 0.03127200105630423,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": 5.406655970480965,
+      "sim_duration_s": 26.1,
+      "wall_time_s": 154.17878268100003,
+      "backend": {
+        "enabled": true,
+        "calls": 47,
+        "applied": 47,
+        "fallback": 0,
+        "iterations": {
+          "mean": 4.340425531914893,
+          "p50": 4.0,
+          "p95": 5.0,
+          "max": 5
+        },
+        "time_ms": {
+          "p50": 36.513861999992514,
+          "p95": 42.728545899808516,
+          "max": 70.3098490002958
+        },
+        "clearance_gain_m": {
+          "mean": 0.002060713991538531,
+          "min": -0.007807195162334635,
+          "max": 0.10302004407223508
+        },
+        "reasons": {
+          "applied": 47
+        }
+      },
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "forest-on",
+      "seed": 5,
+      "scene": "crossing-forest-dense-bspline-on",
+      "outcome": "SUCCESS",
+      "arrived": 3,
+      "n_drones": 3,
+      "arrival_time_s": 22.33,
+      "min_obstacle_distance_m": 0.3842886998648898,
+      "min_obstacle_clearance_m": 0.034288699864889804,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": 5.413465815192259,
+      "sim_duration_s": 23.33,
+      "wall_time_s": 138.7486710070002,
+      "backend": {
+        "enabled": true,
+        "calls": 46,
+        "applied": 46,
+        "fallback": 0,
+        "iterations": {
+          "mean": 4.369565217391305,
+          "p50": 4.0,
+          "p95": 5.0,
+          "max": 5
+        },
+        "time_ms": {
+          "p50": 35.867632499957836,
+          "p95": 42.18065674990612,
+          "max": 47.5113140000758
+        },
+        "clearance_gain_m": {
+          "mean": 0.0024150236754356823,
+          "min": -0.007430920596597224,
+          "max": 0.11707686491182479
+        },
+        "reasons": {
+          "applied": 46
+        }
+      },
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "forest-on",
+      "seed": 6,
+      "scene": "crossing-forest-dense-bspline-on",
+      "outcome": "SUCCESS",
+      "arrived": 3,
+      "n_drones": 3,
+      "arrival_time_s": 26.86,
+      "min_obstacle_distance_m": 0.38939204763126134,
+      "min_obstacle_clearance_m": 0.03939204763126136,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": 4.00950332948665,
+      "sim_duration_s": 27.86,
+      "wall_time_s": 165.48688307800012,
+      "backend": {
+        "enabled": true,
+        "calls": 48,
+        "applied": 47,
+        "fallback": 1,
+        "iterations": {
+          "mean": 4.229166666666667,
+          "p50": 4.0,
+          "p95": 5.0,
+          "max": 5
+        },
+        "time_ms": {
+          "p50": 35.475693000080355,
+          "p95": 41.36593409996294,
+          "max": 44.35944099986955
+        },
+        "clearance_gain_m": {
+          "mean": 0.0017314850306204054,
+          "min": -0.008412199488841754,
+          "max": 0.10615923501589852
+        },
+        "reasons": {
+          "applied": 47,
+          "kinematics": 1
+        }
+      },
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "forest-on",
+      "seed": 7,
+      "scene": "crossing-forest-dense-bspline-on",
+      "outcome": "COLLISION",
+      "arrived": 0,
+      "n_drones": 3,
+      "arrival_time_s": null,
+      "min_obstacle_distance_m": 0.3302447698109918,
+      "min_obstacle_clearance_m": -0.019755230189008155,
+      "obstacle_collisions": 1,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": 5.416719819066372,
+      "sim_duration_s": 11.52,
+      "wall_time_s": 69.1900921409997,
+      "backend": {
+        "enabled": true,
+        "calls": 28,
+        "applied": 27,
+        "fallback": 1,
+        "iterations": {
+          "mean": 4.178571428571429,
+          "p50": 4.0,
+          "p95": 5.0,
+          "max": 5
+        },
+        "time_ms": {
+          "p50": 35.27007599996068,
+          "p95": 41.185243650102166,
+          "max": 47.4352739997812
+        },
+        "clearance_gain_m": {
+          "mean": 0.0037683736196530487,
+          "min": -0.007287502070586038,
+          "max": 0.12703193121575984
+        },
+        "reasons": {
+          "applied": 27,
+          "kinematics": 1
+        }
+      },
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "forest-on",
+      "seed": 8,
+      "scene": "crossing-forest-dense-bspline-on",
+      "outcome": "SUCCESS",
+      "arrived": 3,
+      "n_drones": 3,
+      "arrival_time_s": 24.78,
+      "min_obstacle_distance_m": 0.37421416723121614,
+      "min_obstacle_clearance_m": 0.024214167231216166,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": 5.388486501699527,
+      "sim_duration_s": 25.78,
+      "wall_time_s": 157.41574154900036,
+      "backend": {
+        "enabled": true,
+        "calls": 48,
+        "applied": 48,
+        "fallback": 0,
+        "iterations": {
+          "mean": 4.145833333333333,
+          "p50": 4.0,
+          "p95": 5.0,
+          "max": 5
+        },
+        "time_ms": {
+          "p50": 35.4809479999858,
+          "p95": 45.93250510017696,
+          "max": 59.93733500008602
+        },
+        "clearance_gain_m": {
+          "mean": 0.0013806416211570814,
+          "min": -0.008084803192631496,
+          "max": 0.0965149706914703
+        },
+        "reasons": {
+          "applied": 48
+        }
+      },
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "forest-on",
+      "seed": 9,
+      "scene": "crossing-forest-dense-bspline-on",
+      "outcome": "SUCCESS",
+      "arrived": 3,
+      "n_drones": 3,
+      "arrival_time_s": 25.61,
+      "min_obstacle_distance_m": 0.3924096509597548,
+      "min_obstacle_clearance_m": 0.0424096509597548,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": 4.1105470765044485,
+      "sim_duration_s": 26.61,
+      "wall_time_s": 165.0351240099999,
+      "backend": {
+        "enabled": true,
+        "calls": 47,
+        "applied": 47,
+        "fallback": 0,
+        "iterations": {
+          "mean": 4.042553191489362,
+          "p50": 4.0,
+          "p95": 5.0,
+          "max": 5
+        },
+        "time_ms": {
+          "p50": 35.76992300031634,
+          "p95": 52.78130150018112,
+          "max": 115.04769200018927
+        },
+        "clearance_gain_m": {
+          "mean": 0.0009356398714727863,
+          "min": -0.008519950586847402,
+          "max": 0.07804837146819432
+        },
+        "reasons": {
+          "applied": 47
+        }
+      },
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "g2-off",
+      "seed": 0,
+      "scene": "g2-pillar",
+      "outcome": "SUCCESS",
+      "arrived": 1,
+      "n_drones": 1,
+      "arrival_time_s": 4.26,
+      "min_obstacle_distance_m": 0.8290494225148274,
+      "min_obstacle_clearance_m": 0.4790494225148274,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": null,
+      "sim_duration_s": 5.26,
+      "wall_time_s": 16.097879092000085,
+      "backend": null,
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "g2-off",
+      "seed": 1,
+      "scene": "g2-pillar",
+      "outcome": "SUCCESS",
+      "arrived": 1,
+      "n_drones": 1,
+      "arrival_time_s": 4.27,
+      "min_obstacle_distance_m": 0.8289228619025522,
+      "min_obstacle_clearance_m": 0.4789228619025522,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": null,
+      "sim_duration_s": 5.27,
+      "wall_time_s": 14.616667061000044,
+      "backend": null,
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "g2-off",
+      "seed": 2,
+      "scene": "g2-pillar",
+      "outcome": "SUCCESS",
+      "arrived": 1,
+      "n_drones": 1,
+      "arrival_time_s": 4.26,
+      "min_obstacle_distance_m": 0.8288622759806288,
+      "min_obstacle_clearance_m": 0.4788622759806288,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": null,
+      "sim_duration_s": 5.26,
+      "wall_time_s": 14.642298396000115,
+      "backend": null,
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "g2-off",
+      "seed": 3,
+      "scene": "g2-pillar",
+      "outcome": "SUCCESS",
+      "arrived": 1,
+      "n_drones": 1,
+      "arrival_time_s": 4.26,
+      "min_obstacle_distance_m": 0.8287389762255215,
+      "min_obstacle_clearance_m": 0.47873897622552153,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": null,
+      "sim_duration_s": 5.26,
+      "wall_time_s": 15.111389494999912,
+      "backend": null,
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "g2-off",
+      "seed": 4,
+      "scene": "g2-pillar",
+      "outcome": "SUCCESS",
+      "arrived": 1,
+      "n_drones": 1,
+      "arrival_time_s": 4.27,
+      "min_obstacle_distance_m": 0.8294366302754674,
+      "min_obstacle_clearance_m": 0.47943663027546746,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": null,
+      "sim_duration_s": 5.27,
+      "wall_time_s": 14.788366342000018,
+      "backend": null,
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "g2-off",
+      "seed": 5,
+      "scene": "g2-pillar",
+      "outcome": "SUCCESS",
+      "arrived": 1,
+      "n_drones": 1,
+      "arrival_time_s": 4.28,
+      "min_obstacle_distance_m": 0.8280498031020118,
+      "min_obstacle_clearance_m": 0.47804980310201184,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": null,
+      "sim_duration_s": 5.28,
+      "wall_time_s": 14.894184058000064,
+      "backend": null,
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "g2-off",
+      "seed": 6,
+      "scene": "g2-pillar",
+      "outcome": "SUCCESS",
+      "arrived": 1,
+      "n_drones": 1,
+      "arrival_time_s": 4.28,
+      "min_obstacle_distance_m": 0.8278387606660735,
+      "min_obstacle_clearance_m": 0.47783876066607356,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": null,
+      "sim_duration_s": 5.28,
+      "wall_time_s": 14.59933025600003,
+      "backend": null,
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "g2-off",
+      "seed": 7,
+      "scene": "g2-pillar",
+      "outcome": "SUCCESS",
+      "arrived": 1,
+      "n_drones": 1,
+      "arrival_time_s": 4.28,
+      "min_obstacle_distance_m": 0.8275465470413405,
+      "min_obstacle_clearance_m": 0.4775465470413405,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": null,
+      "sim_duration_s": 5.28,
+      "wall_time_s": 14.45509449500014,
+      "backend": null,
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "g2-off",
+      "seed": 8,
+      "scene": "g2-pillar",
+      "outcome": "SUCCESS",
+      "arrived": 1,
+      "n_drones": 1,
+      "arrival_time_s": 4.28,
+      "min_obstacle_distance_m": 0.8276587206919537,
+      "min_obstacle_clearance_m": 0.4776587206919537,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": null,
+      "sim_duration_s": 5.28,
+      "wall_time_s": 14.601354679999986,
+      "backend": null,
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "g2-off",
+      "seed": 9,
+      "scene": "g2-pillar",
+      "outcome": "SUCCESS",
+      "arrived": 1,
+      "n_drones": 1,
+      "arrival_time_s": 4.27,
+      "min_obstacle_distance_m": 0.8288789808353144,
+      "min_obstacle_clearance_m": 0.47887898083531444,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": null,
+      "sim_duration_s": 5.27,
+      "wall_time_s": 14.827424356999927,
+      "backend": null,
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "g2-on",
+      "seed": 0,
+      "scene": "g2-pillar-bspline",
+      "outcome": "SUCCESS",
+      "arrived": 1,
+      "n_drones": 1,
+      "arrival_time_s": 3.95,
+      "min_obstacle_distance_m": 0.8205985657924658,
+      "min_obstacle_clearance_m": 0.47059856579246584,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": null,
+      "sim_duration_s": 4.95,
+      "wall_time_s": 15.897067550999964,
+      "backend": {
+        "enabled": true,
+        "calls": 22,
+        "applied": 21,
+        "fallback": 1,
+        "iterations": {
+          "mean": 7.636363636363637,
+          "p50": 8.0,
+          "p95": 8.0,
+          "max": 8
+        },
+        "time_ms": {
+          "p50": 30.226979999952164,
+          "p95": 48.76763835009115,
+          "max": 50.963883999884274
+        },
+        "clearance_gain_m": {
+          "mean": -0.0030671829222396144,
+          "min": -0.009939390314332663,
+          "max": 0.0021546276568886746
+        },
+        "reasons": {
+          "applied": 21,
+          "clearance": 1
+        }
+      },
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "g2-on",
+      "seed": 1,
+      "scene": "g2-pillar-bspline",
+      "outcome": "SUCCESS",
+      "arrived": 1,
+      "n_drones": 1,
+      "arrival_time_s": 3.95,
+      "min_obstacle_distance_m": 0.8204001555388194,
+      "min_obstacle_clearance_m": 0.4704001555388194,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": null,
+      "sim_duration_s": 4.95,
+      "wall_time_s": 14.46608715299999,
+      "backend": {
+        "enabled": true,
+        "calls": 22,
+        "applied": 21,
+        "fallback": 1,
+        "iterations": {
+          "mean": 7.7727272727272725,
+          "p50": 8.0,
+          "p95": 8.0,
+          "max": 8
+        },
+        "time_ms": {
+          "p50": 28.0359859998498,
+          "p95": 50.91582209979606,
+          "max": 109.61313000007067
+        },
+        "clearance_gain_m": {
+          "mean": -0.0030593317768240003,
+          "min": -0.009980037887033832,
+          "max": 0.0022902109173414953
+        },
+        "reasons": {
+          "applied": 21,
+          "clearance": 1
+        }
+      },
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "g2-on",
+      "seed": 2,
+      "scene": "g2-pillar-bspline",
+      "outcome": "SUCCESS",
+      "arrived": 1,
+      "n_drones": 1,
+      "arrival_time_s": 3.95,
+      "min_obstacle_distance_m": 0.8202018714235972,
+      "min_obstacle_clearance_m": 0.47020187142359726,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": null,
+      "sim_duration_s": 4.95,
+      "wall_time_s": 14.800920099999985,
+      "backend": {
+        "enabled": true,
+        "calls": 22,
+        "applied": 21,
+        "fallback": 1,
+        "iterations": {
+          "mean": 7.7272727272727275,
+          "p50": 8.0,
+          "p95": 8.0,
+          "max": 8
+        },
+        "time_ms": {
+          "p50": 27.31175350004378,
+          "p95": 55.69417794997662,
+          "max": 56.804567999961364
+        },
+        "clearance_gain_m": {
+          "mean": -0.0028477441675053444,
+          "min": -0.009606971559615207,
+          "max": 0.0020718311245613297
+        },
+        "reasons": {
+          "applied": 21,
+          "clearance": 1
+        }
+      },
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "g2-on",
+      "seed": 3,
+      "scene": "g2-pillar-bspline",
+      "outcome": "SUCCESS",
+      "arrived": 1,
+      "n_drones": 1,
+      "arrival_time_s": 3.95,
+      "min_obstacle_distance_m": 0.8227473720953664,
+      "min_obstacle_clearance_m": 0.47274737209536644,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": null,
+      "sim_duration_s": 4.95,
+      "wall_time_s": 15.104855093999959,
+      "backend": {
+        "enabled": true,
+        "calls": 22,
+        "applied": 21,
+        "fallback": 1,
+        "iterations": {
+          "mean": 7.5,
+          "p50": 8.0,
+          "p95": 8.0,
+          "max": 8
+        },
+        "time_ms": {
+          "p50": 29.098523500010742,
+          "p95": 52.4823879999758,
+          "max": 52.90208499991422
+        },
+        "clearance_gain_m": {
+          "mean": -0.002771944264375405,
+          "min": -0.009938028178966163,
+          "max": 0.002356295659935781
+        },
+        "reasons": {
+          "applied": 21,
+          "clearance": 1
+        }
+      },
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "g2-on",
+      "seed": 4,
+      "scene": "g2-pillar-bspline",
+      "outcome": "SUCCESS",
+      "arrived": 1,
+      "n_drones": 1,
+      "arrival_time_s": 3.95,
+      "min_obstacle_distance_m": 0.8215344303192377,
+      "min_obstacle_clearance_m": 0.4715344303192377,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": null,
+      "sim_duration_s": 4.95,
+      "wall_time_s": 14.829749447000268,
+      "backend": {
+        "enabled": true,
+        "calls": 22,
+        "applied": 21,
+        "fallback": 1,
+        "iterations": {
+          "mean": 7.681818181818182,
+          "p50": 8.0,
+          "p95": 8.0,
+          "max": 8
+        },
+        "time_ms": {
+          "p50": 27.68340999978136,
+          "p95": 52.5315377500192,
+          "max": 53.35132900017925
+        },
+        "clearance_gain_m": {
+          "mean": -0.003180819974209032,
+          "min": -0.009887141250640608,
+          "max": 0.002398568382987354
+        },
+        "reasons": {
+          "applied": 21,
+          "clearance": 1
+        }
+      },
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "g2-on",
+      "seed": 5,
+      "scene": "g2-pillar-bspline",
+      "outcome": "SUCCESS",
+      "arrived": 1,
+      "n_drones": 1,
+      "arrival_time_s": 3.95,
+      "min_obstacle_distance_m": 0.8223254185399125,
+      "min_obstacle_clearance_m": 0.4723254185399125,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": null,
+      "sim_duration_s": 4.95,
+      "wall_time_s": 14.3284794770002,
+      "backend": {
+        "enabled": true,
+        "calls": 22,
+        "applied": 21,
+        "fallback": 1,
+        "iterations": {
+          "mean": 7.863636363636363,
+          "p50": 8.0,
+          "p95": 8.0,
+          "max": 8
+        },
+        "time_ms": {
+          "p50": 14.227495999875828,
+          "p95": 36.62219050015665,
+          "max": 41.23142100024779
+        },
+        "clearance_gain_m": {
+          "mean": -0.002889884275719922,
+          "min": -0.008572772788245642,
+          "max": 0.0014651905952218769
+        },
+        "reasons": {
+          "applied": 21,
+          "clearance": 1
+        }
+      },
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "g2-on",
+      "seed": 6,
+      "scene": "g2-pillar-bspline",
+      "outcome": "SUCCESS",
+      "arrived": 1,
+      "n_drones": 1,
+      "arrival_time_s": 3.95,
+      "min_obstacle_distance_m": 0.8223909703516171,
+      "min_obstacle_clearance_m": 0.47239097035161715,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": null,
+      "sim_duration_s": 4.95,
+      "wall_time_s": 14.226636840000083,
+      "backend": {
+        "enabled": true,
+        "calls": 22,
+        "applied": 21,
+        "fallback": 1,
+        "iterations": {
+          "mean": 7.954545454545454,
+          "p50": 8.0,
+          "p95": 8.0,
+          "max": 8
+        },
+        "time_ms": {
+          "p50": 14.15596750007353,
+          "p95": 37.214010399839026,
+          "max": 42.211800000131916
+        },
+        "clearance_gain_m": {
+          "mean": -0.002891370019411416,
+          "min": -0.008602303371531672,
+          "max": 0.0014743136195395357
+        },
+        "reasons": {
+          "applied": 21,
+          "clearance": 1
+        }
+      },
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "g2-on",
+      "seed": 7,
+      "scene": "g2-pillar-bspline",
+      "outcome": "SUCCESS",
+      "arrived": 1,
+      "n_drones": 1,
+      "arrival_time_s": 3.95,
+      "min_obstacle_distance_m": 0.8220168478651387,
+      "min_obstacle_clearance_m": 0.47201684786513876,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": null,
+      "sim_duration_s": 4.95,
+      "wall_time_s": 14.32584438999993,
+      "backend": {
+        "enabled": true,
+        "calls": 22,
+        "applied": 21,
+        "fallback": 1,
+        "iterations": {
+          "mean": 7.818181818181818,
+          "p50": 8.0,
+          "p95": 8.0,
+          "max": 8
+        },
+        "time_ms": {
+          "p50": 15.952120999827457,
+          "p95": 37.64483850038687,
+          "max": 40.840523000042595
+        },
+        "clearance_gain_m": {
+          "mean": -0.0029017940830054463,
+          "min": -0.008516365802892722,
+          "max": 0.0014731424793409387
+        },
+        "reasons": {
+          "applied": 21,
+          "clearance": 1
+        }
+      },
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "g2-on",
+      "seed": 8,
+      "scene": "g2-pillar-bspline",
+      "outcome": "SUCCESS",
+      "arrived": 1,
+      "n_drones": 1,
+      "arrival_time_s": 3.95,
+      "min_obstacle_distance_m": 0.8221174842490407,
+      "min_obstacle_clearance_m": 0.47211748424904076,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": null,
+      "sim_duration_s": 4.95,
+      "wall_time_s": 14.478540559000066,
+      "backend": {
+        "enabled": true,
+        "calls": 22,
+        "applied": 21,
+        "fallback": 1,
+        "iterations": {
+          "mean": 7.909090909090909,
+          "p50": 8.0,
+          "p95": 8.0,
+          "max": 8
+        },
+        "time_ms": {
+          "p50": 15.028055500124538,
+          "p95": 39.89184465006019,
+          "max": 41.32024899990938
+        },
+        "clearance_gain_m": {
+          "mean": -0.002887874598201633,
+          "min": -0.008515756847861877,
+          "max": 0.001472344616390453
+        },
+        "reasons": {
+          "applied": 21,
+          "clearance": 1
+        }
+      },
+      "shadow_reject_rate": 1.0
+    },
+    {
+      "label": "g2-on",
+      "seed": 9,
+      "scene": "g2-pillar-bspline",
+      "outcome": "SUCCESS",
+      "arrived": 1,
+      "n_drones": 1,
+      "arrival_time_s": 3.95,
+      "min_obstacle_distance_m": 0.8227958026592606,
+      "min_obstacle_clearance_m": 0.4727958026592606,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_inter_drone_distance_m": null,
+      "sim_duration_s": 4.95,
+      "wall_time_s": 15.200489776999802,
+      "backend": {
+        "enabled": true,
+        "calls": 22,
+        "applied": 21,
+        "fallback": 1,
+        "iterations": {
+          "mean": 7.954545454545454,
+          "p50": 8.0,
+          "p95": 8.0,
+          "max": 8
+        },
+        "time_ms": {
+          "p50": 16.017380499988576,
+          "p95": 44.06452554983389,
+          "max": 58.06729200003247
+        },
+        "clearance_gain_m": {
+          "mean": -0.0027754350349673976,
+          "min": -0.009643564266022975,
+          "max": 0.002084313009452221
+        },
+        "reasons": {
+          "applied": 21,
+          "clearance": 1
+        }
+      },
+      "shadow_reject_rate": 1.0
+    }
+  ],
+  "summary": {
+    "forest-off": {
+      "runs": 10,
+      "arrived": 3,
+      "drones": 30,
+      "obstacle_collisions": 9,
+      "inter_drone_collisions": 0,
+      "min_clearance_m": -0.026848671142301717,
+      "backend_calls": 0,
+      "backend_applied": 0,
+      "backend_time_ms_p50": null,
+      "backend_time_ms_p95": null,
+      "iterations_p50": null,
+      "iterations_mean": null
+    },
+    "forest-on": {
+      "runs": 10,
+      "arrived": 24,
+      "drones": 30,
+      "obstacle_collisions": 2,
+      "inter_drone_collisions": 0,
+      "min_clearance_m": -0.019755230189008155,
+      "backend_calls": 428,
+      "backend_applied": 426,
+      "backend_time_ms_p50": 35.88510450003923,
+      "backend_time_ms_p95": 43.29582984976241,
+      "iterations_p50": 4.0,
+      "iterations_mean": 4.210280373831775
+    },
+    "g2-off": {
+      "runs": 10,
+      "arrived": 10,
+      "drones": 10,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_clearance_m": 0.4775465470413405,
+      "backend_calls": 0,
+      "backend_applied": 0,
+      "backend_time_ms_p50": null,
+      "backend_time_ms_p95": null,
+      "iterations_p50": null,
+      "iterations_mean": null
+    },
+    "g2-on": {
+      "runs": 10,
+      "arrived": 10,
+      "drones": 10,
+      "obstacle_collisions": 0,
+      "inter_drone_collisions": 0,
+      "min_clearance_m": 0.47020187142359726,
+      "backend_calls": 220,
+      "backend_applied": 210,
+      "backend_time_ms_p50": 26.372025500108975,
+      "backend_time_ms_p95": 51.096165099795584,
+      "iterations_p50": 8.0,
+      "iterations_mean": 7.781818181818182
+    }
+  }
+}

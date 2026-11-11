@@ -1,0 +1,72 @@
+{
+  "name": "d042-n1-parallel-s0",
+  "geometry": "geometry.json",
+  "ground_z": 0.0,
+  "drones": [
+    {
+      "id": "uav0",
+      "start_enu": [
+        -9.0,
+        0.0,
+        1.0
+      ],
+      "goal_enu": [
+        9.0,
+        0.0,
+        1.0
+      ]
+    }
+  ],
+  "task": {
+    "type": "goto",
+    "duration_s": 40.0
+  },
+  "criteria": {
+    "body_radius_m": 0.2,
+    "goal_tolerance_m": 0.5,
+    "goal_speed_mps": 0.3,
+    "goal_hold_s": 1.0,
+    "frozen": false
+  },
+  "camera": {
+    "width": 160,
+    "height": 96,
+    "hfov_deg": 90.0,
+    "vfov_deg": 60.0,
+    "min_range_m": 0.2,
+    "max_range_m": 20.0,
+    "noise_std_m": 0.0,
+    "mount_xyz_body": [
+      0.13,
+      0.0,
+      0.02
+    ]
+  },
+  "dynamics": {
+    "model": "point_mass_lag",
+    "tau_s": 0.1,
+    "kp": 4.0,
+    "kd": 3.0,
+    "a_max": 6.0
+  },
+  "rates_hz": {
+    "physics": 100,
+    "camera": 30,
+    "planner": 10
+  },
+  "seeds": [
+    0
+  ],
+  "teacher": {
+    "role": "ego-swarm-teacher-scene",
+    "assumption": true,
+    "density_per_m2": 0.42,
+    "actual_density_per_m2": 0.42,
+    "map_side_m": 20.0,
+    "obstacle_radius_m": 0.2,
+    "pattern": "parallel",
+    "body_radius_note": "论文表 II 写 0.2 m。这次的规划器二进制没有打出机体半径，卡上这个数是假设。",
+    "noise_std_note": "深度噪声设为 0。scenes/open-3drone.json 是 0.02。",
+    "ground_note": "教师点云不含地面。ground_z 只给 L0 的碰撞真值。"
+  }
+}
