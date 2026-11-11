@@ -1,0 +1,23 @@
+{
+  "name": "ego-density-014-swap3",
+  "note": "票 E-C4 密度场 L0 seed 0：三机 goto 对向，几何是 scenes/ego-density-014.json（56 根圆柱，目标密度 0.14 个/m²）。这是假设，不是论文复现（障碍半径 0.20 m，边长 20.0 m）。论文表 II 没有给出这两个数。起点名义上均匀分布在半径 8.0 m、高度 1.5 m 的圆上，各自飞向直径对侧，方位与 scenes/swap-3-open.json 相同。起终点必须在自由空间：机体中心到最近圆柱轴的水平距离至少 0.70 m（机体半径 0.35 m + 障碍半径 0.20 m + 余量 0.15 m）。uav1 在 8 m 圆上到最近轴是 0.513 m / 1.585 m，低于 0.70 m，因此沿同一条射线把起终点移到 20 m 正方形外面（半径 11.597 m，刚满足净空后再加 0.05 m）。uav0、uav2 在 8 m 圆上已经满足 0.70 m，仍留在圆上。只跑 seed 0，不进 scenes/suite.txt，criteria.frozen=false，不设 gates。开关不写进本卡：默认全关是一臂，E-A1、D1、E-B2 全开由 scripts/e-c4-density-l0.py 在进程里覆盖，写法与 scripts/e-combo-a1-d1-b2.py 相同。本卡不是 10 机，也不为填写论文表 II 去跑全种子。速度与 a_max 用本仓库已有的点质量设定：场景卡无 speed_mps（goto 任务如此），dynamics.a_max=6.0、tau_s=0.1、kp=4.0、kd=3.0。",
+  "geometry": "ego-density-014.json",
+  "ground_z": 0.0,
+  "drones": [
+    {"id": "uav0", "start_enu": [8.0, 0.0, 1.5], "goal_enu": [-8.0, 0.0, 1.5]},
+    {"id": "uav1", "start_enu": [-5.798502691896759, 10.043301270190089, 1.5], "goal_enu": [5.798502691896759, -10.043301270190089, 1.5]},
+    {"id": "uav2", "start_enu": [-4.0, -6.928203230275509, 1.5], "goal_enu": [4.0, 6.928203230275509, 1.5]}
+  ],
+  "task": {"type": "goto", "duration_s": 40.0},
+  "criteria": {
+    "body_radius_m": 0.35,
+    "goal_tolerance_m": 0.4,
+    "goal_speed_mps": 0.2,
+    "goal_hold_s": 1.0,
+    "frozen": false
+  },
+  "camera": {"width": 160, "height": 96, "hfov_deg": 90.0, "vfov_deg": 60.0, "min_range_m": 0.2, "max_range_m": 20.0, "noise_std_m": 0.02, "mount_xyz_body": [0.13, 0.0, 0.02]},
+  "dynamics": {"model": "point_mass_lag", "tau_s": 0.1, "kp": 4.0, "kd": 3.0, "a_max": 6.0},
+  "rates_hz": {"physics": 100, "camera": 30, "planner": 10},
+  "seeds": [0]
+}
