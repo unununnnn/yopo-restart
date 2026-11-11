@@ -1,0 +1,98 @@
+{
+  "pytest": {
+    "returncode": 0,
+    "log": [
+      "........                                                                 [100%]",
+      "8 passed in 9.02s"
+    ]
+  },
+  "short": [
+    {
+      "scene": "g2-pillar",
+      "policy": "upstream",
+      "seed": 0,
+      "duration_s": 0.5,
+      "same_actions": true,
+      "same_core": true,
+      "outcome_off": "TIMEOUT",
+      "outcome_on": "TIMEOUT",
+      "arrived_off": 0,
+      "arrived_on": 0,
+      "reason_off": "GOAL_NOT_REACHED",
+      "reason_on": "GOAL_NOT_REACHED",
+      "n_ticks": 50,
+      "wall_off_s": 1.9507843479514122,
+      "wall_on_s": 1.7700274990056641
+    },
+    {
+      "scene": "crossing-pillars",
+      "policy": "crossing",
+      "seed": 0,
+      "duration_s": 1.0,
+      "same_actions": true,
+      "same_core": true,
+      "outcome_off": "TIMEOUT",
+      "outcome_on": "TIMEOUT",
+      "arrived_off": 0,
+      "arrived_on": 0,
+      "reason_off": "GOAL_NOT_REACHED",
+      "reason_on": "GOAL_NOT_REACHED",
+      "n_ticks": 300,
+      "wall_off_s": 2.893328574951738,
+      "wall_on_s": 3.342190157971345
+    },
+    {
+      "scene": "crossing-forest",
+      "policy": "crossing",
+      "seed": 0,
+      "duration_s": 1.0,
+      "same_actions": true,
+      "same_core": true,
+      "outcome_off": "TIMEOUT",
+      "outcome_on": "TIMEOUT",
+      "arrived_off": 0,
+      "arrived_on": 0,
+      "reason_off": "GOAL_NOT_REACHED",
+      "reason_on": "GOAL_NOT_REACHED",
+      "n_ticks": 300,
+      "wall_off_s": 5.335647833999246,
+      "wall_on_s": 7.309794423985295
+    },
+    {
+      "scene": "formation-hold",
+      "policy": "formation",
+      "seed": 0,
+      "duration_s": 1.0,
+      "same_actions": true,
+      "same_core": true,
+      "outcome_off": "TIMEOUT",
+      "outcome_on": "TIMEOUT",
+      "arrived_off": 0,
+      "arrived_on": 0,
+      "reason_off": "GOAL_NOT_REACHED",
+      "reason_on": "GOAL_NOT_REACHED",
+      "n_ticks": 300,
+      "wall_off_s": 1.262622784008272,
+      "wall_on_s": 2.30600758100627
+    },
+    {
+      "scene": "crossing-6-forest",
+      "policy": "crossing",
+      "seed": 0,
+      "duration_s": 1.0,
+      "same_actions": true,
+      "same_core": true,
+      "outcome_off": "TIMEOUT",
+      "outcome_on": "TIMEOUT",
+      "arrived_off": 0,
+      "arrived_on": 0,
+      "reason_off": "GOAL_NOT_REACHED",
+      "reason_on": "GOAL_NOT_REACHED",
+      "n_ticks": 600,
+      "wall_off_s": 9.930606344947591,
+      "wall_on_s": 13.641867697995622
+    }
+  ],
+  "full": [],
+  "skipped_groups": []
+}
