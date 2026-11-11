@@ -52,6 +52,7 @@ from yopo_swarm_core.trajectory import PiecewisePolynomial, PolySegment
 from .criteria import frozen_for_card
 from .dynamics import PointMassLag
 from .forest import _segment_distance, woods_bounds
+from .geom_fallback import KIND, GeomSession, make_protocol_node
 from .policy import R_yaw, read_safe_radius, upstream_decoder
 from .progress import read_progress_settings
 from .scene import Box, Cylinder
@@ -428,8 +429,13 @@ class CrossingFleet:
             did: self.rail.position(0.0, self.t_go, slot).copy() for did, slot in self.slots.items()
         }
         checker = PlanConflictChecker()
+        # 视界用上面已经解析好的 self.horizon，不再走一次 13a 抬高（六机 1.75 s 只抬那一次）。
+        self.geom = GeomSession.from_card(
+            card, members=self.members, horizon=self.horizon, physics_dt=self.dt,
+        )
         self.nodes = {
-            did: ProtocolNode(
+            did: make_protocol_node(
+                self.geom,
                 did,
                 self.cfg,
                 checker=checker,
@@ -981,6 +987,8 @@ class CrossingFleet:
             )
 
     def exchange(self, bus, now: float) -> None:
+        if self.geom.enabled:
+            self.geom.flush(bus, now)
         for did in self.members:
             for msg in self.nodes[did].on_tick(now):
                 self._emit(bus, now, did, msg)
@@ -990,6 +998,8 @@ class CrossingFleet:
                 return
             for env in envs:
                 if env.payload.get("kind") != "protocol":
+                    if self.geom.enabled and env.payload.get("kind") == KIND:
+                        self.geom.ingest_envelope(env)
                     continue
                 self.deliveries += 1
                 for reply in self.nodes[env.dest].on_message(env.payload["msg"], now):
@@ -999,6 +1009,10 @@ class CrossingFleet:
     def track(self, drone_id: str, now: float):
         rec = self.nodes[drone_id].executing(now)
         self._last_rec[drone_id] = rec
+        if self.geom.enabled:
+            alt = self.geom.override_sampler(drone_id)
+            if alt is not None:
+                return alt
         slot = self._follow[drone_id]
         if slot["hash"] != rec.plan_hash:
             yaw = 0.0 if slot["sampler"] is None else slot["sampler"].yaw

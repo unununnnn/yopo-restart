@@ -26,6 +26,7 @@ from yopo_swarm_core.protocol.plan_occupancy import PlanConflictChecker, PlanOcc
 from yopo_swarm_core.trajectory import PiecewisePolynomial, PolySegment
 
 from .criteria import frozen_for_card
+from .geom_fallback import KIND, GeomSession, make_protocol_node
 from .scene import parse_geometry
 
 _LIMITS = KinematicLimits(v_max=8.0, a_max=12.0, j_max=400.0)
@@ -458,8 +459,11 @@ class SwitchFleet:
             d: self.rail.body_pva(0.0, self.t_go, self.line[d], self.line[d], None, 0.0)[0].copy() for d in self.members
         }
         checker = PlanConflictChecker()
+        self.geom = GeomSession.from_card(card, members=self.members, physics_dt=self.dt)
         self.nodes = {
-            d: ProtocolNode(d, self.cfg, checker=checker, planner=self._planner, initial=self._initial)
+            d: make_protocol_node(
+                self.geom, d, self.cfg, checker=checker, planner=self._planner, initial=self._initial,
+            )
             for d in self.members
         }
         self._follow = {d: {"hash": None, "sampler": None} for d in self.members}
@@ -758,6 +762,8 @@ class SwitchFleet:
             )
 
     def exchange(self, bus, now: float) -> None:
+        if self.geom.enabled:
+            self.geom.flush(bus, now)
         for did in self.members:
             for msg in self.nodes[did].on_tick(now):
                 self._emit(bus, now, did, msg)
@@ -767,6 +773,8 @@ class SwitchFleet:
                 break
             for env in envs:
                 if env.payload.get("kind") != "protocol":
+                    if self.geom.enabled and env.payload.get("kind") == KIND:
+                        self.geom.ingest_envelope(env)
                     continue
                 self.deliveries += 1
                 for reply in self.nodes[env.dest].on_message(env.payload["msg"], now):
@@ -778,6 +786,10 @@ class SwitchFleet:
     def track(self, drone_id: str, now: float):
         rec = self.nodes[drone_id].executing(now)
         self._last_rec[drone_id] = rec
+        if self.geom.enabled:
+            alt = self.geom.override_sampler(drone_id)
+            if alt is not None:
+                return alt
         slot = self._follow[drone_id]
         if slot["hash"] != rec.plan_hash:
             yaw = 0.0 if slot["sampler"] is None else slot["sampler"].yaw

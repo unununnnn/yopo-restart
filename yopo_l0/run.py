@@ -65,6 +65,14 @@ def main(argv=None):
         "--safe-radius", type=float, default=None,
         help="覆盖 upstream / crossing 的走廊准入半径（米）。缺省用场景卡，场景卡再缺省 0.05（上游 d5e1e60）",
     )
+    ap.add_argument(
+        "--geometric-fallback", dest="geometric_fallback", action="store_const", const=True, default=None,
+        help="打开提交前的一次性几何回退。缺省跟场景卡，场景卡再缺省关闭",
+    )
+    ap.add_argument(
+        "--no-geometric-fallback", dest="geometric_fallback", action="store_const", const=False,
+        help="关掉几何回退，即使场景卡写了 enabled",
+    )
     a = ap.parse_args(_normalize_shadow(argv))
     card = load_card(a.scene)
     out = run(card, RunConfig(
@@ -74,6 +82,7 @@ def main(argv=None):
         duration_s=a.duration,
         bus=_bus(a),
         safe_radius_m=a.safe_radius,
+        geometric_fallback=a.geometric_fallback,
     ))
     d = write(out, a.out or f"out/{card.name}/seed{a.seed}")
     print(json.dumps(out.result, ensure_ascii=False))
