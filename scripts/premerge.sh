@@ -12,20 +12,27 @@
 #    --merge（以及不带合并旗标的检查）仍然把 trailer 当失败。
 # 7. 任一检查失败则退出码非 0。
 # 8. --merge / --squash 在合入前会 fetch 基线；基线已前进则先把 origin/<base>
-#    合进 PR 分支（普通 push，不 force），再 gh pr merge，缩短冲突窗口。
-#    追上失败或 gh pr merge 失败：退出码非 0，并在 PR 留评说明原因。
+#    合进 PR 分支（普通 push，不 force）。push 之后轮询
+#    gh pr view <PR> --json mergeable,mergeStateStatus，每 5 s 一次、最多 120 s，
+#    等到 mergeable=MERGEABLE 再 gh pr merge；若为 CONFLICTING 立刻失败；
+#    超时也失败。gh pr merge 若报 not mergeable，再等 10 s 重试一次。
+#    追上失败、等待失败或 gh pr merge 失败：退出码非 0，并在 PR 留评说明原因。
 # 9. EXIT 陷阱清理 worktree 时保留原退出码，避免合入失败被收成 0。
 #
 # 不带 --merge / --squash 时绝不合并，也不会推送分支。
 # --merge / --squash 只在全部检查通过之后执行：
 #   如基线已前进：git merge origin/<base>，再 git push origin <sha>:refs/heads/<head>
+#   push 后等待 MERGEABLE（见上）
 #   gh pr ready
 #   gh pr merge --merge|--squash --match-head-commit <sha>
+#   若报 not mergeable：等 10 s 再试一次
 # --squash 的说明由各提交说明拼成，并删掉其中的 Co-authored-by 行。
 # 结束时删除 worktree。
 #
 # 测试可设 PREMERGE_TEST=1 与 PREMERGE_ROOT=<仓库>，把 git 操作指到临时仓库。
 # 不跳过 regress：worktree 里跑的就是该提交的 scripts/regress.sh。
+# 等待间隔可用 PREMERGE_MERGEABLE_POLL_S（默认 5）、PREMERGE_MERGEABLE_TIMEOUT_S
+# （默认 120）、PREMERGE_MERGE_RETRY_S（默认 10）覆盖，便于测试。
 
 premerge_strip_coauthor_lines() {
   # 删掉整行都是 Co-authored-by trailer 的行（大小写不敏感）。正文里顺带提到的不删。
@@ -199,15 +206,85 @@ premerge_ready() {
   return 1
 }
 
+premerge_parse_mergeable() {
+  # $1 json 文件。打印：mergeable<TAB>mergeStateStatus
+  python3 - "$1" <<'PY'
+import json, pathlib, sys
+data = json.loads(pathlib.Path(sys.argv[1]).read_text() or "{}")
+mergeable = data.get("mergeable")
+state = data.get("mergeStateStatus")
+if mergeable is None:
+    mergeable = ""
+if state is None:
+    state = ""
+print("%s\t%s" % (mergeable, state))
+PY
+}
+
+premerge_wait_mergeable() {
+  # push 新 head 后，等 GitHub 算完可合并状态。
+  # $1 PR 号 $2 错误文件（失败时写入原因）
+  # mergeable=MERGEABLE 返回 0；CONFLICTING 立刻失败；其它状态每
+  # PREMERGE_MERGEABLE_POLL_S 秒再查，直到 PREMERGE_MERGEABLE_TIMEOUT_S。
+  local pr=$1 err_file=$2
+  local poll timeout started now elapsed json view_err line mergeable state
+  poll=${PREMERGE_MERGEABLE_POLL_S:-5}
+  timeout=${PREMERGE_MERGEABLE_TIMEOUT_S:-120}
+  started=$(date +%s)
+  json="${err_file}.view.json"
+  view_err="${err_file}.view.err"
+  while true; do
+    if ! gh pr view "$pr" --json mergeable,mergeStateStatus >"$json" 2>"$view_err"; then
+      {
+        printf '查询可合并状态失败\n'
+        cat "$view_err"
+      } >"$err_file"
+      return 1
+    fi
+    line=$(premerge_parse_mergeable "$json")
+    mergeable=${line%%$'\t'*}
+    state=${line#*$'\t'}
+    if [[ "$mergeable" == "MERGEABLE" ]]; then
+      return 0
+    fi
+    if [[ "$mergeable" == "CONFLICTING" ]]; then
+      printf '推送后 GitHub 报告冲突：mergeable=CONFLICTING mergeStateStatus=%s。\n' "${state:-空}" >"$err_file"
+      return 1
+    fi
+    now=$(date +%s)
+    elapsed=$((now - started))
+    if [[ "$elapsed" -ge "$timeout" ]]; then
+      printf '推送后等待 GitHub 计算可合并状态超时（%s s），最后 mergeable=%s mergeStateStatus=%s。\n' \
+        "$timeout" "${mergeable:-空}" "${state:-空}" >"$err_file"
+      return 1
+    fi
+    sleep "$poll"
+  done
+}
+
+premerge_gh_merge() {
+  local pr=$1 mode=$2 sha=$3 title=$4 body_file=$5
+  if [[ "$mode" == "merge" ]]; then
+    gh pr merge "$pr" --merge --match-head-commit "$sha"
+  else
+    gh pr merge "$pr" --squash --match-head-commit "$sha" --subject "$title" --body-file "$body_file"
+  fi
+}
+
 premerge_do_merge() {
   local pr=$1 mode=$2 sha=$3 title=$4 body_file=$5
   local err_file=${6:-}
-  local err rc=0
+  local err rc=0 retry_s low
+  retry_s=${PREMERGE_MERGE_RETRY_S:-10}
   premerge_ready "$pr" || return $?
-  if [[ "$mode" == "merge" ]]; then
-    err=$(gh pr merge "$pr" --merge --match-head-commit "$sha" 2>&1) || rc=$?
-  else
-    err=$(gh pr merge "$pr" --squash --match-head-commit "$sha" --subject "$title" --body-file "$body_file" 2>&1) || rc=$?
+  err=$(premerge_gh_merge "$pr" "$mode" "$sha" "$title" "$body_file" 2>&1) || rc=$?
+  if [[ "$rc" -ne 0 ]]; then
+    low=$(printf '%s' "$err" | tr '[:upper:]' '[:lower:]')
+    if [[ "$low" == *"not mergeable"* ]]; then
+      sleep "$retry_s"
+      rc=0
+      err=$(premerge_gh_merge "$pr" "$mode" "$sha" "$title" "$body_file" 2>&1) || rc=$?
+    fi
   fi
   if [[ "$rc" -ne 0 ]]; then
     printf '%s\n' "$err" >&2
@@ -476,6 +553,7 @@ premerge_main() {
       merge_note="未执行（检查未过）"
     else
       caught_sha=""
+      head_before=$sha
       if caught_sha=$(premerge_catch_up_base "$ROOT" "$base_name" "$base_sha" "$sha" "$head_name" "$merge_err_file"); then
         if [[ "$caught_sha" != "$sha" ]]; then
           catchup_note="基线已前进，已先合入并更新 head ${caught_sha:0:12}。"
@@ -498,19 +576,28 @@ premerge_main() {
           fi
         fi
         : >"$merge_err_file"
-        premerge_do_merge "$pr" "$mode" "$sha" "$title" "$body_file" "$merge_err_file" || merge_rc=$?
+        if [[ "$caught_sha" != "$head_before" ]]; then
+          if ! premerge_wait_mergeable "$pr" "$merge_err_file"; then
+            merge_note="合并失败（等待可合并状态失败）"
+            merge_rc=1
+            final=1
+          fi
+        fi
         if [[ "$merge_rc" -eq 0 ]]; then
-          if [[ "$mode" == "merge" ]]; then
-            merge_note="已合并（merge）"
+          premerge_do_merge "$pr" "$mode" "$sha" "$title" "$body_file" "$merge_err_file" || merge_rc=$?
+          if [[ "$merge_rc" -eq 0 ]]; then
+            if [[ "$mode" == "merge" ]]; then
+              merge_note="已合并（merge）"
+            else
+              merge_note="已合并（squash）"
+            fi
+            if [[ -n "$catchup_note" ]]; then
+              merge_note="${merge_note}；${catchup_note}"
+            fi
           else
-            merge_note="已合并（squash）"
+            merge_note="合并失败"
+            final=1
           fi
-          if [[ -n "$catchup_note" ]]; then
-            merge_note="${merge_note}；${catchup_note}"
-          fi
-        else
-          merge_note="合并失败"
-          final=1
         fi
       else
         merge_note="合并失败（追上基线失败）"

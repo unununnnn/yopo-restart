@@ -103,8 +103,24 @@ GH_STUB = textwrap.dedent(
         rec["body"] = take("--body")
     with log.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(rec, ensure_ascii=False) + "\\n")
+    def bump(key):
+        path = pathlib.Path(os.environ[key])
+        n = int(path.read_text().strip() or "0") if path.exists() else 0
+        n += 1
+        path.write_text(str(n))
+        return n
     if len(args) >= 2 and args[0] == "pr" and args[1] == "view":
-        sys.stdout.write(pathlib.Path(os.environ["GH_VIEW"]).read_text())
+        n = bump("GH_VIEW_COUNT")
+        text = pathlib.Path(os.environ["GH_VIEW"]).read_text()
+        seq = os.environ.get("GH_VIEW_SEQ")
+        if seq:
+            items = json.loads(pathlib.Path(seq).read_text())
+            patch = items[min(n - 1, len(items) - 1)]
+            data = json.loads(text)
+            data.update(patch)
+            sys.stdout.write(json.dumps(data))
+        else:
+            sys.stdout.write(text)
         raise SystemExit(0)
     if len(args) >= 2 and args[0] == "pr" and args[1] == "ready":
         rc = int(os.environ.get("GH_READY_RC", "0"))
@@ -114,7 +130,13 @@ GH_STUB = textwrap.dedent(
     if len(args) >= 2 and args[0] == "pr" and args[1] == "comment":
         raise SystemExit(int(os.environ.get("GH_COMMENT_RC", os.environ.get("GH_ACTION_RC", "0"))))
     if len(args) >= 2 and args[0] == "pr" and args[1] == "merge":
-        rc = int(os.environ.get("GH_MERGE_RC", os.environ.get("GH_ACTION_RC", "0")))
+        n = bump("GH_MERGE_COUNT")
+        seq = os.environ.get("GH_MERGE_RC_SEQ")
+        if seq:
+            parts = [int(x) for x in seq.split(",") if x != ""]
+            rc = parts[min(n - 1, len(parts) - 1)]
+        else:
+            rc = int(os.environ.get("GH_MERGE_RC", os.environ.get("GH_ACTION_RC", "0")))
         if rc != 0:
             sys.stderr.write(os.environ.get("GH_MERGE_STDERR", "GraphQL: Pull Request has merge conflicts (mergePullRequest)\\n"))
         raise SystemExit(rc)
@@ -321,10 +343,11 @@ def _pr_repo(tmp_path, *, trailer=None, fixture=FIXTURE):
     return repo, sha, fixture_path, make_log
 
 
-def _run_premerge(tmp_path, repo, sha, fixture_path, make_log, *args, mergeable="MERGEABLE", ready_rc="0", ready_err="", title="feat: candidate", regress_rc="0", merge_rc="0", merge_err="", comment_rc="0", advance_base=False, advance_text="moved"):
+def _run_premerge(tmp_path, repo, sha, fixture_path, make_log, *args, mergeable="MERGEABLE", ready_rc="0", ready_err="", title="feat: candidate", regress_rc="0", merge_rc="0", merge_err="", comment_rc="0", advance_base=False, advance_text="moved", view_seq=None, merge_rc_seq=None, poll_s=None, timeout_s=None, retry_s=None, merge_state="CLEAN"):
     view = {
         "headRefOid": sha,
         "mergeable": mergeable,
+        "mergeStateStatus": merge_state,
         "baseRefName": "main",
         "headRefName": "feature",
         "isDraft": True,
@@ -340,11 +363,29 @@ def _run_premerge(tmp_path, repo, sha, fixture_path, make_log, *args, mergeable=
     env["PREMERGE_MAKE_LOG"] = str(make_log)
     env["GH_LOG"] = str(gh_log)
     env["GH_VIEW"] = str(view_path)
+    view_count = tmp_path / "gh-view-count"
+    view_count.write_text("0")
+    env["GH_VIEW_COUNT"] = str(view_count)
+    merge_count = tmp_path / "gh-merge-count"
+    merge_count.write_text("0")
+    env["GH_MERGE_COUNT"] = str(merge_count)
     env["GH_READY_RC"] = ready_rc
     env["GH_READY_STDERR"] = ready_err
     env["GH_MERGE_RC"] = str(merge_rc)
     env["GH_MERGE_STDERR"] = merge_err
     env["GH_COMMENT_RC"] = str(comment_rc)
+    if view_seq is not None:
+        seq_path = tmp_path / "gh-view-seq.json"
+        seq_path.write_text(json.dumps(view_seq), encoding="utf-8")
+        env["GH_VIEW_SEQ"] = str(seq_path)
+    if merge_rc_seq is not None:
+        env["GH_MERGE_RC_SEQ"] = merge_rc_seq
+    if poll_s is not None:
+        env["PREMERGE_MERGEABLE_POLL_S"] = str(poll_s)
+    if timeout_s is not None:
+        env["PREMERGE_MERGEABLE_TIMEOUT_S"] = str(timeout_s)
+    if retry_s is not None:
+        env["PREMERGE_MERGE_RETRY_S"] = str(retry_s)
     if advance_base:
         env["PREMERGE_ADVANCE_BASE"] = "1"
         env["PREMERGE_ADVANCE_TEXT"] = advance_text
@@ -618,6 +659,159 @@ def test_usage_and_script_never_pushes():
     assert "--admin" not in code
     # 追上基线时允许普通 push origin <sha>:refs/heads/<branch>，禁止 force。
     assert "push origin" in code
+    assert "pgrep" not in code
+
+
+
+def test_base_moved_waits_until_mergeable_then_merges(tmp_path):
+    repo, sha, fixture_path, make_log = _pr_repo(tmp_path)
+    proc, calls = _run_premerge(
+        tmp_path,
+        repo,
+        sha,
+        fixture_path,
+        make_log,
+        "8",
+        "--squash",
+        advance_base=True,
+        advance_text="from main",
+        view_seq=[
+            {"mergeable": "MERGEABLE", "mergeStateStatus": "CLEAN"},
+            {"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN"},
+            {"mergeable": "MERGEABLE", "mergeStateStatus": "CLEAN"},
+        ],
+        poll_s=0,
+        timeout_s=120,
+    )
+    assert proc.returncode == 0, proc.stderr + proc.stdout
+    views = [c for c in calls if c["argv"][1] == "view"]
+    merges = [c for c in calls if c["argv"][1] == "merge"]
+    assert len(views) == 3
+    assert any("--json" in c["argv"] and "mergeable,mergeStateStatus" in c["argv"] for c in views[1:])
+    assert len(merges) == 1
+    new_sha = _git(repo, "rev-parse", "feature").stdout.strip()
+    assert merges[0]["argv"][merges[0]["argv"].index("--match-head-commit") + 1] == new_sha
+    body = [c for c in calls if c["argv"][1] == "comment"][0]["body"]
+    assert "已合并（squash）" in body
+    assert "基线已前进" in body
+
+
+def test_base_moved_conflicting_fails_immediately(tmp_path):
+    repo, sha, fixture_path, make_log = _pr_repo(tmp_path)
+    proc, calls = _run_premerge(
+        tmp_path,
+        repo,
+        sha,
+        fixture_path,
+        make_log,
+        "11",
+        "--squash",
+        advance_base=True,
+        advance_text="from main",
+        view_seq=[
+            {"mergeable": "MERGEABLE", "mergeStateStatus": "CLEAN"},
+            {"mergeable": "CONFLICTING", "mergeStateStatus": "DIRTY"},
+            {"mergeable": "MERGEABLE", "mergeStateStatus": "CLEAN"},
+        ],
+        poll_s=0,
+        timeout_s=120,
+    )
+    assert proc.returncode != 0, proc.stderr + proc.stdout
+    views = [c for c in calls if c["argv"][1] == "view"]
+    merges = [c for c in calls if c["argv"][1] == "merge"]
+    comments = [c for c in calls if c["argv"][1] == "comment"]
+    assert len(views) == 2
+    assert merges == []
+    assert len(comments) == 1
+    body = comments[0]["body"]
+    assert "合并失败（等待可合并状态失败）" in body
+    assert "CONFLICTING" in body
+    assert "| 退出码 | 1 |" in body
+    assert "## 合并失败" in body
+
+
+def test_base_moved_mergeable_timeout_comments_and_fails(tmp_path):
+    repo, sha, fixture_path, make_log = _pr_repo(tmp_path)
+    proc, calls = _run_premerge(
+        tmp_path,
+        repo,
+        sha,
+        fixture_path,
+        make_log,
+        "12",
+        "--squash",
+        advance_base=True,
+        advance_text="from main",
+        view_seq=[
+            {"mergeable": "MERGEABLE", "mergeStateStatus": "CLEAN"},
+            {"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN"},
+        ],
+        poll_s=0,
+        timeout_s=0,
+    )
+    assert proc.returncode != 0, proc.stderr + proc.stdout
+    views = [c for c in calls if c["argv"][1] == "view"]
+    merges = [c for c in calls if c["argv"][1] == "merge"]
+    comments = [c for c in calls if c["argv"][1] == "comment"]
+    assert len(views) == 2
+    assert merges == []
+    assert len(comments) == 1
+    body = comments[0]["body"]
+    assert "合并失败（等待可合并状态失败）" in body
+    assert "超时" in body
+    assert "mergeable=UNKNOWN" in body
+    assert "| 退出码 | 1 |" in body
+    assert "## 合并失败" in body
+
+
+def test_merge_retries_once_on_not_mergeable(tmp_path):
+    repo, sha, fixture_path, make_log = _pr_repo(tmp_path)
+    proc, calls = _run_premerge(
+        tmp_path,
+        repo,
+        sha,
+        fixture_path,
+        make_log,
+        "13",
+        "--squash",
+        merge_rc_seq="1,0",
+        merge_err="GraphQL: Pull Request is not mergeable (mergePullRequest)\n",
+        retry_s=0,
+    )
+    assert proc.returncode == 0, proc.stderr + proc.stdout
+    merges = [c for c in calls if c["argv"][1] == "merge"]
+    comments = [c for c in calls if c["argv"][1] == "comment"]
+    assert len(merges) == 2
+    assert len(comments) == 1
+    body = comments[0]["body"]
+    assert "已合并（squash）" in body
+    assert "| 退出码 | 0 |" in body
+    assert "## 合并失败" not in body
+
+
+def test_merge_retry_still_fails_after_second_not_mergeable(tmp_path):
+    repo, sha, fixture_path, make_log = _pr_repo(tmp_path)
+    proc, calls = _run_premerge(
+        tmp_path,
+        repo,
+        sha,
+        fixture_path,
+        make_log,
+        "14",
+        "--squash",
+        merge_rc_seq="1,1",
+        merge_err="GraphQL: Pull Request is not mergeable (mergePullRequest)\n",
+        retry_s=0,
+    )
+    assert proc.returncode != 0, proc.stderr + proc.stdout
+    merges = [c for c in calls if c["argv"][1] == "merge"]
+    comments = [c for c in calls if c["argv"][1] == "comment"]
+    assert len(merges) == 2
+    assert len(comments) == 1
+    body = comments[0]["body"]
+    assert "| 合并 | 合并失败 |" in body
+    assert "not mergeable" in body
+    assert "| 退出码 | 1 |" in body
 
 
 def test_make_venv_idempotent_when_present():
