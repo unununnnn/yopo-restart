@@ -223,7 +223,7 @@ def actions(ticks: list[dict]) -> list[tuple]:
 
 
 def run_pair(scene: Path, policy: str, seed: int, duration_s: float | None) -> dict:
-    from yopo_l0.runner import RunConfig, run
+    from yopo_l0.runner import WALL_FIELDS, RunConfig, run
     from yopo_l0.scene import load_card
     from yopo_l0.shadow import SHADOW_RESULT_KEYS
 
@@ -234,8 +234,8 @@ def run_pair(scene: Path, policy: str, seed: int, duration_s: float | None) -> d
     off = run(card, RunConfig(shadow=False, **kw))
     on = run(card, RunConfig(shadow=True, **kw))
     same_actions = actions(off.ticks) == actions(on.ticks)
-    off_core = {k: v for k, v in off.result.items() if k not in SHADOW_RESULT_KEYS and k != "wall_time_s"}
-    on_core = {k: v for k, v in on.result.items() if k not in SHADOW_RESULT_KEYS and k != "wall_time_s"}
+    off_core = {k: v for k, v in off.result.items() if k not in SHADOW_RESULT_KEYS and k not in WALL_FIELDS}
+    on_core = {k: v for k, v in on.result.items() if k not in SHADOW_RESULT_KEYS and k not in WALL_FIELDS}
     return {
         "scene": card.card["name"],
         "policy": policy,

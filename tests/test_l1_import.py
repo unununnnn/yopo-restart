@@ -4,6 +4,7 @@ import json
 import shutil
 from pathlib import Path
 
+from yopo_l0.plan_wall import PLAN_WALL_FIELD
 from yopo_l0.runner import RunConfig, run
 from yopo_l0.scene import load_card
 
@@ -48,7 +49,9 @@ def test_real_planner_log_fills_schema_and_reject_histogram(tmp_path):
     assert result["rtf"] is None
     assert result["network"]["upstream_sha"].startswith("d5e1e60")
     l0 = run(load_card(ROOT / "scenes/g2-hover.json"), RunConfig(seed=0, policy="hover", shadow=False, duration_s=0.2))
-    assert set(result) == set(l0.result) | {"takeoff_handoff_s", "rtf"}
+    assert PLAN_WALL_FIELD in l0.result
+    # L1 日志没有单次规划墙钟；字段缺失时导入结果仍通过，不补一个没测到的数。
+    assert set(result) == (set(l0.result) - {PLAN_WALL_FIELD}) | {"takeoff_handoff_s", "rtf"}
 
 
 def test_shadow_off_keeps_reject_rate_null(tmp_path):

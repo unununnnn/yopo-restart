@@ -13,6 +13,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from .criteria import _clearance, active_gates, collision_count, metric_value
+from .plan_wall import p95_ms as plan_wall_p95_ms
 from .scene import load_card
 
 SCHEMA = "yopo-restart/results-summary/1"
@@ -353,6 +354,7 @@ def aggregate_group(rows: list[dict], *, scenes_dir: Path) -> dict:
     clears = [v for r in rows if (v := _clearance(r)) is not None]
     times = [float(r["arrival_time_s"]) for r in rows if r.get("arrival_time_s") is not None]
     walls = [float(r["wall_time_s"]) for r in rows if r.get("wall_time_s") is not None]
+    plan_walls = [v for r in rows if (v := plan_wall_p95_ms(r)) is not None]
     before = [float(v) for r in rows if (v := (r.get("switch") or {}).get("error_p95_before_m")) is not None]
     after = [float(v) for r in rows if (v := (r.get("switch") or {}).get("error_p95_after_m")) is not None]
     trans = [
@@ -415,6 +417,7 @@ def aggregate_group(rows: list[dict], *, scenes_dir: Path) -> dict:
         "clearance_is_ground": open_area,
         "arrival_time_s": _range(times),
         "wall_time_s": _range(walls),
+        "plan_wall_ms": _range(plan_walls),
         "sources": sorted({str(r.get("_source")) for r in rows if r.get("_source")}),
         "frozen": frozen,
         "gates": gates,
@@ -524,8 +527,8 @@ def render_markdown(summary: dict) -> str:
     lines += [
         "## 总表",
         "",
-        "| 里程碑 | 场景卡 | 策略 | 层级 | 形态 / 档位 | 影子盾 | commit | 场景卡哈希 | seeds | 到达 | 碰撞 | 队形误差 p95 m | 最小机间距离 m | 最小净空 m | 状态 |",
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| 里程碑 | 场景卡 | 策略 | 层级 | 形态 / 档位 | 影子盾 | commit | 场景卡哈希 | seeds | 到达 | 碰撞 | 队形误差 p95 m | 最小机间距离 m | 最小净空 m | 规划墙钟 p95 ms（只报数） | 状态 |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for row in summary["rows"]:
         clear = _fmt_opt(row["min_obstacle_clearance_m"])
@@ -555,7 +558,7 @@ def render_markdown(summary: dict) -> str:
         if density:
             scene_cell = f"{scene_cell}（{density}）"
         lines.append(
-            "| {milestone} | {scene} | {policy} | {tier} | {form} | {shadow} | {commit} | {hash} | {seeds} | {arrivals} | {collisions} | {p95} | {inter} | {clear} | {status} |".format(
+            "| {milestone} | {scene} | {policy} | {tier} | {form} | {shadow} | {commit} | {hash} | {seeds} | {arrivals} | {collisions} | {p95} | {inter} | {clear} | {plan_wall} | {status} |".format(
                 milestone=row["milestone"],
                 scene=scene_cell,
                 policy=row["policy"],
@@ -570,6 +573,7 @@ def render_markdown(summary: dict) -> str:
                 p95=p95,
                 inter=inter,
                 clear=clear,
+                plan_wall=_fmt_range(row.get("plan_wall_ms")),
                 status=row["status"],
             )
         )
@@ -577,7 +581,10 @@ def render_markdown(summary: dict) -> str:
         "",
         "队形误差 p95 取结果里的 `formation_error_p95_m`（官方口径）；多个 seed 写出最小到最大。"
         "最小机间距离和最小净空取各 seed 里最紧的值。净空 = 机体中心到障碍表面的距离 − 0.35 m。"
-        "开阔区的净空是离地，不是避障净空，只报数。墙钟随负载变化，不进这张表，也不进 gates。",
+        "开阔区的净空是离地，不是避障净空，只报数。"
+        "规划墙钟是每次网络前向（或后段优化）的墙钟 p95，单位毫秒，只报数，不进 gates；"
+        "没有这一字段的旧结果写 —。"
+        "整回路墙钟 `wall_time_s` 随负载变化，含光线投射和动力学，不进这张表，也不进 gates。",
         "",
     ]
     if summary.get("unmeasured"):
