@@ -50,7 +50,7 @@ def test_scene_is_a_wide_g2_style_pillar_forest():
     g2_gap = g2_left["lo"][1] - g2_right["hi"][1]
     raw = json.loads(CARD.read_text())
     assert raw["task"]["type"] == "crossing"
-    assert raw["criteria"]["frozen"] is False
+    assert raw["criteria"]["frozen"] is True
     assert raw["seeds"] == list(range(10))
     assert [d["id"] for d in raw["drones"]] == ["uav0", "uav1", "uav2"]
     pillars = [b for b in GEOM["boxes"] if str(b["name"]).startswith("p_")]
@@ -116,7 +116,7 @@ def test_same_seed_is_deterministic_and_each_drone_flies_its_own_plan():
     again = _run(card, **cfg)
     r = out.result
     assert r["task"] == "crossing" and r["policy"] == "crossing"
-    assert r["crossing"]["frozen"] is False and r["crossing"]["adjudicator"] is None
+    assert r["crossing"]["frozen"] is True and r["crossing"]["adjudicator"] is None
     assert r["crossing"]["avoidance"] == "upstream-yopo"
     assert r["crossing"]["goal_bias"] == "slot-lookahead-blend"
     assert r["crossing"]["progress_gate"] is False

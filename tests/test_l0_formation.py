@@ -1,4 +1,4 @@
-"""票 06：三机开阔区直线 + 转弯，虚拟中心 + 槽位，本机批准。判据未冻结，只核对行为。"""
+"""票 06：三机开阔区直线 + 转弯，虚拟中心 + 槽位，本机批准。判据已冻结；本文件仍核对行为，不改门槛。"""
 
 import copy
 import json
@@ -31,7 +31,7 @@ def _run(card, **kw):
 
 def test_formation_holds_through_straight_and_turn(tmp_path):
     card = load_card(CARD)
-    assert card.card["criteria"]["frozen"] is False
+    assert card.card["criteria"]["frozen"] is True
     out = _run(card, seed=0, record_planner_inputs=True)
     again = _run(card, seed=0, record_planner_inputs=True)
     r = out.result
@@ -44,7 +44,7 @@ def test_formation_holds_through_straight_and_turn(tmp_path):
     assert all(isinstance(row["shadow_reject_rate"], float) for row in r["shadow_drones"])
     assert r["n_drones"] == 3 and r["arrived"] == 3
     form = r["formation"]
-    assert form["frozen"] is False and form["adjudicator"] is None
+    assert form["frozen"] is True and form["adjudicator"] is None
     assert form["virtual_center"] == "scheduled"
     assert form["progress_gate"] is False
     assert form["arrival_rate"] == 1.0

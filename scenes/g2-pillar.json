@@ -26,7 +26,13 @@
     "goal_tolerance_m": 0.4,
     "goal_speed_mps": 0.2,
     "goal_hold_s": 1.0,
-    "frozen": false
+    "frozen": true,
+    "gate_policies": ["upstream"],
+    "gates": {
+      "arrival_rate": 1.0,
+      "collisions": 0,
+      "arrival_time_s": 5.0
+    }
   },
   "camera": {
     "width": 320,
