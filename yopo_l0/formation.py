@@ -39,6 +39,7 @@ from yopo_swarm_core.protocol.plan_occupancy import PlanConflictChecker, PlanOcc
 from yopo_swarm_core.trajectory import PiecewisePolynomial, PolySegment
 
 from .criteria import frozen_for_card
+from .geom_fallback import KIND, GeomSession, make_protocol_node
 from .progress import read_progress_settings
 
 # 最小急动度标量曲线 σ(u)=10u³-15u⁴+6u⁵ 的速度峰值（u=1/2）。
@@ -534,8 +535,10 @@ class FormationFleet:
             did: self.path.pva_at(0.0, self.t_go, slot)[0].copy() for did, slot in self.slots.items()
         }
         checker = PlanConflictChecker()
+        self.geom = GeomSession.from_card(card, members=self.members, physics_dt=self.dt)
         self.nodes = {
-            did: ProtocolNode(
+            did: make_protocol_node(
+                self.geom,
                 did,
                 self.cfg,
                 checker=checker,
@@ -660,6 +663,8 @@ class FormationFleet:
                 return
             for env in envs:
                 if env.payload.get("kind") != "protocol":
+                    if self.geom.enabled and env.payload.get("kind") == KIND:
+                        self.geom.ingest_envelope(env)
                     continue
                 self.deliveries += 1
                 for reply in self.nodes[env.dest].on_message(env.payload["msg"], now):
@@ -668,6 +673,8 @@ class FormationFleet:
 
     def exchange(self, bus, now: float) -> None:
         bus = self._transport_or_bus(bus)
+        if self.geom.enabled:
+            self.geom.flush(bus, now)
         for did in self.members:
             node = self.nodes[did]
             for msg in node.on_tick(now):
@@ -685,6 +692,10 @@ class FormationFleet:
     def track(self, drone_id: str, now: float):
         rec = self.nodes[drone_id].executing(now)
         self._last_rec[drone_id] = rec
+        if self.geom.enabled:
+            alt = self.geom.override_sampler(drone_id)
+            if alt is not None:
+                return alt
         slot = self._follow[drone_id]
         changed = slot["hash"] != rec.plan_hash
         if changed:

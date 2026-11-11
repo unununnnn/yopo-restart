@@ -169,6 +169,14 @@ class UpstreamPolicy:
         self._backend = config_from_params(ctx.params, a_max=float(ctx.a_max))
         self.backend_log = [] if self._backend is not None else None
         self._obstacles = tuple(ctx.obstacles) if self._backend is not None else ()
+        # 默认关。关时 _inter 为 None，plan() 不读邻机、不改 select_action 的结果。
+        from .inter_drone import inter_drone_config
+
+        self._inter = inter_drone_config(ctx.params)
+        self._neighbors: dict[str, np.ndarray] = {}
+        self._inter_filtered = 0
+        self._inter_penalized = 0
+        self._inter_empty = 0
 
     def plan(self, obs: Observation) -> Plan:
         from yopo_swarm_core.candidates import (
@@ -212,6 +220,8 @@ class UpstreamPolicy:
         tail_w = np.einsum("ij,nkj->nki", R, tail_b)
         tail_w[:, 0] += head[0]
         action, brake = select_action(score, inner_w, corridor_mu_lo(radius, dec), dec.safe_mu)
+        if not brake and self._inter is not None and self._neighbors:
+            action, brake = self._apply_inter(score, radius, dec, now, head, tail_w, inner_w, durations, action, brake)
         if brake:
             # SPEC：无准入候选时本帧悬停（停在当前位置），下帧照常重规划
             self.last_code = "CORRIDOR_EMPTY_HOVER"
@@ -230,6 +240,51 @@ class UpstreamPolicy:
         out, rec = refine_yopo(traj, self._backend, self._obstacles, goal)
         self.backend_log.append(rec)
         return out
+
+    def note_neighbor_samples(self, src: str, samples) -> None:
+        """总线上邻机已提交轨迹的采样。开关关闭时丢掉，不进状态。"""
+        if self._inter is None:
+            return
+        from .inter_drone import as_sample_array
+
+        arr = as_sample_array(samples)
+        if arr is not None:
+            self._neighbors[str(src)] = arr
+
+    def inter_drone_report(self) -> dict | None:
+        if self._inter is None:
+            return None
+        from .inter_drone import report_block
+
+        return report_block(self._inter, self._inter_filtered, self._inter_penalized, self._inter_empty)
+
+    def _apply_inter(self, score, radius, dec, now, head, tail_w, inner_w, durations, action, brake):
+        """阈值内的候选过滤或减分。没有可行候选时回到原来的悬停分支。"""
+        from yopo_swarm_core.candidates import corridor_mu_lo, minco_two_piece
+
+        from .inter_drone import clearance_m, inter_pick, sample_motion
+
+        mu = corridor_mu_lo(radius, dec)
+        admitted = np.asarray(mu, dtype=np.float64) >= np.float64(dec.safe_mu)
+        clear = np.full(int(dec.count), np.inf)
+        neighbors = list(self._neighbors.values())
+        for i in np.flatnonzero(admitted):
+            try:
+                traj_i = minco_two_piece(now, head, tail_w[i], inner_w[i], durations[i])
+            except (ValueError, np.linalg.LinAlgError, FloatingPointError):
+                continue
+            clear[i] = clearance_m(sample_motion(traj_i, now), neighbors)
+        pick = inter_pick(score, admitted, clear, self._inter)
+        if pick.kind == "unchanged":
+            return action, brake
+        if pick.kind == "empty":
+            # 和走廊为空同一条悬停。不在这里造一条绕开邻机的曲线。
+            self._inter_empty += 1
+            self._inter_filtered += pick.filtered
+            return action, True
+        self._inter_filtered += pick.filtered
+        self._inter_penalized += pick.penalized
+        return int(pick.action), False
 
 
 class _RuntimePlan:

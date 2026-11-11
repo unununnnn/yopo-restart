@@ -38,7 +38,17 @@ _TIER_FILE = Path(__file__).resolve().parents[1] / "scenes" / "formation-6-tiers
 
 
 def _strip(r):
-    return {k: v for k, v in r.items() if k not in _STRIP}
+    """确定性比较去掉墙钟。几何回退的检查耗时是墙钟，轨迹字段仍要比较。
+
+    不把 ``geometric_fallback`` 放进 runner.WALL_FIELDS，免得和 E-C3 的 plan_wall_ms 抢同一行。
+    """
+    out = {k: v for k, v in r.items() if k not in _STRIP}
+    block = out.get("geometric_fallback")
+    if isinstance(block, dict) and "check_time_ms" in block:
+        kept = dict(block)
+        kept.pop("check_time_ms", None)
+        out["geometric_fallback"] = kept
+    return out
 
 
 def _radius_cells(r) -> str:
@@ -169,10 +179,11 @@ def _aggregate_plan(plans: list[dict], wall_cap: float) -> dict:
 
 
 def _one(job):
-    path, policy, seed, duration, out_dir, check, shadow, form, bus, tier_id, wall_cap, safe_radius = job
+    path, policy, seed, duration, out_dir, check, shadow, form, bus, tier_id, wall_cap, safe_radius, geom_fallback = job
     card = load_card(path)
     cfg = RunConfig(
         seed=seed, policy=policy, duration_s=duration, shadow=shadow, bus=bus, safe_radius_m=safe_radius,
+        geometric_fallback=geom_fallback,
     )
     if form == "ros2":
         from .ros2_run import execute
@@ -359,6 +370,14 @@ def main(argv=None):
         "--safe-radius", type=float, default=None,
         help="覆盖 upstream / crossing 的走廊准入半径（米）。缺省用场景卡，场景卡再缺省 0.05（上游 d5e1e60）",
     )
+    ap.add_argument(
+        "--geometric-fallback", dest="geometric_fallback", action="store_const", const=True, default=None,
+        help="打开提交前的一次性几何回退。缺省跟场景卡，场景卡再缺省关闭",
+    )
+    ap.add_argument(
+        "--no-geometric-fallback", dest="geometric_fallback", action="store_const", const=False,
+        help="关掉几何回退，即使场景卡写了 enabled",
+    )
     a = ap.parse_args(argv)
     tiers = resolve_tiers(a.tiers) if a.tiers else None
     jobs = []
@@ -382,7 +401,7 @@ def main(argv=None):
                 jobs.append((
                     path, policy, seed, a.duration, a.out,
                     i == 0 and not a.no_determinism, a.shadow,
-                    a.form, None, None, None, a.safe_radius,
+                    a.form, None, None, None, a.safe_radius, a.geometric_fallback,
                 ))
         else:
             for tier in tiers:
@@ -392,7 +411,7 @@ def main(argv=None):
                     jobs.append((
                         path, policy, seed, a.duration, a.out,
                         i == 0 and not a.no_determinism, a.shadow,
-                        a.form, bus, str(tier["id"]), a.wall_cap, a.safe_radius,
+                        a.form, bus, str(tier["id"]), a.wall_cap, a.safe_radius, a.geometric_fallback,
                     ))
     if a.form == "ros2" or a.jobs <= 1:
         res = [_one(j) for j in jobs]
