@@ -36,7 +36,7 @@ def test_strip_drops_wall_clock_inside_the_batching_plan():
 
 
 def _fake_result(job):
-    path, policy, seed, _duration, _out, check, _shadow, form, bus, tier_id, wall_cap, _safe_radius = job
+    path, policy, seed, _duration, _out, check, _shadow, form, bus, tier_id, wall_cap, _safe_radius, *_rest = job
     result = {
         "commit": "abc123def4567890",
         "scene": "formation-6-open",

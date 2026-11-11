@@ -28,6 +28,9 @@ import numpy as np
 
 from .bus import BusFaults, MessageBus
 from .dynamics import HoverPlan, State, make_model
+from .geom_fallback import FIELD as GEOM_FIELD
+from .geom_fallback import KIND as GEOM_KIND
+from .geom_fallback import GeomSession
 from .inter_drone import inter_drone_config, samples_from_pva
 from .plan_wall import PLAN_WALL_FIELD, begin as begin_plan_wall, stats as plan_wall_stats, take as take_plan_wall
 from .policy import (
@@ -58,6 +61,8 @@ class RunConfig:
     record_planner_inputs: bool = False
     bus: BusFaults | None = None  # None = 场景卡 bus，缺省零故障
     safe_radius_m: float | None = None  # None = 场景卡，缺省 0.05 m（上游 d5e1e60）
+    # None = 场景卡 geometric_fallback.enabled，缺省关。True/False 盖过场景卡，不改卡哈希。
+    geometric_fallback: bool | None = None
 
 
 @dataclass
@@ -109,14 +114,24 @@ def _note_pairs(drones: list[dict], radius: float, min_inter: float | None, outc
 
 
 def _card_for_run(card_dict: dict, cfg: RunConfig) -> dict:
-    """CLI 的 safe_radius 盖过场景卡。不改传入的卡，场景卡哈希保持原样。"""
-    if cfg.safe_radius_m is None:
+    """CLI 的 safe_radius / 几何回退盖过场景卡。不改传入的卡，场景卡哈希保持原样。
+
+    两个开关都缺省时返回原字典，避免多一次拷贝。
+    """
+    if cfg.safe_radius_m is None and cfg.geometric_fallback is None:
         return card_dict
-    params = dict(card_dict.get("policy_params") or {})
-    upstream = dict(params.get("upstream") or {})
-    upstream["safe_radius"] = float(cfg.safe_radius_m)
-    params["upstream"] = upstream
-    return {**card_dict, "policy_params": params}
+    out = card_dict
+    if cfg.safe_radius_m is not None:
+        params = dict(out.get("policy_params") or {})
+        upstream = dict(params.get("upstream") or {})
+        upstream["safe_radius"] = float(cfg.safe_radius_m)
+        params["upstream"] = upstream
+        out = {**out, "policy_params": params}
+    if cfg.geometric_fallback is not None:
+        block = dict(out.get("geometric_fallback") or {})
+        block["enabled"] = bool(cfg.geometric_fallback)
+        out = {**out, "geometric_fallback": block}
+    return out
 
 
 def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
@@ -143,7 +158,7 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
     if task["type"] == "formation":
         from .formation import FormationFleet, LocalApproval
 
-        fleet = FormationFleet.from_card(c, dt, record_inputs=cfg.record_planner_inputs)
+        fleet = FormationFleet.from_card(tuned, dt, record_inputs=cfg.record_planner_inputs)
         approval_cls = LocalApproval
     elif task["type"] == "crossing":
         from .crossing import CrossingFleet
@@ -155,7 +170,7 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         from .switch import SwitchFleet
         from .switch import LocalApproval as SwitchApproval
 
-        fleet = SwitchFleet.from_card(c, dt, record_inputs=cfg.record_planner_inputs)
+        fleet = SwitchFleet.from_card(tuned, dt, record_inputs=cfg.record_planner_inputs)
         approval_cls = SwitchApproval
     track_goal = task["type"] in ("goto", "formation", "crossing", "switch")
     if track_goal:
@@ -191,6 +206,15 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
             ),
         })
     by_id = {dr["id"]: dr for dr in drones}
+    # goto / hover 没有协议节点。关着时不采样。舰队自己持有会话，这里不再建一个。
+    geom = None
+    if fleet is None:
+        geom = GeomSession.from_card(
+            tuned,
+            members=tuple(d["id"] for d in c["drones"]),
+            physics_dt=dt,
+            obstacles=card.obstacles,
+        )
     faults = _faults(card, cfg)
     bus = MessageBus(faults, rng=np.random.default_rng(np.random.SeedSequence([cfg.seed, _BUS_SEED_SALT])))
     # 只在 upstream 且场景卡打开机间项时，才把已提交采样放进既有的 peer_plan。关时载荷与以前相同。
@@ -212,6 +236,8 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         for k in range(n_ticks):
             ran = True
             now = k / phys
+            if geom is not None and geom.enabled:
+                geom.flush(bus, now)
             if bridge is not None:
                 bridge.begin_tick(k, now)
             for dr in drones:
@@ -252,8 +278,19 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
             if fleet is None:
                 for msg in bus.poll(now):
                     kind = msg.payload.get("kind")
+                    if geom is not None and geom.enabled and kind == GEOM_KIND:
+                        geom.ingest_envelope(msg)
+                        continue
                     if kind == "self_plan" and msg.src == msg.dest and msg.dest in by_id:
-                        by_id[msg.dest]["approved"] = slots[int(msg.payload["token"])]
+                        proposed = slots[int(msg.payload["token"])]
+                        if geom is not None and geom.enabled:
+                            chosen = geom.review_goto(msg.dest, proposed, now)
+                            # 回退之后，下一次前向要从正在飞的曲线取头状态，而不是从被拒的那条。
+                            policy = by_id[msg.dest]["policy"]
+                            if chosen is not proposed and hasattr(policy, "plan_obj"):
+                                policy.plan_obj = chosen
+                            proposed = chosen
+                        by_id[msg.dest]["approved"] = proposed
                     else:
                         peer_deliveries += 1
                         samples = msg.payload.get("traj_samples") if kind == "peer_plan" else None
@@ -390,6 +427,10 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         PLAN_WALL_FIELD: plan_wall_stats(take_plan_wall()),
         "wall_time_s": time.perf_counter() - wall0,
     }
+    if fleet is not None and fleet.geom.enabled:
+        result[GEOM_FIELD] = fleet.geom.summary()
+    elif geom is not None and geom.enabled:
+        result[GEOM_FIELD] = geom.summary()
     if isinstance(c.get("forest"), dict):
         result["forest_density"] = str(c["forest"].get("density", "medium"))
     if cfg.shadow:

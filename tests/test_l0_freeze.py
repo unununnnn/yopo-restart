@@ -8,7 +8,7 @@ from conftest import ROOT
 
 
 def _base(job, **extra):
-    path, policy, seed, _duration, _out, check, _shadow, form, _bus, tier_id, _wall_cap, _safe = job
+    path, policy, seed, _duration, _out, check, _shadow, form, _bus, tier_id, _wall_cap, _safe, *_rest = job
     card = load_card(path)
     task = card.card["task"]["type"]
     n = len(card.card["drones"])
