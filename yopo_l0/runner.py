@@ -28,6 +28,7 @@ import numpy as np
 
 from .bus import BusFaults, MessageBus
 from .dynamics import HoverPlan, State, make_model
+from .inter_drone import inter_drone_config, samples_from_pva
 from .plan_wall import PLAN_WALL_FIELD, begin as begin_plan_wall, stats as plan_wall_stats, take as take_plan_wall
 from .policy import (
     POLICIES,
@@ -192,6 +193,8 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
     by_id = {dr["id"]: dr for dr in drones}
     faults = _faults(card, cfg)
     bus = MessageBus(faults, rng=np.random.default_rng(np.random.SeedSequence([cfg.seed, _BUS_SEED_SALT])))
+    # 只在 upstream 且场景卡打开机间项时，才把已提交采样放进既有的 peer_plan。关时载荷与以前相同。
+    broadcast_traj = fleet is None and cfg.policy == "upstream" and inter_drone_config(tuned.get("policy_params")) is not None
     slots: list = []  # 本机计划对象。不下发到他机，也不放进总线 payload。
     # 票 10：策略实例已经建好。None 时不进入。
     if bridge is not None:
@@ -238,6 +241,10 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
                             payload = {"kind": "self_plan", "token": token}
                         else:
                             payload = {"kind": "peer_plan", "code": code}
+                            if broadcast_traj:
+                                sampled = samples_from_pva(proposed, now)
+                                if sampled is not None:
+                                    payload["traj_samples"] = sampled
                         bus.publish(now, src=dr["id"], dest=dest["id"], topic="plan", payload=payload)
                 # 只读复验本机刚选出的计划。不碰总线，也不改 proposed。
                 if fleet is None and dr["shadow"] is not None and fresh:
@@ -249,6 +256,11 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
                         by_id[msg.dest]["approved"] = slots[int(msg.payload["token"])]
                     else:
                         peer_deliveries += 1
+                        samples = msg.payload.get("traj_samples") if kind == "peer_plan" else None
+                        if samples is not None and msg.dest in by_id:
+                            note = getattr(by_id[msg.dest]["policy"], "note_neighbor_samples", None)
+                            if note is not None:
+                                note(msg.src, samples)
             else:
                 # 提案 / ACK / COMMIT 只经总线。本机 COMMIT 之后 executing() 才换计划。
                 # crossing 在这里收本机深度。编队保持没有 ingest，不进这条。
@@ -409,7 +421,36 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
             result["empty_solution_count"] = int(fleet.empty_solution)
         else:
             result["empty_solution_count"] = empty_solution_count(result["plan_codes"])
+    rep = _inter_drone_report(fleet, drones)
+    if rep is not None:
+        result["inter_drone_filter"] = rep
     return RunOutput(result, ticks, inputs)
+
+
+def _inter_drone_report(fleet, drones) -> dict | None:
+    """开关关闭时各机报告 None，结果里不出现这个字段。"""
+    if fleet is not None:
+        fn = getattr(fleet, "inter_drone_report", None)
+        return None if fn is None else fn()
+    parts = []
+    for dr in drones:
+        fn = getattr(dr["policy"], "inter_drone_report", None)
+        if fn is None:
+            continue
+        rep = fn()
+        if rep is not None:
+            parts.append(rep)
+    if not parts:
+        return None
+    return {
+        "enabled": True,
+        "threshold_m": parts[0]["threshold_m"],
+        "penalty": parts[0]["penalty"],
+        "filtered_candidates": sum(int(p["filtered_candidates"]) for p in parts),
+        "penalized_candidates": sum(int(p["penalized_candidates"]) for p in parts),
+        "empty_fallbacks": sum(int(p["empty_fallbacks"]) for p in parts),
+        "fallback": parts[0]["fallback"],
+    }
 
 
 def write(out: RunOutput, out_dir: str | Path) -> Path:
