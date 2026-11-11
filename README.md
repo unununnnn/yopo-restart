@@ -115,7 +115,9 @@ scripts/setup_ros2.sh    # Ubuntu 24.04 → Jazzy，22.04 → Humble；ros-*-ros
 - `formation-hold` @ `formation`（票 06）
 - `crossing-pillars` @ `crossing`（票 07）
 - `formation-switch` @ `switch`（票 08：窄门触发横排↔纵列，判据未冻结，只报数）
+- `crossing-forest` @ `crossing` seed 0（票 07b medium，只跑 seed 0）
 - `formation-6-open` @ `formation`（票 11a，进程内零故障。故障档位和 ROS 2 形态不进套件）
+- `crossing-6-forest` / `crossing-6-forest-sparse` @ `crossing` seed 0（票 13f。单次墙钟约 216 s / 156 s，超过 60 s，只跑 seed 0；10 seed 全量仍用上面的批跑命令）
 
 G2 几何仍只在 `scenes/g2-scene.json`。柱林穿越是票 07，编队是票 06。
 
