@@ -49,12 +49,13 @@ from yopo_swarm_core.protocol.node import ProtocolConfig, ProtocolNode
 from yopo_swarm_core.protocol.plan_occupancy import PlanConflictChecker, PlanOccupancy, hover_occupancy
 from yopo_swarm_core.trajectory import PiecewisePolynomial, PolySegment
 
+from .backend.config import config_from_params
 from .criteria import frozen_for_card
 from .dynamics import PointMassLag
 from .forest import _segment_distance, woods_bounds
 from .policy import R_yaw, read_safe_radius, upstream_decoder
 from .progress import read_progress_settings
-from .scene import Box, Cylinder
+from .scene import Box, Cylinder, parse_geometry
 
 # 轨迹采样步长。0.02 s 的弦高按动力学 a_max 计大约几毫米，门按采样到的最小距离判。
 _CLEARANCE_DT_S = 0.02
@@ -424,6 +425,17 @@ class CrossingFleet:
             did: self.rail.position(self.t_go + self.rail.T, self.t_go, slot).copy()
             for did, slot in self.slots.items()
         }
+        # E-B2：默认关。打开时只优化 _yopo_options 里第一条拟合成功的多项式，
+        # 净空门、冲突自检和 COMMIT 仍走原来的函数。
+        self._backend = config_from_params(
+            card.get("policy_params"),
+            a_max=dynamics_a_max(card.get("dynamics")),
+            clearance_m=self.radius,
+        )
+        self.backend_log = [] if self._backend is not None else None
+        self._backend_obstacles = ()
+        if self._backend is not None and isinstance(card.get("geometry"), dict):
+            self._backend_obstacles = parse_geometry(card["geometry"], card.get("ground_z"))
         self.starts = {
             did: self.rail.position(0.0, self.t_go, slot).copy() for did, slot in self.slots.items()
         }
@@ -827,17 +839,29 @@ class CrossingFleet:
         if ranking.corridor_empty:
             return [], "CORRIDOR_EMPTY_HOVER"
         motions = []
+        refined = False
         for index in ranking.order[:6]:
             try:
                 raw = minco_two_piece(t_start, head, tail_w[index], inner_w[index], durations[index])
             except (ValueError, np.linalg.LinAlgError, FloatingPointError):
                 continue
             traj = self._fit_short(raw) if short else self._fit_yopo(raw)
-            if traj is not None:
-                motions.append(traj)
+            if traj is None:
+                continue
+            if self._backend is not None and not refined:
+                traj = self._apply_backend(traj, goal)
+                refined = True
+            motions.append(traj)
         if not motions:
             return [], "YOPO_KIN_FALLBACK"
         return motions, "OK"
+
+    def _apply_backend(self, traj: PiecewisePolynomial, goal: np.ndarray) -> PiecewisePolynomial:
+        from .backend.bspline import refine_yopo
+
+        out, rec = refine_yopo(traj, self._backend, self._backend_obstacles, goal)
+        self.backend_log.append(rec)
+        return out
 
     def _as_plan(self, node: ProtocolNode, t_start: float, head: np.ndarray, motion: PiecewisePolynomial):
         res = make_plan(

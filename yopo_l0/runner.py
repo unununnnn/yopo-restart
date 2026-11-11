@@ -27,7 +27,7 @@ from pathlib import Path
 import numpy as np
 
 from .bus import BusFaults, MessageBus
-from .dynamics import HoverPlan, State, make_model
+from .dynamics import HoverPlan, PointMassLag, State, make_model
 from .plan_wall import PLAN_WALL_FIELD, begin as begin_plan_wall, stats as plan_wall_stats, take as take_plan_wall
 from .policy import (
     POLICIES,
@@ -174,7 +174,15 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
             policy = approval_cls()
         else:
             goal = np.asarray(d["goal_enu"] if track_goal else d.get("hover_enu", start), dtype=float)
-            ctx = PolicyContext(d["id"], dt, dict(tuned.get("policy_params", {})))
+            dyn_a = c["dynamics"].get("a_max")
+            a_max = float(PointMassLag.a_max) if dyn_a is None else float(dyn_a)
+            ctx = PolicyContext(
+                d["id"],
+                dt,
+                dict(tuned.get("policy_params", {})),
+                obstacles=card.obstacles,
+                a_max=a_max,
+            )
             policy = POLICIES[cfg.policy](ctx)
         drones.append({
             "id": d["id"],
@@ -409,7 +417,29 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
             result["empty_solution_count"] = int(fleet.empty_solution)
         else:
             result["empty_solution_count"] = empty_solution_count(result["plan_codes"])
+    backend = _backend_summary(drones, fleet)
+    if backend is not None:
+        result["backend"] = backend
     return RunOutput(result, ticks, inputs)
+
+
+def _backend_summary(drones, fleet) -> dict | None:
+    """开关关掉时返回 None，结果记录不增加字段。"""
+    rows = None
+    if fleet is not None and getattr(fleet, "backend_log", None) is not None:
+        rows = list(fleet.backend_log)
+    for dr in drones:
+        log = getattr(dr["policy"], "backend_log", None)
+        if log is None:
+            continue
+        if rows is None:
+            rows = []
+        rows.extend(log)
+    if rows is None:
+        return None
+    from .backend.bspline import summarize_log
+
+    return summarize_log(rows)
 
 
 def write(out: RunOutput, out_dir: str | Path) -> Path:

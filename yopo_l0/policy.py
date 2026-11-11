@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from .backend.config import config_from_params
 from .dynamics import HoverPlan, Plan, State
 from .sensor import DepthFrame
 
@@ -43,11 +44,16 @@ class Observation:
 
 @dataclass(frozen=True)
 class PolicyContext:
-    """策略构造参数：只含本机身份、时钟步长和场景卡里的策略参数，没有几何。"""
+    """策略构造参数：只含本机身份、时钟步长和场景卡里的策略参数。
+
+    ``obstacles`` / ``a_max`` 只给后段开关。开关关掉时策略不读它们。
+    """
 
     owner: str
     physics_dt: float
     params: dict = field(default_factory=dict)
+    obstacles: tuple = ()
+    a_max: float = 6.0
 
 
 def R_yaw(yaw: float) -> np.ndarray:
@@ -159,6 +165,10 @@ class UpstreamPolicy:
         self.plan_obj: _TrajPlan | None = None
         self.arrived = False
         self.last_code = ""
+        # 缺省关。关掉时不读障碍，也不改这条多项式。
+        self._backend = config_from_params(ctx.params, a_max=float(ctx.a_max))
+        self.backend_log = [] if self._backend is not None else None
+        self._obstacles = tuple(ctx.obstacles) if self._backend is not None else ()
 
     def plan(self, obs: Observation) -> Plan:
         from yopo_swarm_core.candidates import (
@@ -209,8 +219,17 @@ class UpstreamPolicy:
         else:
             self.last_code = "OK"
             traj = minco_two_piece(now, head, tail_w[action], inner_w[action], durations[action])
+            if self._backend is not None:
+                traj = self._apply_backend(traj, obs.goal)
         self.plan_obj = _TrajPlan(traj, obs.goal, yaw, self.ctx.physics_dt, brake=brake)
         return self.plan_obj
+
+    def _apply_backend(self, traj, goal):
+        from .backend.bspline import refine_yopo
+
+        out, rec = refine_yopo(traj, self._backend, self._obstacles, goal)
+        self.backend_log.append(rec)
+        return out
 
 
 class _RuntimePlan:
