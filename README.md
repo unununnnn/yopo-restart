@@ -2,6 +2,15 @@
 
 yopo 编队项目重启。规格见 [docs/SPEC.md](docs/SPEC.md)，票见 [docs/tickets.md](docs/tickets.md)。
 
+一条命令复现单机、三机、六机 demo（L0 锁步仿真，不是 PX4）：
+
+```bash
+make venv           # 第一次需要
+scripts/demo.sh     # 产物在 out/demo/
+```
+
+干净检出后按上面做即可复现。各跑 seed 0：单机 `g2-pillar`、三机 `formation-hold`、六机 `formation-6-open`。
+
 ## L0（box CPU，无界面，锁步确定性）
 
 ```bash
