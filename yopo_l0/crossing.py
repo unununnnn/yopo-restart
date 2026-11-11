@@ -49,6 +49,7 @@ from yopo_swarm_core.protocol.node import ProtocolConfig, ProtocolNode
 from yopo_swarm_core.protocol.plan_occupancy import PlanConflictChecker, PlanOccupancy, hover_occupancy
 from yopo_swarm_core.trajectory import PiecewisePolynomial, PolySegment
 
+from .criteria import frozen_for_card
 from .dynamics import PointMassLag
 from .forest import _segment_distance, woods_bounds
 from .policy import R_yaw, read_safe_radius, upstream_decoder
@@ -336,7 +337,7 @@ class CrossingFleet:
         self.input_digests: list[str] = []
         self.errors: list[float] = []
         self.deliveries = 0
-        self.frozen = bool(card["criteria"].get("frozen", False))
+        self.frozen = frozen_for_card(card, density=(card.get("forest") or {}).get("density"))
         self.radius = float(card["criteria"]["body_radius_m"])
         window = float(task.get("window_len_s", 0.25))
         if not math.isfinite(window) or window <= 0.0:
@@ -1091,8 +1092,17 @@ class CrossingFleet:
         }
 
 
+def _crossing_verdict(rows: list[dict]) -> str:
+    frozen = all(bool((r.get("crossing") or {}).get("frozen", False)) for r in rows)
+    return "判据已冻结" if frozen else "未冻结 / report-only"
+
+
+def _crossing_title(rows: list[dict], heading: str) -> str:
+    return f"### {heading}（{_crossing_verdict(rows)}）"
+
+
 def format_report(rows: list[dict], *, title: str | None = None) -> str:
-    """票 07 / 07b 结果表。碰撞是硬失败；判据本身未冻结，只报数。"""
+    """票 07 / 07b 结果表。碰撞是硬失败；标题按本批是否冻结来写。"""
     rows = [r for r in rows if r.get("task") == "crossing"]
     if not rows:
         return ""
@@ -1106,15 +1116,12 @@ def format_report(rows: list[dict], *, title: str | None = None) -> str:
         for density in densities:
             subset = [row for row in rows if row.get("forest_density") == density]
             heading = f"票 07b {density}" if density else "票 07"
-            parts.append(format_report(
-                subset,
-                title=f"### {heading}（判据未冻结 / report-only）",
-            ))
+            parts.append(format_report(subset, title=_crossing_title(subset, heading)))
         return "\n\n".join(parts)
     if title is None and rows[0].get("forest_density"):
-        title = f"### 票 07b {rows[0]['forest_density']}（判据未冻结 / report-only）"
+        title = _crossing_title(rows, f"票 07b {rows[0]['forest_density']}")
     lines = [
-        title or "### 票 07 三机交叉避障（判据未冻结 / report-only）",
+        title or _crossing_title(rows, "票 07 三机交叉避障"),
         "",
         "净空 = 机体中心到障碍表面的距离 − body_radius。碰撞（障碍或机间）是硬失败，仿真在第一次碰撞处停下。",
         "",

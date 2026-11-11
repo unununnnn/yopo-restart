@@ -1,4 +1,4 @@
-"""票 11b：六机楔形穿 07b 的林。规划参数与三机穿林卡相同，只报数。"""
+"""票 11b：六机楔形穿 07b 的林。规划参数与三机穿林卡相同；到达 / 碰撞 / 机间距离已冻结，p95 只报数。"""
 
 import json
 
@@ -35,7 +35,12 @@ def test_six_wedge_uses_the_three_drone_crossing_parameters():
     three = json.loads(THREE.read_text())
     assert six["forest"] == {"density": "medium", "seed": 7}
     assert six["seeds"] == list(range(10))
-    assert six["criteria"] == three["criteria"] and six["criteria"]["frozen"] is False
+    # 到达口径相同；冻结门槛按场景分开（三机林 medium 有队形门，六机林带没有 p95 门）。
+    for key in ("body_radius_m", "goal_tolerance_m", "goal_speed_mps", "goal_hold_s"):
+        assert six["criteria"][key] == three["criteria"][key]
+    assert six["criteria"]["frozen"] is True and three["criteria"]["frozen"] is True
+    assert "formation_error_p95_m" not in six["criteria"]["gates"]
+    assert three["criteria"]["gates"]["formation_error_p95_m"] == 6.0
     assert six["camera"] == three["camera"]
     assert six["dynamics"] == three["dynamics"]
     assert six["rates_hz"] == three["rates_hz"]

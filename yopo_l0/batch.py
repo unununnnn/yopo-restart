@@ -3,8 +3,10 @@
 每个 (卡, 策略) 按 seed 跑，写 result.json / ticks.jsonl，打印 Markdown 结果表；首个 seed 重跑一次做确定性检查。
 判定：
 - hover 任务：SUCCESS 才算通过（票 01 判据）。
-- goto / formation 任务：判据未冻结（criteria.frozen=false）→ 只报数「未冻结 / report-only」；碰撞数作为硬事实单列。
-退出码：hover 全部通过、确定性一致、单次墙钟 < 上限 时为 0；goto 与 formation 的到达与碰撞不影响退出码（只报数）。
+- goto / formation / crossing / switch：场景卡 criteria.frozen=true 且本跑适用时，`criteria.gates` 里的指标失败则退出非 0。
+  未冻结、或不在 gate_policies / gate_forms / gate_densities 范围内、或 `--duration` 短于场景卡时长的前缀跑，只报数「未冻结 / report-only」。
+  未写入 gates 的指标（墙钟、六机林带 p95 和净空等）不挡退出码。碰撞数始终作为硬事实单列。
+退出码：hover 全部通过、确定性一致、单次墙钟 < 上限，且已冻结指标全部通过 时为 0。
 结果表列出场景卡哈希、seed、层级、策略、影子盾、最小机间距离。影子拒绝率读结果里的 shadow_reject_rate（关着是 null，表中写 —）。单机的机间距离为 —。
 起飞交接和 RTF 是 L1 字段（票 09）；L0 结果里没有这两列，表上留空。
 safe_radius 是上游走廊准入半径。用了这条走廊的策略才填数；不是 0.05 m 时「偏离上游」列写「偏离上游」。
@@ -27,6 +29,7 @@ from pathlib import Path
 from .bus import BusFaults
 from .runner import WALL_FIELDS, RunConfig, run, write
 from .scene import load_card
+from .criteria import evaluate_card_rows, frozen_for_card
 
 # 分批方案里带有当次墙钟，不能拿去比确定性。
 _STRIP = WALL_FIELDS | {"batching_plan"}
@@ -204,7 +207,15 @@ def _hovering_without_commit(r: dict) -> bool:
 def _tier_section(card, policy: str, tier: dict, rows: list[dict], form: str, wall_cap: float) -> list[str]:
     label = tier.get("label") or tier["id"]
     task = card.card["task"]["type"]
-    frozen = bool(card.card["criteria"].get("frozen", task == "hover"))
+    frozen = any(
+        frozen_for_card(
+            card,
+            policy=r.get("policy") or policy,
+            form=r.get("form") or form,
+            density=r.get("forest_density"),
+        )
+        for r in rows
+    )
     verdict = "判据已冻结" if frozen else "未冻结 / report-only"
     form_word = "ROS 2" if form == "ros2" else "进程内"
     rates = [_arrival_rate(r) for r in rows]
@@ -260,9 +271,18 @@ def _tier_section(card, policy: str, tier: dict, rows: list[dict], form: str, wa
     return lines
 
 
-def _legacy_section(card, policy: str, rs: list[dict], wall_limit: float) -> tuple[list[str], bool]:
+def _legacy_section(card, policy: str, rs: list[dict], wall_limit: float, form: str = "inprocess", duration_s: float | None = None) -> tuple[list[str], bool]:
     task = card.card["task"]["type"]
-    frozen = bool(card.card["criteria"].get("frozen", task == "hover"))
+    frozen = any(
+        frozen_for_card(
+            card,
+            policy=r.get("policy") or policy,
+            form=r.get("form") or form,
+            density=r.get("forest_density"),
+            duration_s=duration_s,
+        )
+        for r in rs
+    ) if task != "hover" else True
     n_col = sum(r["outcome"] == "COLLISION" for r in rs)
     walls = [r["wall_time_s"] for r in rs]
     gate_ok = True
@@ -380,15 +400,22 @@ def main(argv=None):
         lines.append("")
     gate_ok = True
     plans: list[dict] = []
+    gate_failures: list[str] = []
     if tiers is None:
         for card, policy, _tier, seeds in groups:
             task = card.card["task"]["type"]
             # crossing / formation / switch 由任务类型决定策略，结果里的 policy 是任务名。
             label = task if task in ("crossing", "formation", "switch") else policy
             rs = [r for r in rows if r["scene"] == card.name and r["policy"] == label]
-            section, ok = _legacy_section(card, label, rs, a.wall_limit)
+            section, ok = _legacy_section(card, label, rs, a.wall_limit, form=a.form, duration_s=a.duration)
             lines += section
             gate_ok &= ok
+            _applied, fails = evaluate_card_rows(
+                card, rs, policy=label, form=a.form, duration_s=a.duration,
+                label=f"{card.name} @ {label}",
+            )
+            gate_failures.extend(fails)
+            gate_ok &= not fails
     else:
         for card, policy, tier, seeds in groups:
             rs = [
@@ -401,6 +428,13 @@ def main(argv=None):
                 n_ok = sum(r["outcome"] == "SUCCESS" for r in rs)
                 gate_ok &= n_ok == len(rs)
                 gate_ok &= max(r["wall_time_s"] for r in rs) < a.wall_limit
+            tag = tier.get("label") or tier["id"]
+            _applied, fails = evaluate_card_rows(
+                card, rs, policy=policy, form=a.form, duration_s=a.duration,
+                label=f"{card.name} @ {policy} / {tag}",
+            )
+            gate_failures.extend(fails)
+            gate_ok &= not fails
     for name, policy, tier, s, ok in det:
         tag = f"/{tier}" if tier else ""
         lines.append(f"确定性（同 seed 重跑，墙钟除外）：{name}@{policy}{tag} seed{s} {'一致' if ok else '不一致'}")
@@ -429,6 +463,10 @@ def main(argv=None):
         from .switch import format_report as switch_report
 
         lines += ["", switch_report(rows)]
+    if gate_failures:
+        lines += ["", "### 冻结判据未通过", ""]
+        lines += [f"- {msg}" for msg in gate_failures]
+        lines.append("")
     md = "\n".join(lines)
     (out_dir / "summary.md").write_text(md + "\n")
     (out_dir / "results.json").write_text(json.dumps(rows, indent=2, ensure_ascii=False) + "\n")

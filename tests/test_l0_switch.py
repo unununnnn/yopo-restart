@@ -44,7 +44,7 @@ def _run(card, **kw):
 def test_gate_is_narrow_and_the_card_is_in_the_suite():
     raw = json.loads(CARD.read_text())
     assert raw["task"]["type"] == "switch"
-    assert raw["criteria"]["frozen"] is False
+    assert raw["criteria"]["frozen"] is True
     assert raw["seeds"] == list(range(10))
     assert [d["id"] for d in raw["drones"]] == ["uav0", "uav1", "uav2"]
     threshold = raw["task"]["width_threshold_m"]
@@ -145,7 +145,7 @@ def test_switch_pair_is_negotiated_and_arrives(tmp_path):
     assert r["n_drones"] == 3 and r["tier"] == "L0"
     assert isinstance(r["shadow_reject_rate"], float)
     sw = r["switch"]
-    assert sw["frozen"] is False and sw["adjudicator"] is None
+    assert sw["frozen"] is True and sw["adjudicator"] is None
     assert sw["pair"] == "line-abreast<->column"
     assert sw["trigger"] == "corridor-width-ahead"
     assert sw["negotiated"] == "bus-reservation"

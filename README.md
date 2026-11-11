@@ -13,9 +13,9 @@ make venv                     # 一次（Python 3.12 + torch 2.4.1 CPU，uv）
 scripts/regress.sh            # 合 main 前回归：pytest + 批跑 + Markdown 表
 ```
 
-L0 默认 `upstream` + 影子盾开（`--policy hover|certified`、`--shadow off` / `--no-shadow` 可覆盖）。影子盾只记录会否拒绝，不改批准动作。M0–M4 判据先报数后冻结（碰撞数如实报）。`upstream` 的终端规则是项目的 `stop_at_goal`，半径 1.5 m 已采纳（[ADR 0009](docs/adr/0009-stop-at-goal-vs-hold-here.md)）。上游 5 m `hold_here` 到不了 G2 oracle 的 0.4 m。
+L0 默认 `upstream` + 影子盾开（`--policy hover|certified`、`--shadow off` / `--no-shadow` 可覆盖）。影子盾只记录会否拒绝，不改批准动作。M0–M4 已冻指标见 [冻结表](docs/results/11-freeze-recommendation.md) 和 ADR 0016；失败时批跑退出非 0。其余仍只报数（碰撞数如实报）。`upstream` 的终端规则是项目的 `stop_at_goal`，半径 1.5 m 已采纳（[ADR 0009](docs/adr/0009-stop-at-goal-vs-hold-here.md)）。上游 5 m `hold_here` 到不了 G2 oracle 的 0.4 m。
 
-决策记录见 [docs/adr/](docs/adr/README.md)。M0 样例表（commit、场景卡哈希、复现命令）见 [docs/results/m0-g2-pillar.md](docs/results/m0-g2-pillar.md)。M0–M4 冻结建议表见 [docs/results/11-freeze-recommendation.md](docs/results/11-freeze-recommendation.md)（ADR 0016，待 frank 拍板；拍板前仍只报数）。
+决策记录见 [docs/adr/](docs/adr/README.md)。M0 样例表（commit、场景卡哈希、复现命令）见 [docs/results/m0-g2-pillar.md](docs/results/m0-g2-pillar.md)。M0–M4 冻结表见 [docs/results/11-freeze-recommendation.md](docs/results/11-freeze-recommendation.md)（ADR 0016，frank 2026-11-10 批准；M2 队形门 6.0 m）。
 
 YOPO 推理走 vendored `core/`（yopo-swarm core@00b85bf，见 core/VENDORED.md）：钉定上游 d5e1e60 + 权重 sha256 校验，CPU 单线程，与金样一致。
 
@@ -76,7 +76,7 @@ scripts/setup_ros2.sh    # Ubuntu 24.04 → Jazzy，22.04 → Humble；ros-*-ros
 
 ## 六机开阔区 + 故障档位（票 11a，M4）
 
-楔形六机在开阔区保持队形。判据未冻结，表上只报数。柱林六机（11b）不在这张票里。丢 20% 时收不齐 ACK 的补票是票 06c：窗口内重发同一份提案，不改追赶轨迹和跟踪参数。票 13d 在此之上把新轨留在 Delay Check，δ_DC = 0.05 s，已提交轨到提交前都不换。全丢仍然停在起点。穿林不打开这段等待。
+楔形六机在开阔区保持队形。进程内六档的到达、碰撞、队形误差 p95 和机间距离已冻结；ROS 2 形态和墙钟仍只报数。柱林六机（11b）不在这张票里。丢 20% 时收不齐 ACK 的补票是票 06c：窗口内重发同一份提案，不改追赶轨迹和跟踪参数。票 13d 在此之上把新轨留在 Delay Check，δ_DC = 0.05 s，已提交轨到提交前都不换。全丢仍然停在起点。穿林不打开这段等待。
 
 ```bash
 .venv/bin/python -m yopo_l0.batch scenes/formation-6-open.json@formation \
@@ -87,7 +87,7 @@ scripts/setup_ros2.sh    # Ubuntu 24.04 → Jazzy，22.04 → Humble；ros-*-ros
 
 ## 六机穿林（票 11b）
 
-同一只楔形穿过 07b 的 medium 林，sparse 用同一张规划参数再跑一遍。避障是上游 YOPO。林带外面，队形只偏置目标，和票 07 同一套。林带里面（票 13c）六机的槽位是软目标：侧向、纵向只在界内松弛，瞄准一条还能走的前方 goto；出林再收紧回刚性槽位。COMMIT 前有一道硬净空门，轨迹采样的最小距离要 ≥ 机体半径 + margin（默认 0.15 m），不够就 `CLEARANCE_SKIP`，不提交。承诺视界按 13a 盖住一轮窗口，计划 a_max 与动力学相同。票 13b 起虚拟中心按全队沿中心投影的低分位走（默认 min），不再按墙钟 × speed 开环推进；超前机只提案悬停或短前缀。开阔区编队卡写 `progress_gate=false`，时刻表不变。票 13e 起六机林带卡暂关这道门控（`progress_gate=false`，ADR 0015），同时六机林带的提案前自检只看邻机的 committed + previous 和预留，不再被已替换计划的刹车停点挡住；medium / sparse 均 60/60，见 `docs/results/13e-ghost-stops.md`。seeds 0–9。判据未冻结。虚拟中心起点在 x=6 m，好让最后一排停在后墙前面。L0 仍是 upstream，safe_radius 仍是 0.05 m，kp / kd / tau / a_max 不改。
+同一只楔形穿过 07b 的 medium 林，sparse 用同一张规划参数再跑一遍。避障是上游 YOPO。林带外面，队形只偏置目标，和票 07 同一套。林带里面（票 13c）六机的槽位是软目标：侧向、纵向只在界内松弛，瞄准一条还能走的前方 goto；出林再收紧回刚性槽位。COMMIT 前有一道硬净空门，轨迹采样的最小距离要 ≥ 机体半径 + margin（默认 0.15 m），不够就 `CLEARANCE_SKIP`，不提交。承诺视界按 13a 盖住一轮窗口，计划 a_max 与动力学相同。票 13b 起虚拟中心按全队沿中心投影的低分位走（默认 min），不再按墙钟 × speed 开环推进；超前机只提案悬停或短前缀。开阔区编队卡写 `progress_gate=false`，时刻表不变。票 13e 起六机林带卡暂关这道门控（`progress_gate=false`，ADR 0015），同时六机林带的提案前自检只看邻机的 committed + previous 和预留，不再被已替换计划的刹车停点挡住；medium / sparse 均 60/60，见 `docs/results/13e-ghost-stops.md`。seeds 0–9。到达、碰撞和最小机间距离（≥ 0.70 m）已冻结；两种 p95 和数值净空仍只报数。虚拟中心起点在 x=6 m，好让最后一排停在后墙前面。L0 仍是 upstream，safe_radius 仍是 0.05 m，kp / kd / tau / a_max 不改。
 
 ```bash
 .venv/bin/python -m yopo_l0.batch \
@@ -109,12 +109,12 @@ scripts/setup_ros2.sh    # Ubuntu 24.04 → Jazzy，22.04 → Humble；ros-*-ros
 `scenes/suite.txt` 是 regress 与 nightly 共用的列表（`卡@策略`）：
 
 - `g2-hover` / `g2-hover-lift` @ `hover`
-- `g2-pillar` @ `upstream`（票 02 的场景卡和策略；本票不改策略。判据未冻结，只报数）
+- `g2-pillar` @ `upstream`（票 02 的场景卡和策略；本票不改策略。upstream 的到达、碰撞和到达时间已冻结；certified 对照仍只报数）
 - `pillar-forest` / `narrow-corridor` @ `hover`（新几何，悬停占位）
 - `open-3drone` @ `hover`（票 05 的三机卡；几何是空的 `open-area.json`）
 - `formation-hold` @ `formation`（票 06）
 - `crossing-pillars` @ `crossing`（票 07）
-- `formation-switch` @ `switch`（票 08：窄门触发横排↔纵列，判据未冻结，只报数）
+- `formation-switch` @ `switch`（票 08：窄门触发横排↔纵列。L0 变阵的到达、过渡碰撞和队形误差已冻结；L1 抽检仍只报数）
 - `crossing-forest` @ `crossing` seed 0（票 07b medium，只跑 seed 0）
 - `formation-6-open` @ `formation`（票 11a，进程内零故障。故障档位和 ROS 2 形态不进套件）
 - `crossing-6-forest` / `crossing-6-forest-sparse` @ `crossing` seed 0（票 13f。单次墙钟约 216 s / 156 s，超过 60 s，只跑 seed 0；10 seed 全量仍用上面的批跑命令）
