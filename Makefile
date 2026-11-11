@@ -1,4 +1,4 @@
-.PHONY: venv run test regress nightly
+.PHONY: venv run test regress nightly demo
 
 # 第三方依赖按 requirements.txt + pyproject 的哈希放进共享 venv
 # （YOPO_DEPS_ROOT/<hash>）。本目录 .venv 只做 editable，用 .pth 挂上共享
@@ -52,3 +52,6 @@ regress:
 	scripts/regress.sh
 nightly:
 	scripts/nightly.sh
+
+demo:
+	scripts/demo.sh
