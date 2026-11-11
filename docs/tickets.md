@@ -29,7 +29,15 @@ frank 拍板卡片未回；父代理代定（仅 L0，L1 不动）：
 | 10 | ROS 2 形态 | 06 | done（M1 三机同 seed：到达/碰撞/队形误差 p95/机间距离/影子拒绝率与进程内一致；机间消息走 ROS 话题） |
 | 11 | 六机 + 故障注入（M4） | 07, 08, 10 | done（11a 开阔区楔形已进 `suite.txt`。11b：同一楔形穿 07b 的 medium / sparse 林。11c：六机林中撞树定位后只改编队层。13a–13e 已合。13e：六机林带 medium / sparse 均 60/60。收口冻结建议表见 `docs/results/11-freeze-recommendation.md` 和 ADR 0016（accepted，frank 2026-11-10 批准全部建议，M2 队形门 6.0 m）。已冻指标见场景卡 `criteria.gates`。柱林六机若单次超过 60 s 不进 `suite.txt`） |
 | 13f | 六机林带卡加入合入前回归 | 13e | done（`crossing-6-forest.json@crossing@0` 与 `crossing-6-forest-sparse.json@crossing@0` 已进 `suite.txt`。单次墙钟约 216 s / 156 s，超过 60 s，按 07b 惯例只跑 seed 0。13e 上 10 seed 已是 60/60、碰撞 0。已冻到达满格、碰撞 = 0、最小机间距离 ≥ 0.70 m；两种 p95 和数值净空仍只报数。） |
-| 12 | 交付包（M5） | 11 | todo |
+| 12 | 交付包（M5） | 11 | done（12a–12f 已合，见下行） |
+| 12a | README 顶部一键命令 | 11 | done（#33，合入 `78f63bcdb9bc`） |
+| 12b | 结果总表 | 11 | done（#36，合入 `252bae86781e`） |
+| 12c | 各里程碑交付视频 | 11 | done（#35，合入 `cf9c0b0b9832`） |
+| 12d | 已知限制文档 | 11 | done（#34，合入 `7a545ac3a645`） |
+| 12e | 上游策略 vs 影子盾对照表 | 11 | done（#37，合入 `0bb043cae739`） |
+| 12f | 收口：README 交付包入口与票表 | 12a–12e | done（本票） |
+
+12：交付包收口。12a README 一键命令（#33，`78f63bcdb9bc`）；12b 结果总表（#36，`252bae86781e`）；12c 视频索引（#35，`cf9c0b0b9832`）；12d 已知限制（#34，`7a545ac3a645`）；12e 上游策略 vs 影子盾（#37，`0bb043cae739`）；12f 本票：README 顶部增加交付包入口，并核验所有表格带层级和 commit。干净检出复现由 12a 的 `tests/test_demo.py` 覆盖。
 
 06b：同步出发那一轮收不齐 ACK 时，本机在 t_start 超时 RELEASE，并按 resend_period 重发 RELEASE/COMMIT。下一轮自己的窗口重新提案，沿本槽弧长追到当前时刻表（速度/加速度不超过计划限幅），只飞本机已提交的计划。随机丢包+乱序只报数。
 

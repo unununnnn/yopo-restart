@@ -32,17 +32,17 @@
 
 ## 总表
 
-| 场景 | 策略 | seeds | 到达 | 碰撞 | 到达时间 s | 影子拒绝率 | 主要拒绝码 | 最小净空 m | 最小机间 m | 墙钟 s | commit |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| g2-pillar @ upstream + 影子盾开 | upstream | 0,1,2,3,4,5,6,7,8,9 | 10/10 | 0 | 4.27（4.26–4.28） | 1.000 | ENV:UNKNOWN:5271, TIME:SWITCH_NOT_IN_FUTURE:3171, TRANSITION:HEAD_DISCONTINUITY:3171 | 0.478–0.479 | — | 14.5（13.9–15.7） | `f5985e4335fc` |
-| g2-pillar @ certified + 影子盾开（硬门拦截） | certified | 0,1,2,3,4,5,6,7,8,9 | 0/10 | 0 | — | 0.778 | LAG_VIOLATION:34990 | 1.150 | — | 804.5（759.3–896.0） | `f5985e4335fc` |
-| crossing-pillars @ crossing + 影子盾开 | crossing | 0,1,2,3,4,5,6,7,8,9 | 30/30 | 0 | 7.27（7.05–7.77） | 1.000 | ENV:UNKNOWN:24060, TRANSITION:MOTION_KINEMATICS:13725, TRANSITION:BRANCH_UNREACHABLE:11250 | 0.528–1.106 | 3.350–7.510 | 18.6（17.9–19.4） | `f5985e4335fc` |
-| crossing-forest medium @ crossing + 影子盾开 | crossing | 0,1,2,3,4,5,6,7,8,9 | 30/30 | 0 | 23.23（20.77–24.42） | 1.000 | ENV:UNKNOWN:71955, TRANSITION:HEAD_DISCONTINUITY:33930, TRANSITION:MOTION_KINEMATICS:27600 | 0.260–0.450 | 4.602–7.469 | 96.4（85.3–103.1） | `f5985e4335fc` |
-| crossing-forest sparse @ crossing + 影子盾开 | crossing | 0,1,2,3,4,5,6,7,8,9 | 30/30 | 0 | 23.50（22.09–26.80） | 1.000 | ENV:UNKNOWN:72744, TRANSITION:HEAD_DISCONTINUITY:34794, TRANSITION:MOTION_KINEMATICS:27075 | 0.468–0.985 | 4.312–7.554 | 78.6（70.9–92.1） | `f5985e4335fc` |
-| crossing-forest dense @ crossing + 影子盾开 | crossing | 0,1,2,3,4,5,6,7,8,9 | 3/30 | 9 | 26.81 | 1.000 | ENV:UNKNOWN:29429, TRANSITION:MOTION_KINEMATICS:12863, TRANSITION:BRANCH_UNREACHABLE:12638 | -0.027–0.287 | 4.688–5.510 | 62.4（38.3–171.8） | `f5985e4335fc` |
-| formation-hold @ formation + 影子盾开 | formation | 0,1,2 | 9/9 | 0 | 18.63 | 1.000 | ENV:UNKNOWN:17172, TIME:SWITCH_NOT_IN_FUTURE:495 | 1.150 | 1.987 | 5.2（4.8–5.5） | `f5985e4335fc` |
-| crossing-6-forest medium @ crossing + 影子盾开 | crossing | 0 | 6/6 | 0 | 26.08 | 1.000 | ENV:UNKNOWN:15723, TRANSITION:HEAD_DISCONTINUITY:10323, TRANSITION:MOTION_KINEMATICS:4950 | 0.306 | 1.293 | 234.2 | `f5985e4335fc` |
-| crossing-6-forest-sparse @ crossing + 影子盾开 | crossing | 0 | 6/6 | 0 | 25.40 | 1.000 | ENV:UNKNOWN:15465, TRANSITION:HEAD_DISCONTINUITY:9915, TRANSITION:MOTION_KINEMATICS:4950 | 0.315 | 0.959 | 176.0 | `f5985e4335fc` |
+| 场景 | 策略 | 层级 | seeds | 到达 | 碰撞 | 到达时间 s | 影子拒绝率 | 主要拒绝码 | 最小净空 m | 最小机间 m | 墙钟 s | commit |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| g2-pillar @ upstream + 影子盾开 | upstream | L0 | 0,1,2,3,4,5,6,7,8,9 | 10/10 | 0 | 4.27（4.26–4.28） | 1.000 | ENV:UNKNOWN:5271, TIME:SWITCH_NOT_IN_FUTURE:3171, TRANSITION:HEAD_DISCONTINUITY:3171 | 0.478–0.479 | — | 14.5（13.9–15.7） | `f5985e4335fc` |
+| g2-pillar @ certified + 影子盾开（硬门拦截） | certified | L0 | 0,1,2,3,4,5,6,7,8,9 | 0/10 | 0 | — | 0.778 | LAG_VIOLATION:34990 | 1.150 | — | 804.5（759.3–896.0） | `f5985e4335fc` |
+| crossing-pillars @ crossing + 影子盾开 | crossing | L0 | 0,1,2,3,4,5,6,7,8,9 | 30/30 | 0 | 7.27（7.05–7.77） | 1.000 | ENV:UNKNOWN:24060, TRANSITION:MOTION_KINEMATICS:13725, TRANSITION:BRANCH_UNREACHABLE:11250 | 0.528–1.106 | 3.350–7.510 | 18.6（17.9–19.4） | `f5985e4335fc` |
+| crossing-forest medium @ crossing + 影子盾开 | crossing | L0 | 0,1,2,3,4,5,6,7,8,9 | 30/30 | 0 | 23.23（20.77–24.42） | 1.000 | ENV:UNKNOWN:71955, TRANSITION:HEAD_DISCONTINUITY:33930, TRANSITION:MOTION_KINEMATICS:27600 | 0.260–0.450 | 4.602–7.469 | 96.4（85.3–103.1） | `f5985e4335fc` |
+| crossing-forest sparse @ crossing + 影子盾开 | crossing | L0 | 0,1,2,3,4,5,6,7,8,9 | 30/30 | 0 | 23.50（22.09–26.80） | 1.000 | ENV:UNKNOWN:72744, TRANSITION:HEAD_DISCONTINUITY:34794, TRANSITION:MOTION_KINEMATICS:27075 | 0.468–0.985 | 4.312–7.554 | 78.6（70.9–92.1） | `f5985e4335fc` |
+| crossing-forest dense @ crossing + 影子盾开 | crossing | L0 | 0,1,2,3,4,5,6,7,8,9 | 3/30 | 9 | 26.81 | 1.000 | ENV:UNKNOWN:29429, TRANSITION:MOTION_KINEMATICS:12863, TRANSITION:BRANCH_UNREACHABLE:12638 | -0.027–0.287 | 4.688–5.510 | 62.4（38.3–171.8） | `f5985e4335fc` |
+| formation-hold @ formation + 影子盾开 | formation | L0 | 0,1,2 | 9/9 | 0 | 18.63 | 1.000 | ENV:UNKNOWN:17172, TIME:SWITCH_NOT_IN_FUTURE:495 | 1.150 | 1.987 | 5.2（4.8–5.5） | `f5985e4335fc` |
+| crossing-6-forest medium @ crossing + 影子盾开 | crossing | L0 | 0 | 6/6 | 0 | 26.08 | 1.000 | ENV:UNKNOWN:15723, TRANSITION:HEAD_DISCONTINUITY:10323, TRANSITION:MOTION_KINEMATICS:4950 | 0.306 | 1.293 | 234.2 | `f5985e4335fc` |
+| crossing-6-forest-sparse @ crossing + 影子盾开 | crossing | L0 | 0 | 6/6 | 0 | 25.40 | 1.000 | ENV:UNKNOWN:15465, TRANSITION:HEAD_DISCONTINUITY:9915, TRANSITION:MOTION_KINEMATICS:4950 | 0.315 | 0.959 | 176.0 | `f5985e4335fc` |
 
 ## 不干预：影子盾开/关动作序列逐位一致
 
