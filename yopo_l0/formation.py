@@ -38,6 +38,7 @@ from yopo_swarm_core.protocol.node import ProtocolConfig, ProtocolNode
 from yopo_swarm_core.protocol.plan_occupancy import PlanConflictChecker, PlanOccupancy, hover_occupancy
 from yopo_swarm_core.trajectory import PiecewisePolynomial, PolySegment
 
+from .criteria import frozen_for_card
 from .progress import read_progress_settings
 
 # 最小急动度标量曲线 σ(u)=10u³-15u⁴+6u⁵ 的速度峰值（u=1/2）。
@@ -487,7 +488,7 @@ class FormationFleet:
         self._off_until: dict[str, float] = {}
         self._last_obs_t = 0.0
         self.deliveries = 0
-        self.frozen = bool(card["criteria"].get("frozen", False))
+        self.frozen = frozen_for_card(card)
         window = float(task.get("window_len_s", 0.5))
         if window <= 0.0:
             raise ValueError("window_len_s 必须为正")

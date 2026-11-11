@@ -31,3 +31,7 @@ Scope: L0 M0–M4 criteria
 - certified 在 G2 柱子上 0/10 到达（见 [0010](0010-certified-env-unknown-reported.md)）可以和 upstream 的 10/10 放在同一张样例表里，回归仍然是绿的。这是测量，不是放水把门关掉。
 - 冻结前，upstream 若撞上柱子，表上会有碰撞数，但当前回归脚本不会因此失败。读表的人要把碰撞列当成硬事实，不要把退出码当成「没有碰撞」。
 - 墙钟写进表，供票 01「单次 < 60 s」和以后的夜间任务参考。墙钟不参与同 seed 的逐字段比较。
+
+## 修订（2026-11-10）
+
+frank 2026-11-10 批准 [0016](0016-m0-m4-freeze-recommendation.md) 的全部建议，并把对应场景卡的 `criteria.frozen` 设为 true。已写入 `criteria.gates` 的指标失败时，批跑退出非 0。本 ADR 仍然适用于还没冻的项：墙钟、certified 对照、三机林 sparse / dense、三机林 medium 的数值净空、六机林带的两种 p95 和数值净空、M4 的 ROS 2 全矩阵、M3 的 L1 抽检，以及未列入 gates 的其它数字。这些项继续只报数，不挡退出码。

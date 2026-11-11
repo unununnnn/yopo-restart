@@ -36,7 +36,12 @@
     "goal_tolerance_m": 0.4,
     "goal_speed_mps": 0.2,
     "goal_hold_s": 1.0,
-    "frozen": false
+    "frozen": true,
+    "gates": {
+      "arrival_rate": 1.0,
+      "collisions": 0,
+      "min_inter_drone_distance_m": 0.70
+    }
   },
   "camera": {
     "width": 160, "height": 96, "hfov_deg": 90.0, "vfov_deg": 60.0,

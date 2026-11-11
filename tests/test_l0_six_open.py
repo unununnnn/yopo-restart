@@ -27,7 +27,7 @@ def test_scene_is_open_wedge_with_seeds_0_through_4():
     raw = json.loads(CARD.read_text())
     assert raw["geometry"] == "open-area.json"
     assert raw["seeds"] == [0, 1, 2, 3, 4]
-    assert raw["criteria"]["frozen"] is False
+    assert raw["criteria"]["frozen"] is True
     assert raw["task"]["type"] == "formation"
     assert [d["id"] for d in raw["drones"]] == [f"uav{i}" for i in range(6)]
     card = load_card(CARD)

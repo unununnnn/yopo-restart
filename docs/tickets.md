@@ -7,7 +7,7 @@
 frank 拍板卡片未回；父代理代定（仅 L0，L1 不动）：
 
 1. **L0 默认 `upstream` 策略 + 影子盾开**（`--policy` / `--no-shadow` 可覆盖）。逐 tick 拒绝码在票 03：每机一条，全体另汇总。
-2. **M0–M4 判据先报数、后冻结**：结果表写到达数 / 碰撞数 / 到达时间，过/不过标「未冻结 / report-only」。碰撞数 = 0 作为硬事实如实报，但不据此判合 main。
+2. **M0–M4 判据先报数、后冻结**：frank 2026-11-10 已批准冻结建议表（ADR 0016 accepted；M2 队形门 6.0 m）。已冻指标失败时批跑退出非 0；其余仍只报数。碰撞数始终作为硬事实如实报。
 
 | 票 | 标题 | 被谁阻塞 | 状态 |
 |---|---|---|---|
@@ -27,7 +27,7 @@ frank 拍板卡片未回；父代理代定（仅 L0，L1 不动）：
 | 08 | 一种变阵（M3 前半） | 07 | done |
 | 09 | L1 抽检通道（M3 后半）。Orin 驱动是 `scripts/run_g2.sh nominal`，不是 `ros2 launch`。L1 策略记 `deployed-certified` | 03, 04 | closed（frank 2026-11-09 关闭：09b 跑的是旧仓 deployed-certified，不验证新方案；L1 等新方案接 PX4 SITL 另开票。通道代码 09a/09b 保留） |
 | 10 | ROS 2 形态 | 06 | done（M1 三机同 seed：到达/碰撞/队形误差 p95/机间距离/影子拒绝率与进程内一致；机间消息走 ROS 话题） |
-| 11 | 六机 + 故障注入（M4） | 07, 08, 10 | done（11a 开阔区楔形已进 `suite.txt`。11b：同一楔形穿 07b 的 medium / sparse 林。11c：六机林中撞树定位后只改编队层。13a–13e 已合。13e：六机林带 medium / sparse 均 60/60。收口冻结建议表见 `docs/results/11-freeze-recommendation.md` 和 ADR 0016。判据仍未冻结，待 frank 拍板。柱林六机若单次超过 60 s 不进 `suite.txt`） |
+| 11 | 六机 + 故障注入（M4） | 07, 08, 10 | done（11a 开阔区楔形已进 `suite.txt`。11b：同一楔形穿 07b 的 medium / sparse 林。11c：六机林中撞树定位后只改编队层。13a–13e 已合。13e：六机林带 medium / sparse 均 60/60。收口冻结建议表见 `docs/results/11-freeze-recommendation.md` 和 ADR 0016（accepted，frank 2026-11-10 批准全部建议，M2 队形门 6.0 m）。已冻指标见场景卡 `criteria.gates`。柱林六机若单次超过 60 s 不进 `suite.txt`） |
 | 12 | 交付包（M5） | 11 | todo |
 
 06b：同步出发那一轮收不齐 ACK 时，本机在 t_start 超时 RELEASE，并按 resend_period 重发 RELEASE/COMMIT。下一轮自己的窗口重新提案，沿本槽弧长追到当前时刻表（速度/加速度不超过计划限幅），只飞本机已提交的计划。随机丢包+乱序只报数。
@@ -55,7 +55,7 @@ frank 拍板卡片未回；父代理代定（仅 L0，L1 不动）：
 13b：穿林虚拟中心按全队沿中心投影进度的 min 或低分位推进（`progress_percentile` 默认 0，即 min），不再用墙钟 × speed。落后机门控；超前机只提案悬停或短前缀。开阔区 `FormationFleet` 明确 `progress_gate=false`，时刻表仍是开环。场景卡可写这两个字段。决定是 ADR 0013（0011 留给 13a，0012 留给 13d，0014 留给 13c）。六机 medium / sparse seeds 0–9 的前后表在 `docs/results/13b-progress-gate.md`。判据仍是 report-only。不换 YOPO，不引入外部求解器，不改 yopo-swarm。
 
 13e：13b 叠在 13c / 13a 上之后，六机穿林 medium 0/60、sparse 9/60。根因是提案前自检拿邻机全部历史计划来比，被替换计划的刹车停点一直占到 inf，邻机投票却只看 committed + previous 和预留；超前机悬停留下的停点堵死落后机，门控取 min 又让超前机继续悬停。六机林带自检改为每个邻机只看最后两份计划加预留，与投票口径一致；三机和柱林仍走 `conflicts_with_neighbors`。六机林带卡写 `progress_gate=false`，门控代码和开关保留。决定是 ADR 0015。各修法对照表在 `docs/results/13e-ghost-stops.md`。判据仍是 report-only。不改 yopo-swarm，不改 vendored core。
-11 收口：M0–M4 冻结建议表写在 `docs/results/11-freeze-recommendation.md`，决定记在 ADR 0016（proposed）。数字来自 main `8ee3ca1`（票 13e）和本票在同一 sha 上的重跑，不是编的。建议现在冻结的是已经稳定、口径清楚的到达满格、碰撞 = 0，以及 M1/M3/M4 开阔区的相对槽位 p95 和机间距离、M2 柱林净空、M0 到达时间。继续只报数的是墙钟、certified 对照、三机林 sparse/dense、六机林带的两种 p95 和数值净空、M4 的 ROS 2 全矩阵、M3 的 L1 抽检。本票不改 `criteria.frozen`，也不让批跑开始按到达或碰撞挡合入。frank 点头后再另开票改开关。
+11 收口：M0–M4 冻结建议表写在 `docs/results/11-freeze-recommendation.md`，决定记在 ADR 0016。数字来自 main `8ee3ca1`（票 13e）和建议票在同一 sha 上的重跑，不是编的。frank 2026-11-10 批准全部建议，M2 队形门用 6.0 m（不用 5.0 m），到达率保持 100%。已冻的是到达满格、碰撞 = 0，以及 M1/M3/M4 开阔区的相对槽位 p95 和机间距离、M2 柱林净空、M0 到达时间、六机林带的机间距离（≥ 0.70 m）。继续只报数的是墙钟、certified 对照、三机林 sparse/dense、三机林 medium 的数值净空、六机林带的两种 p95 和数值净空、M4 的 ROS 2 全矩阵、M3 的 L1 抽检。对应场景卡已设 `criteria.frozen=true` 和 `criteria.gates`；冻结指标失败时批跑退出非 0。
 
 
 13c：六机林带里槽位改成软目标。侧向在 `lateral_slack_m`（默认 2 m）内、纵向在 `longitudinal_slack_m`（默认等于 `min_ahead_m`）内松弛，只挑整段净空够的射线；出林前 `exit_tighten_m`（默认 4 m）把松弛收到 0，出林后回到原来的刚性槽位前瞻。避障是硬的：COMMIT 前对轨迹按 0.02 s 采样，中心到树的最小距离必须 ≥ `body_radius + clearance_margin_m`（默认 margin 0.15 m，场景卡 `task.clearance_margin_m` 可改）。不够记 `CLEARANCE_SKIP`，不提案、不提交。这是过滤，不进优化器，也不引入 CPLEX。只对带森林的六机生效。不改 `safe_radius` 默认 0.05 m，不改 kp / kd / tau / a_max，也不改 yopo-swarm。决定记在 ADR 0014。前后表在 `docs/results/13c-elastic-clearance.md`。判据仍是 report-only。

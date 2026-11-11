@@ -58,7 +58,7 @@ def test_card_loads_medium_and_other_tiers_differ():
     raw = json.loads(CARD.read_text())
     assert raw["forest"]["density"] == "medium"
     assert raw["seeds"] == list(range(10))
-    assert raw["criteria"]["frozen"] is False
+    assert raw["criteria"]["frozen"] is True
     card = load_card(CARD)
     again = load_card(CARD)
     assert card.hash == again.hash

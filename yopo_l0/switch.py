@@ -25,6 +25,7 @@ from yopo_swarm_core.protocol.node import ProtocolConfig, ProtocolNode
 from yopo_swarm_core.protocol.plan_occupancy import PlanConflictChecker, PlanOccupancy, hover_occupancy
 from yopo_swarm_core.trajectory import PiecewisePolynomial, PolySegment
 
+from .criteria import frozen_for_card
 from .scene import parse_geometry
 
 _LIMITS = KinematicLimits(v_max=8.0, a_max=12.0, j_max=400.0)
@@ -399,7 +400,7 @@ class SwitchFleet:
         self.err_before: list[float] = []
         self.err_after: list[float] = []
         self.deliveries = 0
-        self.frozen = bool(card["criteria"].get("frozen", False))
+        self.frozen = frozen_for_card(card)
         self.radius = float(card["criteria"]["body_radius_m"])
         self.obstacles = parse_geometry(geom, card.get("ground_z"))
         window = float(task.get("window_len_s", 0.5))
@@ -897,12 +898,15 @@ def _p95(xs: list[float]) -> float | None:
 
 
 def format_report(rows: list[dict]) -> str:
-    """票 08 结果表。过渡期碰撞是硬失败；判据本身未冻结，只报数。"""
+    """票 08 结果表。过渡期碰撞是硬失败；标题按本批是否冻结来写。"""
     rows = [r for r in rows if r.get("task") == "switch"]
     if not rows:
         return ""
     lines = [
-        "### 票 08 横排↔纵列变阵（判据未冻结 / report-only）",
+        (
+            "### 票 08 横排↔纵列变阵（"
+            f"{'判据已冻结' if all(bool((r.get('switch') or {}).get('frozen', False)) for r in rows) else '未冻结 / report-only'}）"
+        ),
         "",
         "触发是走廊前方净空低于阈值。过渡期碰撞（障碍或机间）是硬失败；没切成时拒绝码写在失败原因里。",
         "",
