@@ -16,7 +16,10 @@
 影子盾沿 RunConfig 缺省：开，只记录，不改批准动作。
 后段预算是墙钟（缺省 0.02 s）。没有后段的臂可以两个进程。
 带后段的臂用 --jobs 1，并且不要同时再跑别的重活：截止时间按墙钟切迭代，
-这台机器上每次调用都贴着 20 ms，多挤一下闭环结果就会变。
+这台机器上密林每次调用都贴着 20 ms，多挤一下闭环结果就会变。
+
+``--scenes swap8`` 是八机对向，只在 main 上已经有 scenes/swap-8-open.json 时使用。
+本次只跑了 seed 0 的 off、ea1、combo。
 """
 
 from __future__ import annotations
@@ -45,7 +48,7 @@ _D1 = {
 }
 
 ARMS = ("off", "ea1", "d1", "eb2", "combo")
-SCENES = ("dense", "swap")
+SCENES = ("dense", "swap", "swap8")
 
 
 def _deep(raw: dict) -> dict:
@@ -61,6 +64,10 @@ def _dense_base() -> dict:
 
 def _swap_base() -> dict:
     return json.loads((ROOT / "scenes/swap-3-open.json").read_text())
+
+
+def _swap8_base() -> dict:
+    return json.loads((ROOT / "scenes/swap-8-open.json").read_text())
 
 
 def _with_flags(raw: dict, arm: str) -> dict:
@@ -110,7 +117,14 @@ def build_card(scene: str, arm: str):
         return load_card(ROOT / "scenes/swap-3-geom-fallback.json"), None
     if scene == "swap" and arm == "off":
         return load_card(ROOT / "scenes/swap-3-open.json"), None
-    base = _dense_base() if scene == "dense" else _swap_base()
+    if scene == "swap8" and arm == "off":
+        return load_card(ROOT / "scenes/swap-8-open.json"), None
+    if scene == "dense":
+        base = _dense_base()
+    elif scene == "swap8":
+        base = _swap8_base()
+    else:
+        base = _swap_base()
     if scene == "dense" and arm == "d1":
         return _materialize(base), True
     if arm == "off":
