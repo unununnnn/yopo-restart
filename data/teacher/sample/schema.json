@@ -1,0 +1,35 @@
+{
+  "schema_version": "yopo-teacher-record/1",
+  "null_means": "未知",
+  "description": "一次 EGO-Swarm 教师运行。轨迹在 trajectory.npz，广播 B 样条和指标在 record.json，同一几何的 L0 场景卡是 scene.json + geometry.json。深度不入库，由 yopo_l0.sensor 按场景卡和位姿现算。",
+  "files": {
+    "trajectory.npz": {
+      "time_s": {"dtype": "float64", "shape": ["T"], "unit": "s", "note": "相对第一拍。use_sim_time 关闭，所以这一轴是容器墙钟。"},
+      "position_m": {"dtype": "float64", "shape": ["T", "N", 3]},
+      "velocity_mps": {"dtype": "float64", "shape": ["T", "N", 3]},
+      "acceleration_mps2": {"dtype": "float64", "shape": ["T", "N", 3], "note": "fake_drone 把指令加速度写进 odom.twist.angular。"},
+      "yaw_rad": {"dtype": "float64", "shape": ["T", "N"], "note": "来自 PositionCommand.yaw。没有指令时为 0。"},
+      "drone_ros_id": {"dtype": "int32", "shape": ["N"]},
+      "start_m": {"dtype": "float64", "shape": ["N", 3]},
+      "goal_m": {"dtype": "float64", "shape": ["N", 3]},
+      "cylinder_center_xy_m": {"dtype": "float64", "shape": ["M", 2]},
+      "cylinder_radius_m": {"dtype": "float64", "shape": ["M"]},
+      "cylinder_z_lo_m": {"dtype": "float64", "shape": ["M"]},
+      "cylinder_z_hi_m": {"dtype": "float64", "shape": ["M"]}
+    },
+    "record.json": {
+      "schema": "yopo-teacher-record/1",
+      "scenario": "make_scenario 的原文，含圆柱和假设",
+      "run.status": "arrived | timeout | stopped | no_odom | launch_failed",
+      "metrics.success": "到达且无障碍碰撞、无机间碰撞。没有样本时为 null。",
+      "metrics.planning_time_s": "日志里 total time 的秒数。一条都没有时均值是 null。",
+      "bsplines": "topic=broadcast 是 /broadcast_bspline；topic=local 是 /drone_i_planning/bspline。"
+    },
+    "scene.json": "yopo_l0.scene.load_card 能读。geometry 指向旁边的 geometry.json。criteria.frozen 为 false。"
+  },
+  "observation": {
+    "depth": "observation_at 用场景卡相机（默认 96×160）做光线投射，单位米，无回波为 NaN。",
+    "state": "该拍的 position / velocity / acceleration / yaw。",
+    "neighbours": "其它飞机该拍的状态，加上 receive 时间不晚于该拍的最后一条广播 B 样条。没有广播时 broadcast 为 null。"
+  }
+}
