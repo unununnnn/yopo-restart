@@ -175,10 +175,16 @@ class BaselineModel:
         self.weights_sha256: str = meta["weights_sha256"]
         self.config_hash: str = config_hash(config)
 
-    def forward(self, depth: np.ndarray, obs: np.ndarray) -> CandidateBatch:
+    def forward(self, depth: np.ndarray, obs: np.ndarray, *, inference_mode: bool = False) -> CandidateBatch:
+        """单次前向。`inference_mode=False` 走 `torch.no_grad`，与金样路径相同。
+
+        `inference_mode=True` 关掉 autograd 的版本计数。在本仓库钉定的网络上与
+        `no_grad` 逐位相同，只少一点 Python 开销。算子和权重都不改。
+        """
         import torch
 
-        with torch.no_grad():
+        guard = torch.inference_mode() if inference_mode else torch.no_grad()
+        with guard:
             d = torch.from_numpy(np.ascontiguousarray(depth, dtype=np.float32))
             o = torch.from_numpy(np.ascontiguousarray(obs, dtype=np.float32))
             o = self._st.prepare_input(self._st.normalize_obs(o))
