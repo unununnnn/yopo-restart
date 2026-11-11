@@ -1,0 +1,1070 @@
+{
+  "schema": "yopo-restart/results-summary/1",
+  "adr": "0016",
+  "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+  "commits": [
+    "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+  ],
+  "sources": [
+    "out/m5/core/results.json",
+    "out/m5/m2-forest/results.json",
+    "out/m5/m4-open/results.json",
+    "out/m5/m4-forest/（16 个 seed 的 result.json）",
+    "out/m5/m4-forest-sparse-rest/results.json"
+  ],
+  "reproduce": [
+    "git checkout f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+    "make venv",
+    ".venv/bin/python -m yopo_l0.batch scenes/g2-pillar.json@upstream scenes/formation-hold.json@formation scenes/crossing-pillars.json@crossing scenes/formation-switch.json@switch --jobs 8 --out out/m5/core",
+    ".venv/bin/python -m yopo_l0.batch scenes/crossing-forest.json@crossing --jobs 4 --out out/m5/m2-forest",
+    ".venv/bin/python -m yopo_l0.batch scenes/formation-6-open.json@formation --form inprocess --tiers scenes/formation-6-tiers.json --jobs 4 --out out/m5/m4-open",
+    ".venv/bin/python -m yopo_l0.batch scenes/crossing-6-forest.json@crossing scenes/crossing-6-forest-sparse.json@crossing --jobs 4 --out out/m5/m4-forest",
+    ".venv/bin/python -m yopo_l0.summary out/m5/core/results.json out/m5/m2-forest/results.json out/m5/m4-open/results.json out/m5/m4-forest --md docs/results/SUMMARY.md --json docs/results/SUMMARY.json"
+  ],
+  "generated_at": "2026-11-10 23:30",
+  "rows": [
+    {
+      "milestone": "M0",
+      "scene": "g2-pillar",
+      "scene_path": "/tmp/wt-t12b/scenes/g2-pillar.json",
+      "policy": "upstream",
+      "tier": "L0",
+      "form": "inprocess",
+      "fault_tier": null,
+      "forest_density": null,
+      "shadow": true,
+      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commits": [
+        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+      ],
+      "scene_card_hash": "9d385f4cfce543922961865d06ceeedd44afdddb52c706bf6e3da9929431d8ae",
+      "scene_card_hashes": [
+        "9d385f4cfce543922961865d06ceeedd44afdddb52c706bf6e3da9929431d8ae"
+      ],
+      "card_hash_mismatch": [],
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "n_seeds": 10,
+      "arrived": 10,
+      "arrival_slots": 10,
+      "arrivals": "10/10",
+      "arrival_rate": 1.0,
+      "collisions": 0,
+      "formation_error_p95_m": null,
+      "error_p95_before_m": null,
+      "error_p95_after_m": null,
+      "min_inter_drone_distance_m": null,
+      "min_inter_drone_transition_m": null,
+      "transition_collisions": null,
+      "min_obstacle_clearance_m": 0.4775465470413405,
+      "clearance_is_ground": false,
+      "arrival_time_s": {
+        "min": 4.26,
+        "max": 4.28,
+        "mean": 4.271
+      },
+      "wall_time_s": {
+        "min": 15.854169171012472,
+        "max": 19.899821803031955,
+        "mean": 18.104601514409296
+      },
+      "sources": [
+        "/tmp/wt-t12-runs/out/m5/core/results.json"
+      ],
+      "frozen": true,
+      "gates": {
+        "arrival_rate": 1.0,
+        "collisions": 0.0,
+        "arrival_time_s": 5.0
+      },
+      "metric_status": {
+        "arrivals": "frozen",
+        "collisions": "frozen",
+        "arrival_time_s": "frozen",
+        "min_obstacle_clearance_m": "report-only"
+      },
+      "status": "判据已冻结（最小净空只报数）"
+    },
+    {
+      "milestone": "M1",
+      "scene": "formation-hold",
+      "scene_path": "/tmp/wt-t12b/scenes/formation-hold.json",
+      "policy": "formation",
+      "tier": "L0",
+      "form": "inprocess",
+      "fault_tier": null,
+      "forest_density": null,
+      "shadow": true,
+      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commits": [
+        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+      ],
+      "scene_card_hash": "1b1894f5864a2f5f5fb0e06b7d44ec490acf8d012957829f0f599e19951c365e",
+      "scene_card_hashes": [
+        "1b1894f5864a2f5f5fb0e06b7d44ec490acf8d012957829f0f599e19951c365e"
+      ],
+      "card_hash_mismatch": [],
+      "seeds": [
+        0,
+        1,
+        2
+      ],
+      "n_seeds": 3,
+      "arrived": 9,
+      "arrival_slots": 9,
+      "arrivals": "9/9",
+      "arrival_rate": 1.0,
+      "collisions": 0,
+      "formation_error_p95_m": {
+        "min": 0.02698217847566754,
+        "max": 0.02698217847566754,
+        "mean": 0.02698217847566754
+      },
+      "error_p95_before_m": null,
+      "error_p95_after_m": null,
+      "min_inter_drone_distance_m": 1.9865290876661743,
+      "min_inter_drone_transition_m": null,
+      "transition_collisions": null,
+      "min_obstacle_clearance_m": 1.15,
+      "clearance_is_ground": true,
+      "arrival_time_s": {
+        "min": 18.63,
+        "max": 18.63,
+        "mean": 18.63
+      },
+      "wall_time_s": {
+        "min": 6.0356058980105445,
+        "max": 6.656023498973809,
+        "mean": 6.43191767433503
+      },
+      "sources": [
+        "/tmp/wt-t12-runs/out/m5/core/results.json"
+      ],
+      "frozen": true,
+      "gates": {
+        "arrival_rate": 1.0,
+        "collisions": 0.0,
+        "formation_error_p95_m": 0.05,
+        "min_inter_drone_distance_m": 1.5
+      },
+      "metric_status": {
+        "arrivals": "frozen",
+        "collisions": "frozen",
+        "arrival_time_s": "report-only",
+        "formation_error_p95_m": "frozen",
+        "min_inter_drone_distance_m": "frozen",
+        "min_obstacle_clearance_m": "report-only"
+      },
+      "status": "判据已冻结（到达时间、最小净空只报数）"
+    },
+    {
+      "milestone": "M2",
+      "scene": "crossing-pillars",
+      "scene_path": "/tmp/wt-t12b/scenes/crossing-pillars.json",
+      "policy": "crossing",
+      "tier": "L0",
+      "form": "inprocess",
+      "fault_tier": null,
+      "forest_density": null,
+      "shadow": true,
+      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commits": [
+        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+      ],
+      "scene_card_hash": "1d39afbd780740b9e925569a70b27b670d73184d9b487d3adb2473fdf1ed279e",
+      "scene_card_hashes": [
+        "1d39afbd780740b9e925569a70b27b670d73184d9b487d3adb2473fdf1ed279e"
+      ],
+      "card_hash_mismatch": [],
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "n_seeds": 10,
+      "arrived": 30,
+      "arrival_slots": 30,
+      "arrivals": "30/30",
+      "arrival_rate": 1.0,
+      "collisions": 0,
+      "formation_error_p95_m": {
+        "min": 4.12951281128063,
+        "max": 4.609515916214519,
+        "mean": 4.299376064616128
+      },
+      "error_p95_before_m": null,
+      "error_p95_after_m": null,
+      "min_inter_drone_distance_m": 3.3500304001512173,
+      "min_inter_drone_transition_m": null,
+      "transition_collisions": null,
+      "min_obstacle_clearance_m": 0.5275813017675318,
+      "clearance_is_ground": false,
+      "arrival_time_s": {
+        "min": 7.05,
+        "max": 7.77,
+        "mean": 7.2700000000000005
+      },
+      "wall_time_s": {
+        "min": 20.003564664977603,
+        "max": 22.27335670305183,
+        "mean": 20.950924672401744
+      },
+      "sources": [
+        "/tmp/wt-t12-runs/out/m5/core/results.json"
+      ],
+      "frozen": true,
+      "gates": {
+        "arrival_rate": 1.0,
+        "collisions": 0.0,
+        "formation_error_p95_m": 6.0,
+        "min_inter_drone_distance_m": 2.0,
+        "min_obstacle_clearance_m": 0.4
+      },
+      "metric_status": {
+        "arrivals": "frozen",
+        "collisions": "frozen",
+        "arrival_time_s": "report-only",
+        "formation_error_p95_m": "frozen",
+        "min_inter_drone_distance_m": "frozen",
+        "min_obstacle_clearance_m": "frozen"
+      },
+      "status": "判据已冻结（到达时间只报数）"
+    },
+    {
+      "milestone": "M2",
+      "scene": "crossing-forest",
+      "scene_path": "/tmp/wt-t12b/scenes/crossing-forest.json",
+      "policy": "crossing",
+      "tier": "L0",
+      "form": "inprocess",
+      "fault_tier": null,
+      "forest_density": "medium",
+      "shadow": true,
+      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commits": [
+        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+      ],
+      "scene_card_hash": "e66b39061158c23e4c8e8c3fd53bae40c799b3dabef6ef32dad0b94eb265fa0c",
+      "scene_card_hashes": [
+        "e66b39061158c23e4c8e8c3fd53bae40c799b3dabef6ef32dad0b94eb265fa0c"
+      ],
+      "card_hash_mismatch": [],
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "n_seeds": 10,
+      "arrived": 30,
+      "arrival_slots": 30,
+      "arrivals": "30/30",
+      "arrival_rate": 1.0,
+      "collisions": 0,
+      "formation_error_p95_m": {
+        "min": 4.094288630630306,
+        "max": 4.818208089901539,
+        "mean": 4.3157875252012765
+      },
+      "error_p95_before_m": null,
+      "error_p95_after_m": null,
+      "min_inter_drone_distance_m": 4.601630424341005,
+      "min_inter_drone_transition_m": null,
+      "transition_collisions": null,
+      "min_obstacle_clearance_m": 0.2596804986497828,
+      "clearance_is_ground": false,
+      "arrival_time_s": {
+        "min": 20.77,
+        "max": 24.42,
+        "mean": 23.235
+      },
+      "wall_time_s": {
+        "min": 86.20457049005199,
+        "max": 99.0243669639458,
+        "mean": 94.31104366139625
+      },
+      "sources": [
+        "/tmp/wt-t12-runs/out/m5/m2-forest/results.json"
+      ],
+      "frozen": true,
+      "gates": {
+        "arrival_rate": 1.0,
+        "collisions": 0.0,
+        "formation_error_p95_m": 6.0,
+        "min_inter_drone_distance_m": 2.0
+      },
+      "metric_status": {
+        "arrivals": "frozen",
+        "collisions": "frozen",
+        "arrival_time_s": "report-only",
+        "formation_error_p95_m": "frozen",
+        "min_inter_drone_distance_m": "frozen",
+        "min_obstacle_clearance_m": "report-only"
+      },
+      "status": "判据已冻结（到达时间、最小净空只报数）"
+    },
+    {
+      "milestone": "M3",
+      "scene": "formation-switch",
+      "scene_path": "/tmp/wt-t12b/scenes/formation-switch.json",
+      "policy": "switch",
+      "tier": "L0",
+      "form": "inprocess",
+      "fault_tier": null,
+      "forest_density": null,
+      "shadow": true,
+      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commits": [
+        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+      ],
+      "scene_card_hash": "4bff8a51c881f676cc9ce8c83290d43354b861fd911acabb51acba55a0ec7ae3",
+      "scene_card_hashes": [
+        "4bff8a51c881f676cc9ce8c83290d43354b861fd911acabb51acba55a0ec7ae3"
+      ],
+      "card_hash_mismatch": [],
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "n_seeds": 10,
+      "arrived": 30,
+      "arrival_slots": 30,
+      "arrivals": "30/30",
+      "arrival_rate": 1.0,
+      "collisions": 0,
+      "formation_error_p95_m": {
+        "min": 0.035572775011495264,
+        "max": 0.035572775011495264,
+        "mean": 0.035572775011495264
+      },
+      "error_p95_before_m": {
+        "min": 0.024637749760655803,
+        "max": 0.024637749760655803,
+        "mean": 0.024637749760655803
+      },
+      "error_p95_after_m": {
+        "min": 0.025414183160328768,
+        "max": 0.025414183160328768,
+        "mean": 0.025414183160328768
+      },
+      "min_inter_drone_distance_m": 1.5364425604222762,
+      "min_inter_drone_transition_m": 1.5364425604222762,
+      "transition_collisions": 0,
+      "min_obstacle_clearance_m": 0.6926635659091699,
+      "clearance_is_ground": false,
+      "arrival_time_s": {
+        "min": 27.0,
+        "max": 27.0,
+        "mean": 27.0
+      },
+      "wall_time_s": {
+        "min": 11.93075309501728,
+        "max": 13.565532109991182,
+        "mean": 12.96684350480209
+      },
+      "sources": [
+        "/tmp/wt-t12-runs/out/m5/core/results.json"
+      ],
+      "frozen": true,
+      "gates": {
+        "arrival_rate": 1.0,
+        "collisions": 0.0,
+        "transition_collisions": 0.0,
+        "error_p95_before_m": 0.05,
+        "error_p95_after_m": 0.05,
+        "min_inter_drone_transition_m": 1.2
+      },
+      "metric_status": {
+        "arrivals": "frozen",
+        "collisions": "frozen",
+        "arrival_time_s": "report-only",
+        "formation_error_p95_m": "report-only",
+        "error_p95_before_m": "frozen",
+        "error_p95_after_m": "frozen",
+        "min_inter_drone_transition_m": "frozen",
+        "transition_collisions": "frozen",
+        "min_inter_drone_distance_m": "report-only",
+        "min_obstacle_clearance_m": "report-only"
+      },
+      "status": "判据已冻结（到达时间、最小净空只报数）"
+    },
+    {
+      "milestone": "M4",
+      "scene": "formation-6-open",
+      "scene_path": "/tmp/wt-t12b/scenes/formation-6-open.json",
+      "policy": "formation",
+      "tier": "L0",
+      "form": "inprocess",
+      "fault_tier": "none",
+      "forest_density": null,
+      "shadow": true,
+      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commits": [
+        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+      ],
+      "scene_card_hash": "a803d8021c7774b3915c4b4f7c574b03ed73de67e3d7cb5ac1880cf0c9cca95d",
+      "scene_card_hashes": [
+        "a803d8021c7774b3915c4b4f7c574b03ed73de67e3d7cb5ac1880cf0c9cca95d"
+      ],
+      "card_hash_mismatch": [],
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "n_seeds": 5,
+      "arrived": 30,
+      "arrival_slots": 30,
+      "arrivals": "30/30",
+      "arrival_rate": 1.0,
+      "collisions": 0,
+      "formation_error_p95_m": {
+        "min": 0.06595466175453953,
+        "max": 0.06595466175453953,
+        "mean": 0.06595466175453953
+      },
+      "error_p95_before_m": null,
+      "error_p95_after_m": null,
+      "min_inter_drone_distance_m": 2.979793631499256,
+      "min_inter_drone_transition_m": null,
+      "transition_collisions": null,
+      "min_obstacle_clearance_m": 1.15,
+      "clearance_is_ground": true,
+      "arrival_time_s": {
+        "min": 20.13,
+        "max": 20.13,
+        "mean": 20.13
+      },
+      "wall_time_s": {
+        "min": 10.549336131021846,
+        "max": 13.79408326401608,
+        "mean": 12.87783283800818
+      },
+      "sources": [
+        "/tmp/wt-t12-runs/out/m5/m4-open/results.json"
+      ],
+      "frozen": true,
+      "gates": {
+        "arrival_rate": 1.0,
+        "collisions": 0.0,
+        "formation_error_p95_m": 0.1,
+        "min_inter_drone_distance_m": 2.5
+      },
+      "metric_status": {
+        "arrivals": "frozen",
+        "collisions": "frozen",
+        "arrival_time_s": "report-only",
+        "formation_error_p95_m": "frozen",
+        "min_inter_drone_distance_m": "frozen",
+        "min_obstacle_clearance_m": "report-only"
+      },
+      "status": "判据已冻结（到达时间、最小净空只报数）"
+    },
+    {
+      "milestone": "M4",
+      "scene": "formation-6-open",
+      "scene_path": "/tmp/wt-t12b/scenes/formation-6-open.json",
+      "policy": "formation",
+      "tier": "L0",
+      "form": "inprocess",
+      "fault_tier": "drop-5",
+      "forest_density": null,
+      "shadow": true,
+      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commits": [
+        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+      ],
+      "scene_card_hash": "a803d8021c7774b3915c4b4f7c574b03ed73de67e3d7cb5ac1880cf0c9cca95d",
+      "scene_card_hashes": [
+        "a803d8021c7774b3915c4b4f7c574b03ed73de67e3d7cb5ac1880cf0c9cca95d"
+      ],
+      "card_hash_mismatch": [],
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "n_seeds": 5,
+      "arrived": 30,
+      "arrival_slots": 30,
+      "arrivals": "30/30",
+      "arrival_rate": 1.0,
+      "collisions": 0,
+      "formation_error_p95_m": {
+        "min": 0.06595466175453953,
+        "max": 0.06595466175453953,
+        "mean": 0.06595466175453953
+      },
+      "error_p95_before_m": null,
+      "error_p95_after_m": null,
+      "min_inter_drone_distance_m": 2.979793631499256,
+      "min_inter_drone_transition_m": null,
+      "transition_collisions": null,
+      "min_obstacle_clearance_m": 1.15,
+      "clearance_is_ground": true,
+      "arrival_time_s": {
+        "min": 20.13,
+        "max": 20.13,
+        "mean": 20.13
+      },
+      "wall_time_s": {
+        "min": 11.074601376021747,
+        "max": 11.965780580008868,
+        "mean": 11.452074536017609
+      },
+      "sources": [
+        "/tmp/wt-t12-runs/out/m5/m4-open/results.json"
+      ],
+      "frozen": true,
+      "gates": {
+        "arrival_rate": 1.0,
+        "collisions": 0.0,
+        "formation_error_p95_m": 0.1,
+        "min_inter_drone_distance_m": 2.5
+      },
+      "metric_status": {
+        "arrivals": "frozen",
+        "collisions": "frozen",
+        "arrival_time_s": "report-only",
+        "formation_error_p95_m": "frozen",
+        "min_inter_drone_distance_m": "frozen",
+        "min_obstacle_clearance_m": "report-only"
+      },
+      "status": "判据已冻结（到达时间、最小净空只报数）"
+    },
+    {
+      "milestone": "M4",
+      "scene": "formation-6-open",
+      "scene_path": "/tmp/wt-t12b/scenes/formation-6-open.json",
+      "policy": "formation",
+      "tier": "L0",
+      "form": "inprocess",
+      "fault_tier": "drop-20",
+      "forest_density": null,
+      "shadow": true,
+      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commits": [
+        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+      ],
+      "scene_card_hash": "a803d8021c7774b3915c4b4f7c574b03ed73de67e3d7cb5ac1880cf0c9cca95d",
+      "scene_card_hashes": [
+        "a803d8021c7774b3915c4b4f7c574b03ed73de67e3d7cb5ac1880cf0c9cca95d"
+      ],
+      "card_hash_mismatch": [],
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "n_seeds": 5,
+      "arrived": 30,
+      "arrival_slots": 30,
+      "arrivals": "30/30",
+      "arrival_rate": 1.0,
+      "collisions": 0,
+      "formation_error_p95_m": {
+        "min": 0.06595466175453953,
+        "max": 0.06595466175453953,
+        "mean": 0.06595466175453953
+      },
+      "error_p95_before_m": null,
+      "error_p95_after_m": null,
+      "min_inter_drone_distance_m": 2.979793631499256,
+      "min_inter_drone_transition_m": null,
+      "transition_collisions": null,
+      "min_obstacle_clearance_m": 1.15,
+      "clearance_is_ground": true,
+      "arrival_time_s": {
+        "min": 20.13,
+        "max": 20.13,
+        "mean": 20.13
+      },
+      "wall_time_s": {
+        "min": 11.960860045976005,
+        "max": 13.253861534991302,
+        "mean": 12.568714367586654
+      },
+      "sources": [
+        "/tmp/wt-t12-runs/out/m5/m4-open/results.json"
+      ],
+      "frozen": true,
+      "gates": {
+        "arrival_rate": 1.0,
+        "collisions": 0.0,
+        "formation_error_p95_m": 0.1,
+        "min_inter_drone_distance_m": 2.5
+      },
+      "metric_status": {
+        "arrivals": "frozen",
+        "collisions": "frozen",
+        "arrival_time_s": "report-only",
+        "formation_error_p95_m": "frozen",
+        "min_inter_drone_distance_m": "frozen",
+        "min_obstacle_clearance_m": "report-only"
+      },
+      "status": "判据已冻结（到达时间、最小净空只报数）"
+    },
+    {
+      "milestone": "M4",
+      "scene": "formation-6-open",
+      "scene_path": "/tmp/wt-t12b/scenes/formation-6-open.json",
+      "policy": "formation",
+      "tier": "L0",
+      "form": "inprocess",
+      "fault_tier": "duplicate-10",
+      "forest_density": null,
+      "shadow": true,
+      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commits": [
+        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+      ],
+      "scene_card_hash": "a803d8021c7774b3915c4b4f7c574b03ed73de67e3d7cb5ac1880cf0c9cca95d",
+      "scene_card_hashes": [
+        "a803d8021c7774b3915c4b4f7c574b03ed73de67e3d7cb5ac1880cf0c9cca95d"
+      ],
+      "card_hash_mismatch": [],
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "n_seeds": 5,
+      "arrived": 30,
+      "arrival_slots": 30,
+      "arrivals": "30/30",
+      "arrival_rate": 1.0,
+      "collisions": 0,
+      "formation_error_p95_m": {
+        "min": 0.06595466175453953,
+        "max": 0.06595466175453953,
+        "mean": 0.06595466175453953
+      },
+      "error_p95_before_m": null,
+      "error_p95_after_m": null,
+      "min_inter_drone_distance_m": 2.979793631499256,
+      "min_inter_drone_transition_m": null,
+      "transition_collisions": null,
+      "min_obstacle_clearance_m": 1.15,
+      "clearance_is_ground": true,
+      "arrival_time_s": {
+        "min": 20.13,
+        "max": 20.13,
+        "mean": 20.13
+      },
+      "wall_time_s": {
+        "min": 10.533314134983812,
+        "max": 10.878343518008478,
+        "mean": 10.736866112996358
+      },
+      "sources": [
+        "/tmp/wt-t12-runs/out/m5/m4-open/results.json"
+      ],
+      "frozen": true,
+      "gates": {
+        "arrival_rate": 1.0,
+        "collisions": 0.0,
+        "formation_error_p95_m": 0.1,
+        "min_inter_drone_distance_m": 2.5
+      },
+      "metric_status": {
+        "arrivals": "frozen",
+        "collisions": "frozen",
+        "arrival_time_s": "report-only",
+        "formation_error_p95_m": "frozen",
+        "min_inter_drone_distance_m": "frozen",
+        "min_obstacle_clearance_m": "report-only"
+      },
+      "status": "判据已冻结（到达时间、最小净空只报数）"
+    },
+    {
+      "milestone": "M4",
+      "scene": "formation-6-open",
+      "scene_path": "/tmp/wt-t12b/scenes/formation-6-open.json",
+      "policy": "formation",
+      "tier": "L0",
+      "form": "inprocess",
+      "fault_tier": "reorder-delay",
+      "forest_density": null,
+      "shadow": true,
+      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commits": [
+        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+      ],
+      "scene_card_hash": "a803d8021c7774b3915c4b4f7c574b03ed73de67e3d7cb5ac1880cf0c9cca95d",
+      "scene_card_hashes": [
+        "a803d8021c7774b3915c4b4f7c574b03ed73de67e3d7cb5ac1880cf0c9cca95d"
+      ],
+      "card_hash_mismatch": [],
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "n_seeds": 5,
+      "arrived": 30,
+      "arrival_slots": 30,
+      "arrivals": "30/30",
+      "arrival_rate": 1.0,
+      "collisions": 0,
+      "formation_error_p95_m": {
+        "min": 0.06595466175453953,
+        "max": 0.06595466175453953,
+        "mean": 0.06595466175453953
+      },
+      "error_p95_before_m": null,
+      "error_p95_after_m": null,
+      "min_inter_drone_distance_m": 2.979793631499256,
+      "min_inter_drone_transition_m": null,
+      "transition_collisions": null,
+      "min_obstacle_clearance_m": 1.15,
+      "clearance_is_ground": true,
+      "arrival_time_s": {
+        "min": 20.13,
+        "max": 20.13,
+        "mean": 20.13
+      },
+      "wall_time_s": {
+        "min": 15.668397041969001,
+        "max": 16.584761397971306,
+        "mean": 16.24842860578792
+      },
+      "sources": [
+        "/tmp/wt-t12-runs/out/m5/m4-open/results.json"
+      ],
+      "frozen": true,
+      "gates": {
+        "arrival_rate": 1.0,
+        "collisions": 0.0,
+        "formation_error_p95_m": 0.1,
+        "min_inter_drone_distance_m": 2.5
+      },
+      "metric_status": {
+        "arrivals": "frozen",
+        "collisions": "frozen",
+        "arrival_time_s": "report-only",
+        "formation_error_p95_m": "frozen",
+        "min_inter_drone_distance_m": "frozen",
+        "min_obstacle_clearance_m": "report-only"
+      },
+      "status": "判据已冻结（到达时间、最小净空只报数）"
+    },
+    {
+      "milestone": "M4",
+      "scene": "formation-6-open",
+      "scene_path": "/tmp/wt-t12b/scenes/formation-6-open.json",
+      "policy": "formation",
+      "tier": "L0",
+      "form": "inprocess",
+      "fault_tier": "combined",
+      "forest_density": null,
+      "shadow": true,
+      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commits": [
+        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+      ],
+      "scene_card_hash": "a803d8021c7774b3915c4b4f7c574b03ed73de67e3d7cb5ac1880cf0c9cca95d",
+      "scene_card_hashes": [
+        "a803d8021c7774b3915c4b4f7c574b03ed73de67e3d7cb5ac1880cf0c9cca95d"
+      ],
+      "card_hash_mismatch": [],
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "n_seeds": 5,
+      "arrived": 30,
+      "arrival_slots": 30,
+      "arrivals": "30/30",
+      "arrival_rate": 1.0,
+      "collisions": 0,
+      "formation_error_p95_m": {
+        "min": 0.06595466175453953,
+        "max": 0.06595466175453953,
+        "mean": 0.06595466175453953
+      },
+      "error_p95_before_m": null,
+      "error_p95_after_m": null,
+      "min_inter_drone_distance_m": 2.979793631499256,
+      "min_inter_drone_transition_m": null,
+      "transition_collisions": null,
+      "min_obstacle_clearance_m": 1.15,
+      "clearance_is_ground": true,
+      "arrival_time_s": {
+        "min": 20.13,
+        "max": 20.13,
+        "mean": 20.13
+      },
+      "wall_time_s": {
+        "min": 16.289533918956295,
+        "max": 16.684474550012965,
+        "mean": 16.485072610003407
+      },
+      "sources": [
+        "/tmp/wt-t12-runs/out/m5/m4-open/results.json"
+      ],
+      "frozen": true,
+      "gates": {
+        "arrival_rate": 1.0,
+        "collisions": 0.0,
+        "formation_error_p95_m": 0.1,
+        "min_inter_drone_distance_m": 2.5
+      },
+      "metric_status": {
+        "arrivals": "frozen",
+        "collisions": "frozen",
+        "arrival_time_s": "report-only",
+        "formation_error_p95_m": "frozen",
+        "min_inter_drone_distance_m": "frozen",
+        "min_obstacle_clearance_m": "report-only"
+      },
+      "status": "判据已冻结（到达时间、最小净空只报数）"
+    },
+    {
+      "milestone": "M4",
+      "scene": "crossing-6-forest",
+      "scene_path": "/tmp/wt-t12b/scenes/crossing-6-forest.json",
+      "policy": "crossing",
+      "tier": "L0",
+      "form": "inprocess",
+      "fault_tier": null,
+      "forest_density": "medium",
+      "shadow": true,
+      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commits": [
+        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+      ],
+      "scene_card_hash": "657efeb6fae1a62ddc1b061d4cf04a3013f660d2e57b28f70a42d5c23c1db9ee",
+      "scene_card_hashes": [
+        "657efeb6fae1a62ddc1b061d4cf04a3013f660d2e57b28f70a42d5c23c1db9ee"
+      ],
+      "card_hash_mismatch": [],
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "n_seeds": 10,
+      "arrived": 60,
+      "arrival_slots": 60,
+      "arrivals": "60/60",
+      "arrival_rate": 1.0,
+      "collisions": 0,
+      "formation_error_p95_m": {
+        "min": 23.04071236973327,
+        "max": 26.297793654247403,
+        "mean": 24.64372687209988
+      },
+      "error_p95_before_m": null,
+      "error_p95_after_m": null,
+      "min_inter_drone_distance_m": 1.1108933838330217,
+      "min_inter_drone_transition_m": null,
+      "transition_collisions": null,
+      "min_obstacle_clearance_m": 0.1263439725081903,
+      "clearance_is_ground": false,
+      "arrival_time_s": {
+        "min": 26.0,
+        "max": 33.57,
+        "mean": 28.607
+      },
+      "wall_time_s": {
+        "min": 217.087942062004,
+        "max": 307.8261398469913,
+        "mean": 260.17585997629214
+      },
+      "sources": [
+        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest@crossing/seed0/result.json",
+        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest@crossing/seed1/result.json",
+        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest@crossing/seed2/result.json",
+        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest@crossing/seed3/result.json",
+        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest@crossing/seed4/result.json",
+        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest@crossing/seed5/result.json",
+        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest@crossing/seed6/result.json",
+        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest@crossing/seed7/result.json",
+        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest@crossing/seed8/result.json",
+        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest@crossing/seed9/result.json"
+      ],
+      "frozen": true,
+      "gates": {
+        "arrival_rate": 1.0,
+        "collisions": 0.0,
+        "min_inter_drone_distance_m": 0.7
+      },
+      "metric_status": {
+        "arrivals": "frozen",
+        "collisions": "frozen",
+        "arrival_time_s": "report-only",
+        "formation_error_p95_m": "report-only",
+        "min_inter_drone_distance_m": "frozen",
+        "min_obstacle_clearance_m": "report-only"
+      },
+      "status": "判据已冻结（到达时间、队形误差 p95、最小净空只报数）"
+    },
+    {
+      "milestone": "M4",
+      "scene": "crossing-6-forest-sparse",
+      "scene_path": "/tmp/wt-t12b/scenes/crossing-6-forest-sparse.json",
+      "policy": "crossing",
+      "tier": "L0",
+      "form": "inprocess",
+      "fault_tier": null,
+      "forest_density": "sparse",
+      "shadow": true,
+      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commits": [
+        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+      ],
+      "scene_card_hash": "7e3328908444d4615c34e217fbb871fec2bed1e2fcb451f8738c13ba2b24762a",
+      "scene_card_hashes": [
+        "7e3328908444d4615c34e217fbb871fec2bed1e2fcb451f8738c13ba2b24762a"
+      ],
+      "card_hash_mismatch": [],
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "n_seeds": 10,
+      "arrived": 60,
+      "arrival_slots": 60,
+      "arrivals": "60/60",
+      "arrival_rate": 1.0,
+      "collisions": 0,
+      "formation_error_p95_m": {
+        "min": 18.725010844234355,
+        "max": 22.92168276191948,
+        "mean": 20.744318107463982
+      },
+      "error_p95_before_m": null,
+      "error_p95_after_m": null,
+      "min_inter_drone_distance_m": 0.9592704682721394,
+      "min_inter_drone_transition_m": null,
+      "transition_collisions": null,
+      "min_obstacle_clearance_m": 0.15797963043798569,
+      "clearance_is_ground": false,
+      "arrival_time_s": {
+        "min": 23.24,
+        "max": 31.58,
+        "mean": 26.740999999999996
+      },
+      "wall_time_s": {
+        "min": 159.28719828900648,
+        "max": 225.57864103798056,
+        "mean": 187.59452874779237
+      },
+      "sources": [
+        "/tmp/wt-t12-runs/out/m5/m4-forest-sparse-rest/results.json",
+        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest-sparse@crossing/seed0/result.json",
+        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest-sparse@crossing/seed1/result.json",
+        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest-sparse@crossing/seed2/result.json",
+        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest-sparse@crossing/seed3/result.json",
+        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest-sparse@crossing/seed4/result.json",
+        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest-sparse@crossing/seed5/result.json"
+      ],
+      "frozen": true,
+      "gates": {
+        "arrival_rate": 1.0,
+        "collisions": 0.0,
+        "min_inter_drone_distance_m": 0.7
+      },
+      "metric_status": {
+        "arrivals": "frozen",
+        "collisions": "frozen",
+        "arrival_time_s": "report-only",
+        "formation_error_p95_m": "report-only",
+        "min_inter_drone_distance_m": "frozen",
+        "min_obstacle_clearance_m": "report-only"
+      },
+      "status": "判据已冻结（到达时间、队形误差 p95、最小净空只报数）"
+    }
+  ],
+  "unmeasured": [
+    {
+      "milestone": "M0",
+      "scene": "g2-pillar",
+      "detail": "certified，10 seed 全程",
+      "note": "继续只报数。本批没有收齐全 10 个 seed 的全程结果，不填数。合入前回归里的 certified 冒烟是 4 s 前缀，不能代替全程。"
+    },
+    {
+      "milestone": "M2",
+      "scene": "crossing-forest",
+      "detail": "sparse / dense",
+      "note": "继续只报数；本批结果没有这两档，不填数。"
+    },
+    {
+      "milestone": "M3",
+      "scene": "formation-switch",
+      "detail": "L1 抽检",
+      "note": "票 09 已关闭，没有新方案对照。继续只报数。"
+    },
+    {
+      "milestone": "M4",
+      "scene": "formation-6-open",
+      "detail": "ROS 2 全矩阵",
+      "note": "继续只报数；本批结果没有 ROS 2 形态，全矩阵另开票。"
+    },
+    {
+      "milestone": "M4",
+      "scene": "六机柱林",
+      "detail": "",
+      "note": "未测，不进套件。继续只报数。"
+    }
+  ]
+}
