@@ -206,7 +206,12 @@ def _task_cards():
     found = []
     for path in sorted(SCENES.glob("*.json")):
         raw = json.loads(path.read_text())
-        if "task" in raw and "drones" in raw and path.name not in NEW_CARDS:
+        if path.name in NEW_CARDS:
+            continue
+        # 打开几何回退的变体卡会写入 check_time_ms（不在 WALL_FIELDS），不是后段关闭时的现有卡。
+        if (raw.get("geometric_fallback") or {}).get("enabled"):
+            continue
+        if "task" in raw and "drones" in raw:
             found.append(path)
     return found
 
