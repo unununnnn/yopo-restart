@@ -1,0 +1,21 @@
+{
+  "name": "ego-density-028-solo",
+  "note": "票 E-C4 密度场 L0 seed 0：单机 goto 穿越，几何是 scenes/ego-density-028.json（112 根圆柱，目标密度 0.28 个/m²）。这是假设，不是论文复现（障碍半径 0.20 m，边长 20.0 m）。论文表 II 没有给出这两个数。名义航线与 D2 教师单机相同：y = 0，x 从 −9 m 到 +9 m；高度用本仓库 L0 的 1.5 m，不是教师的 1.0 m。对照的是同一组密度假设，不是复现教师轨迹。D2 教师在密度 0.42 时单机严格成功 9/16。机体半径和到达口径用 L0 已有设定（0.35 m，0.4 m / 0.2 m/s / 1 s），不是教师的 0.20 m / 0.5 m / 0.3 m/s。起终点必须在自由空间：机体中心到最近圆柱轴的水平距离至少 0.70 m（机体半径 0.35 m + 障碍半径 0.20 m + 余量 0.15 m）。x = ±9 m 已经满足 0.70 m，仍用这对起终点。只跑 seed 0，不进 scenes/suite.txt，criteria.frozen=false，不设 gates。开关不写进本卡：默认全关是一臂，E-A1、D1、E-B2 全开由 scripts/e-c4-density-l0.py 在进程里覆盖，写法与 scripts/e-combo-a1-d1-b2.py 相同。本卡不是 10 机，也不为填写论文表 II 去跑全种子。速度与 a_max 用本仓库已有的点质量设定：场景卡无 speed_mps（goto 任务如此），dynamics.a_max=6.0、tau_s=0.1、kp=4.0、kd=3.0。",
+  "geometry": "ego-density-028.json",
+  "ground_z": 0.0,
+  "drones": [
+    {"id": "uav0", "start_enu": [-9.0, 0.0, 1.5], "goal_enu": [9.0, 0.0, 1.5]}
+  ],
+  "task": {"type": "goto", "duration_s": 50.0},
+  "criteria": {
+    "body_radius_m": 0.35,
+    "goal_tolerance_m": 0.4,
+    "goal_speed_mps": 0.2,
+    "goal_hold_s": 1.0,
+    "frozen": false
+  },
+  "camera": {"width": 160, "height": 96, "hfov_deg": 90.0, "vfov_deg": 60.0, "min_range_m": 0.2, "max_range_m": 20.0, "noise_std_m": 0.02, "mount_xyz_body": [0.13, 0.0, 0.02]},
+  "dynamics": {"model": "point_mass_lag", "tau_s": 0.1, "kp": 4.0, "kd": 3.0, "a_max": 6.0},
+  "rates_hz": {"physics": 100, "camera": 30, "planner": 10},
+  "seeds": [0]
+}
