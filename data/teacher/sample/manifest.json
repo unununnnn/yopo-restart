@@ -1,0 +1,6 @@
+{
+  "schema": "yopo-teacher-record/1",
+  "note": "小样本。全量在仓库外，用 scripts/teacher/generate.sh all 重跑。",
+  "n": 24,
+  "seed": 0
+}
