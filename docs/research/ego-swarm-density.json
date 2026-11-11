@@ -1,0 +1,201 @@
+{
+  "what": "L0 现有场景的障碍面密度。没有跑规划，也没有按论文参数新生成地图。",
+  "flight_comparison_ran": false,
+  "flight_not_run_because": "六机林带 seed 0 的整回路墙钟在 docs/results/12e-upstream-vs-shield.md 里是 234.2 s（medium）和 176.0 s（sparse）。论文 Table II 是 10 架、对向交换、密度 0.14/0.28/0.42 obs/m²、速度上限 2 m/s、机体半径 0.2 m。forest.py 只有 sparse/medium/dense 三档，写不了这三个密度；论文也没有给出地图边长、障碍半径和空域交换的圆半径。用现有卡再跑一遍不会得到可与 Table II 对齐的数字。",
+  "forest": {
+    "seed": 7,
+    "regions": {
+      "woods": {
+        "x": [
+          8.0,
+          30.0
+        ],
+        "y": [
+          -8.5,
+          8.5
+        ],
+        "area_m2": 374.0,
+        "rule": "树干底面圆心 x 落在林带内（含两端）"
+      },
+      "entry": {
+        "x": [
+          8.0,
+          16.0
+        ],
+        "y": [
+          -8.5,
+          8.5
+        ],
+        "area_m2": 136.0,
+        "rule": "与 generate_forest 的 n_entry 相同：圆心 x < _DENSE_LO"
+      },
+      "middle": {
+        "x": [
+          16.0,
+          30.0
+        ],
+        "y": [
+          -8.5,
+          8.5
+        ],
+        "area_m2": 238.0,
+        "rule": "与 generate_forest 的 n_middle 相同：圆心 x >= _DENSE_LO"
+      }
+    },
+    "tiers": {
+      "sparse": {
+        "surface_gap_spec_m": 3.6,
+        "min_surface_gap_m": 3.6839250078360135,
+        "radius_min_m": 0.14214714036338044,
+        "radius_max_m": 0.3780526894289512,
+        "n_lean": 3,
+        "n_branch_centers_outside_woods": 0,
+        "woods": {
+          "n_trunks": 14,
+          "n_branches": 5,
+          "area_m2": 374.0,
+          "trunks_per_m2": 0.0374331550802139,
+          "trunks_plus_branches_per_m2": 0.05080213903743316
+        },
+        "entry": {
+          "n_trunks": 3,
+          "n_branches": 1,
+          "area_m2": 136.0,
+          "trunks_per_m2": 0.022058823529411766,
+          "trunks_plus_branches_per_m2": 0.029411764705882353
+        },
+        "middle": {
+          "n_trunks": 11,
+          "n_branches": 4,
+          "area_m2": 238.0,
+          "trunks_per_m2": 0.046218487394957986,
+          "trunks_plus_branches_per_m2": 0.06302521008403361
+        }
+      },
+      "medium": {
+        "surface_gap_spec_m": 2.4,
+        "min_surface_gap_m": 2.4516370873133058,
+        "radius_min_m": 0.12659067458805623,
+        "radius_max_m": 0.3401825602929714,
+        "n_lean": 3,
+        "n_branch_centers_outside_woods": 1,
+        "woods": {
+          "n_trunks": 26,
+          "n_branches": 11,
+          "area_m2": 374.0,
+          "trunks_per_m2": 0.06951871657754011,
+          "trunks_plus_branches_per_m2": 0.09893048128342247
+        },
+        "entry": {
+          "n_trunks": 6,
+          "n_branches": 1,
+          "area_m2": 136.0,
+          "trunks_per_m2": 0.04411764705882353,
+          "trunks_plus_branches_per_m2": 0.051470588235294115
+        },
+        "middle": {
+          "n_trunks": 20,
+          "n_branches": 10,
+          "area_m2": 238.0,
+          "trunks_per_m2": 0.08403361344537816,
+          "trunks_plus_branches_per_m2": 0.12605042016806722
+        }
+      },
+      "dense": {
+        "surface_gap_spec_m": 1.7,
+        "min_surface_gap_m": 1.702006864046655,
+        "radius_min_m": 0.136115847541058,
+        "radius_max_m": 0.376462273159807,
+        "n_lean": 6,
+        "n_branch_centers_outside_woods": 1,
+        "woods": {
+          "n_trunks": 45,
+          "n_branches": 14,
+          "area_m2": 374.0,
+          "trunks_per_m2": 0.12032085561497326,
+          "trunks_plus_branches_per_m2": 0.15775401069518716
+        },
+        "entry": {
+          "n_trunks": 10,
+          "n_branches": 1,
+          "area_m2": 136.0,
+          "trunks_per_m2": 0.07352941176470588,
+          "trunks_plus_branches_per_m2": 0.08088235294117647
+        },
+        "middle": {
+          "n_trunks": 35,
+          "n_branches": 13,
+          "area_m2": 238.0,
+          "trunks_per_m2": 0.14705882352941177,
+          "trunks_plus_branches_per_m2": 0.20168067226890757
+        }
+      }
+    }
+  },
+  "pillars": {
+    "scene": "crossing-pillars",
+    "geometry": "crossing-pillars-scene.json",
+    "n_pillars": 12,
+    "aabb": {
+      "x": [
+        3.7,
+        14.8
+      ],
+      "y": [
+        -8.4,
+        8.4
+      ],
+      "area_m2": 186.48000000000002,
+      "pillars_per_m2": 0.06435006435006434,
+      "rule": "全部柱子盒子的轴对齐外包矩形，含柱子自身占的面积"
+    },
+    "slot_corridor": {
+      "x": [
+        0.0,
+        19.5
+      ],
+      "y": [
+        -8.0,
+        8.0
+      ],
+      "area_m2": 312.0,
+      "pillars_per_m2": 0.038461538461538464,
+      "rule": "虚拟中心长度 × 最外两架起点的 y。柱子可以落在这个矩形外面"
+    }
+  },
+  "ego_table_ii": {
+    "source": "Xin Zhou et al., arXiv:2011.04183v3, Table II. 十架，速度上限 2 m/s，机体半径 0.2 m。",
+    "rows": [
+      {
+        "density_obs_per_m2": 0.42,
+        "dfly_m": 49.4,
+        "vel_m_s": 1.61,
+        "dsafe_m": 0.208,
+        "tcal_ms": 5.0
+      },
+      {
+        "density_obs_per_m2": 0.28,
+        "dfly_m": 45.4,
+        "vel_m_s": 1.59,
+        "dsafe_m": 0.22,
+        "tcal_ms": 2.87
+      },
+      {
+        "density_obs_per_m2": 0.14,
+        "dfly_m": 43.7,
+        "vel_m_s": 1.57,
+        "dsafe_m": 0.266,
+        "tcal_ms": 1.21
+      },
+      {
+        "density_obs_per_m2": 0,
+        "dfly_m": 42.2,
+        "vel_m_s": 1.55,
+        "dsafe_m": null,
+        "tcal_ms": 0.49
+      }
+    ],
+    "dsafe_definition": "the closest distance to obstacles during the flight tests",
+    "dsafe_is_center_or_surface": "未知"
+  }
+}
