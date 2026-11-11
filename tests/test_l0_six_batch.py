@@ -19,9 +19,20 @@ def test_unknown_tier_is_a_usage_error():
 
 
 def test_strip_drops_wall_clock_inside_the_batching_plan():
-    a = {"seed": 0, "wall_time_s": 1.0, "batching_plan": {"wall_time_s": 1.0}}
-    b = {"seed": 0, "wall_time_s": 50.0, "batching_plan": {"wall_time_s": 50.0, "commands": ["x"]}}
+    a = {
+        "seed": 0,
+        "wall_time_s": 1.0,
+        "plan_wall_ms": {"count": 3, "mean": 1.0, "p50": 1.0, "p95": 2.0, "max": 2.0},
+        "batching_plan": {"wall_time_s": 1.0},
+    }
+    b = {
+        "seed": 0,
+        "wall_time_s": 50.0,
+        "plan_wall_ms": {"count": 3, "mean": 9.0, "p50": 8.0, "p95": 12.0, "max": 20.0},
+        "batching_plan": {"wall_time_s": 50.0, "commands": ["x"]},
+    }
     assert _strip(a) == _strip(b)
+    assert "plan_wall_ms" not in _strip(a)
 
 
 def _fake_result(job):
@@ -84,8 +95,8 @@ def test_each_tier_gets_its_own_table(tmp_path, monkeypatch):
     assert "未冻结 / report-only" in md
     for label in LABELS:
         assert f"/ {label}（" in md
-    assert md.count("| seed | 到达率 | 碰撞 | 最小机间距离 m | 队形误差 p95 m | 影子拒绝率 | 单次墙钟 s |") == 6
-    assert "| 0 | 1.000 | 0 | 2.980 | 0.066 | 1.000 | 14.0 |" in md
+    assert md.count("| seed | 到达率 | 碰撞 | 最小机间距离 m | 队形误差 p95 m | 影子拒绝率 | 单次墙钟 s | 规划墙钟 p95 ms（只报数） |") == 6
+    assert "| 0 | 1.000 | 0 | 2.980 | 0.066 | 1.000 | 14.0 | — |" in md
     assert "| 合计 |" in md
     assert not (out / "batching_plan.json").exists()
     saved = json.loads((out / "results.json").read_text())

@@ -53,6 +53,14 @@ from .criteria import frozen_for_card
 from .dynamics import PointMassLag
 from .forest import _segment_distance, woods_bounds
 from .geom_fallback import KIND, GeomSession, make_protocol_node
+from .inter_drone import (
+    clearance_m,
+    committed_neighbor_samples,
+    inter_drone_config,
+    inter_pick,
+    report_block,
+    sample_motion,
+)
 from .policy import R_yaw, read_safe_radius, upstream_decoder
 from .progress import read_progress_settings
 from .scene import Box, Cylinder
@@ -451,6 +459,13 @@ class CrossingFleet:
         self._last_code = {did: "LOCAL_HOVER" for did in self.members}
         self.empty_solution = 0
         self._source = None
+        # 默认关。关时不读邻机采样，_yopo_options 的排序与改前相同。
+        self._inter = inter_drone_config(card.get("policy_params"))
+        self._score_node = None
+        self._score_t = 0.0
+        self._inter_filtered = 0
+        self._inter_penalized = 0
+        self._inter_empty = 0
 
     @classmethod
     def from_card(cls, card: dict, physics_dt: float, *, record_inputs: bool = False) -> "CrossingFleet":
@@ -832,6 +847,10 @@ class CrossingFleet:
         ranking = rank_candidates(score, radius, dec, inner_w)
         if ranking.corridor_empty:
             return [], "CORRIDOR_EMPTY_HOVER"
+        ranking = self._apply_inter_rank(ranking, score, head, t_start, tail_w, inner_w, durations, dec, short=short)
+        if ranking is None:
+            # 可行集空：与走廊为空同一返回值。调用方接着走已有的刹车或保持上一份计划。
+            return [], "CORRIDOR_EMPTY_HOVER"
         motions = []
         for index in ranking.order[:6]:
             try:
@@ -881,7 +900,45 @@ class CrossingFleet:
                 return True
         return False
 
+    def _apply_inter_rank(self, ranking, score, head, t_start, tail_w, inner_w, durations, dec, *, short: bool):
+        """开关打开时，用邻机最后一份已提交采样重排准入候选。关或没有采样时原样返回。"""
+        if self._inter is None or self._score_node is None:
+            return ranking
+        peers = committed_neighbor_samples(self._score_node, self._score_t)
+        if not peers:
+            return ranking
+        clear = np.full(int(dec.count), np.inf)
+        for index in ranking.order:
+            try:
+                raw = minco_two_piece(t_start, head, tail_w[index], inner_w[index], durations[index])
+            except (ValueError, np.linalg.LinAlgError, FloatingPointError):
+                continue
+            fitted = self._fit_short(raw) if short else self._fit_yopo(raw)
+            if fitted is None:
+                continue
+            clear[index] = clearance_m(sample_motion(fitted, t_start), peers)
+        pick = inter_pick(score, np.asarray(ranking.admitted, dtype=bool), clear, self._inter)
+        if pick.kind == "unchanged":
+            return ranking
+        if pick.kind == "empty":
+            self._inter_empty += 1
+            self._inter_filtered += pick.filtered
+            return None
+        self._inter_filtered += pick.filtered
+        self._inter_penalized += pick.penalized
+        from yopo_swarm_core.candidates import Ranking
+
+        return Ranking(pick.order, ranking.mu_lo, ranking.admitted, corridor_empty=False)
+
+    def inter_drone_report(self) -> dict | None:
+        if self._inter is None:
+            return None
+        return report_block(self._inter, self._inter_filtered, self._inter_penalized, self._inter_empty)
+
     def _planner(self, node: ProtocolNode, now: float, t_start: float):
+        if self._inter is not None:
+            self._score_node = node
+            self._score_t = float(t_start)
         parent = node.committed.occupancy.plan
         head = np.array(state_at(parent, t_start), dtype=float, copy=True)
         sense = self._sense.get(node.id)

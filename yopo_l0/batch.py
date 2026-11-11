@@ -5,7 +5,7 @@
 - hover 任务：SUCCESS 才算通过（票 01 判据）。
 - goto / formation / crossing / switch：场景卡 criteria.frozen=true 且本跑适用时，`criteria.gates` 里的指标失败则退出非 0。
   未冻结、或不在 gate_policies / gate_forms / gate_densities 范围内、或 `--duration` 短于场景卡时长的前缀跑，只报数「未冻结 / report-only」。
-  未写入 gates 的指标（墙钟、六机林带 p95 和净空等）不挡退出码。碰撞数始终作为硬事实单列。
+  未写入 gates 的指标（整回路墙钟、单次规划墙钟、六机林带 p95 和净空等）不挡退出码。碰撞数始终作为硬事实单列。
 退出码：hover 全部通过、确定性一致、单次墙钟 < 上限，且已冻结指标全部通过 时为 0。
 结果表列出场景卡哈希、seed、层级、策略、影子盾、最小机间距离。影子拒绝率读结果里的 shadow_reject_rate（关着是 null，表中写 —）。单机的机间距离为 —。
 起飞交接和 RTF 是 L1 字段（票 09）；L0 结果里没有这两列，表上留空。
@@ -14,7 +14,7 @@ safe_radius 是上游走廊准入半径。用了这条走廊的策略才填数�
 票 11a 在上面加两档，不改原来的表：
 - ``--form inprocess|ros2``：进程内运行器，或 ROS 2 形态（``yopo_l0.ros2_run``）。默认 inprocess。
 - ``--tiers none,drop-5,...`` 或 ``--tiers scenes/formation-6-tiers.json``：每个故障档位一张表，
-  列是到达率、碰撞、最小机间距离、队形误差 p95、影子拒绝率、单次墙钟。
+  列是到达率、碰撞、最小机间距离、队形误差 p95、影子拒绝率、单次墙钟、规划墙钟 p95（只报数，与整回路墙钟分开）。
   ``--wall-cap`` 默认 120 秒。某次运行的墙钟超过上限时，把分批方案写进该次结果和 ``batching_plan.json``，
   不因此把退出码打成失败。
 """
@@ -27,6 +27,7 @@ import multiprocessing as mp
 from pathlib import Path
 
 from .bus import BusFaults
+from .plan_wall import p95_ms as plan_wall_p95_ms
 from .runner import WALL_FIELDS, RunConfig, run, write
 from .scene import load_card
 from .criteria import evaluate_card_rows, frozen_for_card
@@ -68,6 +69,10 @@ def _radius_note(r) -> str:
 
 def _fmt(x, nd=2):
     return "—" if x is None else f"{x:.{nd}f}"
+
+
+def _fmt_plan_wall(r, nd=2) -> str:
+    return _fmt(plan_wall_p95_ms(r), nd)
 
 
 def _reject_summary(r):
@@ -238,6 +243,7 @@ def _tier_section(card, policy: str, tier: dict, rows: list[dict], form: str, wa
     shadows = [r.get("shadow_reject_rate") for r in rows]
     known_s = [x for x in shadows if x is not None]
     walls = [r["wall_time_s"] for r in rows]
+    plan_p95s = [v for r in rows if (v := plan_wall_p95_ms(r)) is not None]
     n_col = sum(_collisions(r) for r in rows)
     mean_rate = sum(known) / len(known) if known else None
     lines = [
@@ -248,22 +254,24 @@ def _tier_section(card, policy: str, tier: dict, rows: list[dict], form: str, wa
             f"最小机间距离 {_fmt(min(known_d) if known_d else None, 3)} m，"
             f"队形误差 p95 最大 {_fmt(max(known_p) if known_p else None, 3)} m，"
             f"影子拒绝率均值 {_fmt(sum(known_s) / len(known_s) if known_s else None, 3)}，"
-            f"单次墙钟最大 {max(walls):.1f} s"
+            f"单次墙钟最大 {max(walls):.1f} s，"
+            f"规划墙钟 p95 最大 {_fmt(max(plan_p95s) if plan_p95s else None)} ms（只报数）"
         ),
         "",
-        "| seed | 到达率 | 碰撞 | 最小机间距离 m | 队形误差 p95 m | 影子拒绝率 | 单次墙钟 s |",
-        "|---|---|---|---|---|---|---|",
+        "| seed | 到达率 | 碰撞 | 最小机间距离 m | 队形误差 p95 m | 影子拒绝率 | 单次墙钟 s | 规划墙钟 p95 ms（只报数） |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for r, rate in zip(rows, rates):
         lines.append(
             f"| {r['seed']} | {_fmt(rate, 3)} | {_collisions(r)} | "
             f"{_fmt(r.get('min_inter_drone_distance_m'), 3)} | {_fmt(r.get('formation_error_p95_m'), 3)} | "
-            f"{_fmt(r.get('shadow_reject_rate'), 3)} | {r['wall_time_s']:.1f} |"
+            f"{_fmt(r.get('shadow_reject_rate'), 3)} | {r['wall_time_s']:.1f} | {_fmt_plan_wall(r)} |"
         )
     lines.append(
         f"| 合计 | {_fmt(mean_rate, 3)} | {n_col} | "
         f"{_fmt(min(known_d) if known_d else None, 3)} | {_fmt(max(known_p) if known_p else None, 3)} | "
-        f"{_fmt(sum(known_s) / len(known_s) if known_s else None, 3)} | {max(walls):.1f} |"
+        f"{_fmt(sum(known_s) / len(known_s) if known_s else None, 3)} | {max(walls):.1f} | "
+        f"{_fmt(max(plan_p95s) if plan_p95s else None)} |"
     )
     if any(_hovering_without_commit(r) for r in rows):
         lines.append("")
@@ -312,10 +320,10 @@ def _legacy_section(card, policy: str, rs: list[dict], wall_limit: float, form: 
     lines = [
         f"### {card.name} @ {policy}（{task}，层级 {rs[0]['tier']}，影子盾 {'开' if rs[0]['shadow'] else '关'}，"
         f"场景卡 `{card.hash}`{_radius_note(rs[0])}）：{verdict}",
-        f"墙钟 最大 {max(walls):.1f} s / 平均 {sum(walls) / len(walls):.1f} s",
+        f"墙钟 最大 {max(walls):.1f} s / 平均 {sum(walls) / len(walls):.1f} s（整回路，不含在规划墙钟列）",
         "",
-        "| seed | 层级 | 策略 | 影子盾 | 场景卡哈希 | 结果 | 到达时间 s | 最小障碍距离 m | 最小机间距离 m | 终点误差 m | 仿真 s | 墙钟 s | 影子拒绝率 | 主要拒绝码 | 规划码 | safe_radius m | 偏离上游 | 起飞交接 s | RTF |",
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| seed | 层级 | 策略 | 影子盾 | 场景卡哈希 | 结果 | 到达时间 s | 最小障碍距离 m | 最小机间距离 m | 终点误差 m | 仿真 s | 墙钟 s | 规划墙钟 p95 ms（只报数） | 影子拒绝率 | 主要拒绝码 | 规划码 | safe_radius m | 偏离上游 | 起飞交接 s | RTF |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for r in rs:
         codes = ", ".join(f"{k}:{v}" for k, v in r["plan_codes"].items() if not k.startswith("cand:"))
@@ -323,7 +331,7 @@ def _legacy_section(card, policy: str, rs: list[dict], wall_limit: float, form: 
             f"| {r['seed']} | {r['tier']} | {r['policy']} | {'开' if r['shadow'] else '关'} | `{r['scene_card_hash']}` | "
             f"{r['outcome']} | {_fmt(r['arrival_time_s'])} | {_fmt(r['min_obstacle_distance_m'], 3)} | "
             f"{_fmt(r.get('min_inter_drone_distance_m'), 3)} | {_fmt(r['final_goal_error_m'], 3)} | "
-            f"{r['sim_duration_s']:.1f} | {r['wall_time_s']:.1f} | "
+            f"{r['sim_duration_s']:.1f} | {r['wall_time_s']:.1f} | {_fmt_plan_wall(r)} | "
             f"{_fmt(r.get('shadow_reject_rate'), 3)} | {_reject_summary(r)} | {codes} | "
             f"{_radius_cells(r)} | "
             f"{_fmt(r.get('takeoff_handoff_s'), 3)} | {_fmt(r.get('rtf'), 3)} |"
@@ -456,7 +464,7 @@ def main(argv=None):
             gate_ok &= not fails
     for name, policy, tier, s, ok in det:
         tag = f"/{tier}" if tier else ""
-        lines.append(f"确定性（同 seed 重跑，墙钟除外）：{name}@{policy}{tag} seed{s} {'一致' if ok else '不一致'}")
+        lines.append(f"确定性（同 seed 重跑，整回路墙钟和规划墙钟除外）：{name}@{policy}{tag} seed{s} {'一致' if ok else '不一致'}")
         gate_ok &= ok
     out_dir = Path(a.out)
     out_dir.mkdir(parents=True, exist_ok=True)

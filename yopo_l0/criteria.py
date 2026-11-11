@@ -3,7 +3,7 @@
 criteria.frozen 为 false，或本跑不在适用范围内时，只报数，不改退出码。
 适用范围可选：gate_policies、gate_forms、gate_densities。
 `--duration` 短于场景卡 task.duration_s 的前缀跑也不套这些门（短跑到不了终点）。
-墙钟从不进 gates。未写入 gates 的指标（例如六机林带的 p95、净空）继续只报数。
+墙钟和单次规划墙钟从不进 gates。未写入 gates 的指标（例如六机林带的 p95、净空）继续只报数。
 """
 
 from __future__ import annotations

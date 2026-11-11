@@ -1,0 +1,92 @@
+{
+  "commit": "3a3cd2b2b17ba309b6f207c3e0ddb00486dacba5",
+  "scene": "g2-pillar",
+  "scene_card_hash": "9d385f4cfce543922961865d06ceeedd44afdddb52c706bf6e3da9929431d8ae",
+  "seed": 0,
+  "tier": "L0",
+  "policy": "upstream",
+  "shadow": true,
+  "dynamics": "point_mass_lag",
+  "n_drones": 1,
+  "outcome": "TIMEOUT",
+  "reason": "GOAL_NOT_REACHED",
+  "task": "goto",
+  "arrived": 0,
+  "arrival_time_s": null,
+  "min_obstacle_distance_m": 1.4851093431245452,
+  "max_hover_error_m": null,
+  "final_goal_error_m": 4.524953297117194,
+  "min_inter_drone_distance_m": null,
+  "shadow_reject_rate": 1.0,
+  "shadow_reject_histogram": {
+    "ENV:UNKNOWN": 80,
+    "TRANSITION:TERMINAL_NOT_HOLDABLE": 80
+  },
+  "shadow_gates": [
+    {
+      "gate": "env_evidence",
+      "wired": true,
+      "impl": "FreeSpace.classify_sweep",
+      "note": "DepthSample.evidence 进独立 FreeSpace；起飞区 assume_free 用 CertifiedPolicy.start_pad_radius。不写证书。"
+    },
+    {
+      "gate": "stop_select",
+      "wired": true,
+      "impl": "SafetyGate.validate",
+      "note": "core 无 STOP_SELECT 符号。上游/hover 对影子父计划调用 SafetyGate；certified 只留 current，跳过父计划复查。"
+    },
+    {
+      "gate": "plan_contract",
+      "wired": true,
+      "impl": "validate_plan",
+      "note": "上游轨迹走 make_plan；悬停走 hover_plan；已批准的 certified Plan 走 validate_plan。"
+    },
+    {
+      "gate": "oracle_track_lag",
+      "wired": true,
+      "impl": "record_oracle_track_lag",
+      "note": "界取 FlightOracle 默认值。不调用 update（锁存，且会把碰撞记进 oracle）。"
+    }
+  ],
+  "shadow_drones": [
+    {
+      "id": "uav0",
+      "shadow_reject_rate": 1.0,
+      "shadow_reject_histogram": {
+        "ENV:UNKNOWN": 80,
+        "TRANSITION:TERMINAL_NOT_HOLDABLE": 80
+      }
+    }
+  ],
+  "plan_codes": {
+    "OK": 8
+  },
+  "network": {
+    "upstream_sha": "d5e1e60f83cc991602f142d9b6b96204a24d6b9f",
+    "weights_sha256": "2d85e712c8874d11cd4e523777698eff78914fdb8f1ffb5068b037f8f972f62f",
+    "backend": "torch-cpu-fp32"
+  },
+  "sim_duration_s": 0.8,
+  "ticks": 80,
+  "frames": 8,
+  "plans": 8,
+  "bus": {
+    "drop": 0.0,
+    "duplicate": 0.0,
+    "delay_s": [
+      0.0,
+      0.0
+    ],
+    "reorder": 0.0,
+    "published": 8,
+    "dropped": 0,
+    "duplicated": 0,
+    "delivered": 8,
+    "reordered": 0,
+    "peer_deliveries": 0
+  },
+  "wall_time_s": 3.457030377991032,
+  "safe_radius_m": 0.05,
+  "upstream_deviation": false,
+  "empty_solution_count": 0
+}

@@ -6,6 +6,7 @@
 - `g2-pillar.json`：票 02 / M0，单机从 (0,0,1.5) 飞到 G2 目标 (5,0,1.5)，绕柱。`criteria.frozen=true`，只对 `@upstream` 开门：到达 10/10、碰撞 = 0、到达时间 ≤ 5.0 s。certified 对照仍只报数。几何仍是 `g2-scene.json`。套件里用 `@upstream`。
 - `open-area.json`：开阔区，无墙无柱，只有场景卡里的地面。
 - `open-3drone.json`：票 05。三机沿三条平行线飞向各自的 `goal_enu`（横向 5 m）。套件里用 `@hover`。判据未冻结（不在 M0–M4 冻结表里）。
+- `swap-3-open.json`：票 E-C2。三机在开阔区，起点均匀分布在半径 8.0 m、高度 1.5 m 的圆上，各自飞向直径对侧。只跑 seed 0。不进 `suite.txt`，`criteria.frozen=false`，不设 gates，只报数。卡上写明不复现 EGO-Swarm 论文表 I 的 20.3 m / 14.3 s（论文圆半径和速度上限未知）。速度和 `a_max` 用本仓库已有的点质量设定（goto 无 `speed_mps`，`a_max=6`）。结果见 `docs/research/ego-c2-swap3.md`。
 - `formation-hold.json`：票 06 / M1。三机按虚拟中心（直线 + 平滑左转 + 直线）和机体槽位保持队形。运动更新走轮转提案窗口和预留协议，每机只用本机批准的计划。`criteria.frozen=true`：到达 3/3、碰撞 = 0、相对槽位 p95 ≤ 0.05 m、最小机间距离 ≥ 1.50 m。
 - `formation-drop.json` / `formation-duplicate.json` / `formation-delay.json` / `formation-reorder.json`：票 06b。同一编队任务，分别打开总线上的丢包、重复、时延、乱序。错过同步出发的飞机沿本槽追赶。判据未冻结（冻结表只冻了零故障的 `formation-hold`）。
 - `formation-6-open.json`：票 11a / M4 开阔区。六机楔形，虚拟中心与三机卡相同。两架在前方（横向 ±1.5 m），中间两架后退 3 m（横向 ±3.5 m），最后两架再退 3 m（横向 ±5.5 m）。没有一架正跟在另一架的航迹上：正后方的槽位会穿过前机刹车分支的保持点，邻机占用把提案判成冲突，后机就一直悬停。这是场景几何的选择，不改 `formation.py`。seeds 0–4。`criteria.frozen=true`，只对进程内形态开门：每档到达率 1.000、碰撞 = 0、队形误差 p95 ≤ 0.10 m、最小机间距离 ≥ 2.50 m。ROS 2 形态仍只报数。进程内、零故障、seed 0 的墙钟低于 60 s，所以 `suite.txt` 里有这一条。故障档位在 `formation-6-tiers.json`（none / drop 5% / drop 20% / duplicate 10% / reorder+delay / combined）。
