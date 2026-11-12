@@ -1,11 +1,14 @@
-"""把一条 EGO-Swarm 教师记录转成单机学生的窗口张量。
+"""把一条 EGO-Swarm 教师记录转成学生的窗口张量。
 
 读 ``yopo-teacher-record/1``：``trajectory.npz`` 的位姿，``record.json`` 的成败，
-``scene.json`` 现算深度。不导入 ``scripts/teacher``，也不读广播 B 样条。
-邻机输入是 D4。多机记录直接拒绝，不把第 0 架切出来当单机。
+``scene.json`` 现算深度。不导入 ``scripts/teacher``。不把广播 B 样条系数喂进网络。
+
+多机记录按每一架自己的视点出窗口。邻机特征是同一拍世界系位置、速度变到机体系后，
+取最近 K 架的相对位置和相对速度，缺位补零加掩码。这和总线上能广播的量同类。
+本转换按记录里的同步里程计取值，按零时延、无丢包来假设，不模拟总线故障。
 
 深度按场景卡的视场角光线投射，空间尺寸用学生的 24×40，不是卡上的 96×160。
-噪声固定为 0。无回波写成两个通道的 0。
+噪声固定为 0。无回波写成两个通道的 0。邻机不画进深度，只走邻机通道。
 """
 
 from __future__ import annotations
@@ -24,31 +27,38 @@ from yopo_l0.student import (
     DEPTH_WIDTH,
     HORIZON_DT_S,
     HORIZON_STEPS,
+    NEIGHBOR_FEAT_DIM,
+    NEIGHBOR_K,
     STATE_DIM,
     StudentConfig,
+    pack_neighbor_features,
 )
 
 TEACHER_SCHEMA = "yopo-teacher-record/1"
-TENSOR_SCHEMA = "yopo-student-window/1"
+TENSOR_SCHEMA = "yopo-student-window/2"
 
 
 class DistillError(ValueError):
-    """记录缺字段、模式不对，或者机数不是 1。"""
+    """记录缺字段、模式不对，或者轨迹对不齐。"""
 
 
 @dataclass(frozen=True)
 class WindowBatch:
     depth: np.ndarray  # (N, 2, H, W) float32
     state: np.ndarray  # (N, 9) float32
-    position_body: np.ndarray  # (N, K, 3) float32
-    velocity_body: np.ndarray  # (N, K, 3) float32
-    yaw_rel: np.ndarray  # (N, K) float32
+    position_body: np.ndarray  # (N, Hzn, 3) float32
+    velocity_body: np.ndarray  # (N, Hzn, 3) float32
+    yaw_rel: np.ndarray  # (N, Hzn) float32
+    neighbor_rel: np.ndarray  # (N, K, 6) float32
+    neighbor_mask: np.ndarray  # (N, K) float32
     time_s: np.ndarray  # (N,) float64
     sample_index: np.ndarray  # (N,) int64
+    ego_index: np.ndarray  # (N,) int64
     scenario_id: str
     skipped: str | None
     horizon_dt_s: float
     max_range_m: float
+    n_neighbors: int
 
     @property
     def n(self) -> int:
@@ -65,32 +75,51 @@ class WindowBatch:
             "horizon_dt_s": self.horizon_dt_s,
             "depth_hw": [DEPTH_HEIGHT, DEPTH_WIDTH],
             "state_dim": STATE_DIM,
+            "n_neighbors": self.n_neighbors,
+            "neighbor_feat_dim": NEIGHBOR_FEAT_DIM,
             "max_range_m": self.max_range_m,
             "heads": ["position_body", "velocity_body", "yaw_rel"],
             "depth_note": (
                 "按场景卡视场角现算，分辨率是学生的 24×40，不是教师卡的 96×160。"
                 "通道 0 是深度/max_range，无回波为 0。通道 1 是有效掩码。"
-                "噪声固定为 0。"
+                "噪声固定为 0。邻机不画进深度。"
             ),
-            "state_note": "机体坐标系：速度 3、加速度 3、目标相对位置 3。不含邻机。",
-            "bsplines": "未读",
+            "state_note": "机体坐标系：速度 3、加速度 3、目标相对位置 3。",
+            "neighbor_note": (
+                "同一拍世界系位置、速度变到机体系：相对位置 3、相对速度 3。"
+                "按距离取最近 K 架，缺位补零，掩码 1 表示有邻机。"
+                "按同步里程计、零时延无丢包取值（假设）。不读 B 样条系数。"
+            ),
+            "bsplines": "未把系数写入张量",
         }
 
 
-def _empty(scenario_id: str, skipped: str, dt: float, max_range: float) -> WindowBatch:
+def _empty(
+    scenario_id: str,
+    skipped: str,
+    dt: float,
+    max_range: float,
+    *,
+    n_neighbors: int = NEIGHBOR_K,
+) -> WindowBatch:
     k = HORIZON_STEPS
+    nk = int(n_neighbors)
     return WindowBatch(
         depth=np.zeros((0, 2, DEPTH_HEIGHT, DEPTH_WIDTH), dtype=np.float32),
         state=np.zeros((0, STATE_DIM), dtype=np.float32),
         position_body=np.zeros((0, k, 3), dtype=np.float32),
         velocity_body=np.zeros((0, k, 3), dtype=np.float32),
         yaw_rel=np.zeros((0, k), dtype=np.float32),
+        neighbor_rel=np.zeros((0, nk, NEIGHBOR_FEAT_DIM), dtype=np.float32),
+        neighbor_mask=np.zeros((0, nk), dtype=np.float32),
         time_s=np.zeros((0,), dtype=np.float64),
         sample_index=np.zeros((0,), dtype=np.int64),
+        ego_index=np.zeros((0,), dtype=np.int64),
         scenario_id=scenario_id,
         skipped=skipped,
         horizon_dt_s=dt,
         max_range_m=max_range,
+        n_neighbors=nk,
     )
 
 
@@ -164,7 +193,7 @@ def convert_run(
     max_windows: int | None = None,
     cfg: StudentConfig | None = None,
 ) -> WindowBatch:
-    """成功的单机记录 → 窗口。``metrics.success`` 不是 true 时返回空批次，不渲染。"""
+    """成功记录 → 窗口。每一架都是一个视点。``metrics.success`` 不是 true 时返回空批次，不渲染。"""
     cfg = cfg or StudentConfig()
     if cfg.horizon_steps != HORIZON_STEPS or cfg.depth_height != DEPTH_HEIGHT or cfg.depth_width != DEPTH_WIDTH:
         raise DistillError("本票的转换只产出固定的 8 步、24×40 窗口。")
@@ -214,14 +243,12 @@ def convert_run(
     declared = scenario.get("n_drones")
     if declared is not None and int(declared) != n_drones:
         raise DistillError(f"scenario.n_drones={declared} 与轨迹机数 {n_drones} 不一致")
-    if n_drones != 1:
-        raise DistillError(
-            f"{scenario_id} 有 {n_drones} 架。本票只转换单机。邻机输入是 D4，不把第 0 架切出来。"
-        )
+    if n_drones < 1:
+        raise DistillError(f"{traj_path} 的机数是 {n_drones}")
     if time_s.size and np.any(np.diff(time_s) <= 0):
         raise DistillError(f"{traj_path} 的 time_s 不是严格递增")
     if metrics.get("success") is not True:
-        return _empty(scenario_id, "success_not_true", cfg.horizon_dt_s, 20.0)
+        return _empty(scenario_id, "success_not_true", cfg.horizon_dt_s, 20.0, n_neighbors=cfg.n_neighbors)
 
     scene_path = run_dir / "scene.json"
     if not scene_path.is_file():
@@ -234,65 +261,107 @@ def convert_run(
     camera = DepthCamera(camera_cfg, card.obstacles, np.random.default_rng(0))
     horizon = cfg.horizon_s
     if time_s.size == 0 or float(time_s[-1] - time_s[0]) + 1e-9 < horizon:
-        return _empty(scenario_id, "horizon_longer_than_record", cfg.horizon_dt_s, camera_cfg.max_range_m)
+        return _empty(
+            scenario_id, "horizon_longer_than_record", cfg.horizon_dt_s, camera_cfg.max_range_m,
+            n_neighbors=cfg.n_neighbors,
+        )
     valid = np.flatnonzero(time_s + horizon <= float(time_s[-1]) + 1e-9)
     if valid.size == 0:
-        return _empty(scenario_id, "horizon_longer_than_record", cfg.horizon_dt_s, camera_cfg.max_range_m)
-    chosen = valid[_pick(int(valid.size), max_windows)]
+        return _empty(
+            scenario_id, "horizon_longer_than_record", cfg.horizon_dt_s, camera_cfg.max_range_m,
+            n_neighbors=cfg.n_neighbors,
+        )
+    pairs = np.array([(int(i), d) for i in valid for d in range(n_drones)], dtype=np.int64)
+    chosen = pairs[_pick(int(pairs.shape[0]), max_windows)]
 
-    yaw_i = yaw[:, 0]
-    if yaw_i.size >= 2 and float(np.max(np.abs(np.diff(yaw_i)))) > np.pi:
-        # 相邻样本的原始差超过 π 时，线性插值会抄近路的反方向。包装后的角差看不出来。
-        raise DistillError(f"{traj_path} 的偏航在相邻样本之间跳了超过 π，本票的线性插值不能用")
+    for d in range(n_drones):
+        yaw_d = yaw[:, d]
+        if yaw_d.size >= 2 and float(np.max(np.abs(np.diff(yaw_d)))) > np.pi:
+            # 相邻样本的原始差超过 π 时，线性插值会抄近路的反方向。包装后的角差看不出来。
+            raise DistillError(
+                f"{traj_path} 第 {d} 架的偏航在相邻样本之间跳了超过 π，本票的线性插值不能用"
+            )
 
     depths = []
     states = []
     positions = []
     velocities = []
     yaws = []
+    neighbors = []
+    neighbor_masks = []
     times = []
+    sample_ids = []
+    ego_ids = []
     dt = float(cfg.horizon_dt_s)
     k = int(cfg.horizon_steps)
-    goal0 = goal[0]
-    for index in chosen:
-        i = int(index)
+    n_k = int(cfg.n_neighbors)
+    for pair in chosen:
+        i = int(pair[0])
+        d = int(pair[1])
         t_i = float(time_s[i])
-        yaw0 = float(yaw_i[i])
+        yaw0 = float(yaw[i, d])
         rot = R_yaw(yaw0)
         world_to_body = rot.T
-        p0 = position[i, 0]
+        p0 = position[i, d]
         state = np.concatenate(
             [
-                world_to_body @ velocity[i, 0],
-                world_to_body @ acceleration[i, 0],
-                world_to_body @ (goal0 - p0),
+                world_to_body @ velocity[i, d],
+                world_to_body @ acceleration[i, d],
+                world_to_body @ (goal[d] - p0),
             ]
         )
         knots = t_i + dt * np.arange(1, k + 1, dtype=np.float64)
-        p_w = _interp_rows(time_s, position[:, 0, :], knots)
-        v_w = _interp_rows(time_s, velocity[:, 0, :], knots)
-        y_w = _interp_rows(time_s, yaw_i, knots)
+        p_w = _interp_rows(time_s, position[:, d, :], knots)
+        v_w = _interp_rows(time_s, velocity[:, d, :], knots)
+        y_w = _interp_rows(time_s, yaw[:, d], knots)
         p_b = (world_to_body @ (p_w - p0).T).T
         v_b = (world_to_body @ v_w.T).T
+        others = [j for j in range(n_drones) if j != d]
+        if others:
+            feat, mask = pack_neighbor_features(
+                p0,
+                velocity[i, d],
+                yaw0,
+                position[i, others, :],
+                velocity[i, others, :],
+                k=n_k,
+            )
+        else:
+            feat, mask = pack_neighbor_features(
+                p0,
+                velocity[i, d],
+                yaw0,
+                np.zeros((0, 3)),
+                np.zeros((0, 3)),
+                k=n_k,
+            )
         frame = camera.capture(p0, yaw0, t_i)
         depths.append(pack_depth(frame.depth, camera_cfg.max_range_m))
         states.append(state.astype(np.float32))
         positions.append(p_b.astype(np.float32))
         velocities.append(v_b.astype(np.float32))
         yaws.append(wrap_angle(y_w - yaw0).astype(np.float32))
+        neighbors.append(feat)
+        neighbor_masks.append(mask)
         times.append(t_i)
+        sample_ids.append(i)
+        ego_ids.append(d)
     return WindowBatch(
         depth=np.stack(depths).astype(np.float32),
         state=np.stack(states).astype(np.float32),
         position_body=np.stack(positions).astype(np.float32),
         velocity_body=np.stack(velocities).astype(np.float32),
         yaw_rel=np.stack(yaws).astype(np.float32),
+        neighbor_rel=np.stack(neighbors).astype(np.float32),
+        neighbor_mask=np.stack(neighbor_masks).astype(np.float32),
         time_s=np.asarray(times, dtype=np.float64),
-        sample_index=chosen.astype(np.int64),
+        sample_index=np.asarray(sample_ids, dtype=np.int64),
+        ego_index=np.asarray(ego_ids, dtype=np.int64),
         scenario_id=scenario_id,
         skipped=None,
         horizon_dt_s=dt,
         max_range_m=float(camera_cfg.max_range_m),
+        n_neighbors=n_k,
     )
 
 
@@ -306,8 +375,11 @@ def save_batch(batch: WindowBatch, path: Path | str) -> Path:
         position_body=batch.position_body,
         velocity_body=batch.velocity_body,
         yaw_rel=batch.yaw_rel,
+        neighbor_rel=batch.neighbor_rel,
+        neighbor_mask=batch.neighbor_mask,
         time_s=batch.time_s,
         sample_index=batch.sample_index,
+        ego_index=batch.ego_index,
         meta=np.asarray(json.dumps(batch.meta(), ensure_ascii=False)),
     )
     return path
@@ -325,10 +397,14 @@ def load_batch(path: Path | str) -> WindowBatch:
             position_body=np.asarray(npz["position_body"], dtype=np.float32),
             velocity_body=np.asarray(npz["velocity_body"], dtype=np.float32),
             yaw_rel=np.asarray(npz["yaw_rel"], dtype=np.float32),
+            neighbor_rel=np.asarray(npz["neighbor_rel"], dtype=np.float32),
+            neighbor_mask=np.asarray(npz["neighbor_mask"], dtype=np.float32),
             time_s=np.asarray(npz["time_s"], dtype=np.float64),
             sample_index=np.asarray(npz["sample_index"], dtype=np.int64),
+            ego_index=np.asarray(npz["ego_index"], dtype=np.int64),
             scenario_id=str(meta.get("scenario_id") or ""),
             skipped=meta.get("skipped"),
             horizon_dt_s=float(meta["horizon_dt_s"]),
             max_range_m=float(meta["max_range_m"]),
+            n_neighbors=int(meta.get("n_neighbors", NEIGHBOR_K)),
         )

@@ -1,8 +1,11 @@
-"""单机多头连续轨迹学生。默认关。飞行环不导入本模块。
+"""多头连续轨迹学生。默认关。飞行环不导入本模块。
 
 YOPO 在离散候选格子上输出末端参数、分数和走廊，飞行时对过走廊的分数做 argmax。
 这里没有格子，也没有分数头。共享干路后面三个头回归同一条连续曲线在固定时刻上的
 位置、速度和相对偏航，监督来自 EGO-Swarm 教师轨迹。
+
+邻机特征是最近 K 架在机体系的相对位置和相对速度。缺位补零，并带存在掩码。
+K 默认 3。特征来源是位置和速度，和总线上能广播的量同类，不是 B 样条系数。
 
 ``StudentConfig.enabled`` 默认 False。``predict`` 在关着的时候直接返回 None，不跑网络。
 打开只发生在显式构造 ``StudentConfig(enabled=True)`` 或 ``predict(..., enabled=True)`` 的地方。
@@ -24,6 +27,8 @@ HORIZON_STEPS = 8
 HORIZON_DT_S = 0.2
 DEPTH_HEIGHT = 24
 DEPTH_WIDTH = 40
+NEIGHBOR_K = 3
+NEIGHBOR_FEAT_DIM = 6
 
 
 @dataclass(frozen=True)
@@ -36,10 +41,61 @@ class StudentConfig:
     horizon_steps: int = HORIZON_STEPS
     horizon_dt_s: float = HORIZON_DT_S
     state_dim: int = STATE_DIM
+    n_neighbors: int = NEIGHBOR_K
+
+    def __post_init__(self) -> None:
+        if int(self.n_neighbors) < 1:
+            raise ValueError(f"n_neighbors 至少为 1，收到 {self.n_neighbors}")
 
     @property
     def horizon_s(self) -> float:
         return float(self.horizon_steps) * float(self.horizon_dt_s)
+
+
+def pack_neighbor_features(
+    ego_p,
+    ego_v,
+    ego_yaw: float,
+    neighbor_p,
+    neighbor_v,
+    *,
+    k: int = NEIGHBOR_K,
+):
+    """最近 K 架邻机的机体系相对位置、相对速度。缺位补零，掩码 1 表示有邻机。
+
+    输入是世界系位置和速度，和 ``yopo_l0.bus`` 上能广播的量同类，不是 B 样条系数。
+    相对位置是 ``R_yaw(yaw).T @ (p_j - p_i)``，相对速度是 ``R_yaw(yaw).T @ (v_j - v_i)``。
+    按相对位置的欧氏距离升序取最近 k 架；距离相同按下标升序。
+    """
+    from yopo_l0.policy import R_yaw
+
+    if int(k) < 1:
+        raise ValueError(f"k 至少为 1，收到 {k}")
+    feat = np.zeros((int(k), NEIGHBOR_FEAT_DIM), dtype=np.float32)
+    mask = np.zeros((int(k),), dtype=np.float32)
+    neighbor_p = np.asarray(neighbor_p, dtype=np.float64)
+    neighbor_v = np.asarray(neighbor_v, dtype=np.float64)
+    if neighbor_p.size == 0:
+        return feat, mask
+    if neighbor_p.ndim == 1:
+        neighbor_p = neighbor_p.reshape(1, 3)
+        neighbor_v = neighbor_v.reshape(1, 3)
+    if neighbor_p.ndim != 2 or neighbor_p.shape[1] != 3:
+        raise ValueError(f"neighbor_p 应为 (M, 3)，收到 {neighbor_p.shape}")
+    if neighbor_v.shape != neighbor_p.shape:
+        raise ValueError(f"neighbor_v 形状应与 neighbor_p 相同，收到 {neighbor_v.shape}")
+    world_to_body = R_yaw(float(ego_yaw)).T
+    ego_p = np.asarray(ego_p, dtype=np.float64).reshape(3)
+    ego_v = np.asarray(ego_v, dtype=np.float64).reshape(3)
+    rel_p = (world_to_body @ (neighbor_p - ego_p).T).T
+    rel_v = (world_to_body @ (neighbor_v - ego_v).T).T
+    dist = np.linalg.norm(rel_p, axis=1)
+    order = np.lexsort((np.arange(rel_p.shape[0]), dist))
+    for slot, j in enumerate(order[: min(int(k), rel_p.shape[0])]):
+        feat[slot, 0:3] = rel_p[j]
+        feat[slot, 3:6] = rel_v[j]
+        mask[slot] = 1.0
+    return feat, mask
 
 
 @dataclass(frozen=True)
@@ -89,8 +145,8 @@ class MultiHeadStudent:
             self._net = _StudentNet(self.cfg)
         return self._net
 
-    def forward(self, depth, state):
-        """depth (B, 2, H, W)，state (B, 9)。关着时拒绝，不计算。"""
+    def forward(self, depth, state, neighbors=None, neighbor_mask=None):
+        """depth (B, 2, H, W)，state (B, 9)，邻机 (B, K, 6) 和掩码 (B, K)。关着时拒绝，不计算。"""
         if not self.cfg.enabled:
             raise RuntimeError(
                 "学生默认关。前向要 StudentConfig(enabled=True)。飞行环不调用这里。"
@@ -99,7 +155,8 @@ class MultiHeadStudent:
         net = self._module()
         depth_t = depth if isinstance(depth, torch.Tensor) else torch.as_tensor(depth)
         state_t = state if isinstance(state, torch.Tensor) else torch.as_tensor(state)
-        return net(depth_t, state_t)
+        neigh_t, mask_t = _neighbor_tensors(neighbors, neighbor_mask, depth_t.shape[0], self.cfg, torch)
+        return net(depth_t, state_t, neigh_t, mask_t)
 
 
 def _as_batched(depth: np.ndarray, state: np.ndarray, cfg: StudentConfig):
@@ -120,11 +177,64 @@ def _as_batched(depth: np.ndarray, state: np.ndarray, cfg: StudentConfig):
     return depth, state
 
 
-def predict(model: MultiHeadStudent | None, depth, state, *, enabled: bool | None = None) -> ContinuousTrajectory | None:
+def _as_neighbors(neighbors, neighbor_mask, batch: int, cfg: StudentConfig):
+    k = int(cfg.n_neighbors)
+    if neighbors is None and neighbor_mask is None:
+        return (
+            np.zeros((batch, k, NEIGHBOR_FEAT_DIM), dtype=np.float32),
+            np.zeros((batch, k), dtype=np.float32),
+        )
+    if neighbors is None or neighbor_mask is None:
+        raise ValueError("neighbors 和 neighbor_mask 必须成对提供，或者都省略（按缺位补零）")
+    neighbors = np.asarray(neighbors, dtype=np.float32)
+    neighbor_mask = np.asarray(neighbor_mask, dtype=np.float32)
+    if neighbors.ndim == 2:
+        neighbors = neighbors[None]
+    if neighbor_mask.ndim == 1:
+        neighbor_mask = neighbor_mask[None]
+    if neighbors.shape != (batch, k, NEIGHBOR_FEAT_DIM):
+        raise ValueError(f"neighbors 应为 {(batch, k, NEIGHBOR_FEAT_DIM)}，收到 {neighbors.shape}")
+    if neighbor_mask.shape != (batch, k):
+        raise ValueError(f"neighbor_mask 应为 {(batch, k)}，收到 {neighbor_mask.shape}")
+    return neighbors, neighbor_mask
+
+
+def _neighbor_tensors(neighbors, neighbor_mask, batch: int, cfg: StudentConfig, torch):
+    if neighbors is None and neighbor_mask is None:
+        return (
+            torch.zeros(batch, cfg.n_neighbors, NEIGHBOR_FEAT_DIM, dtype=torch.float32),
+            torch.zeros(batch, cfg.n_neighbors, dtype=torch.float32),
+        )
+    if neighbors is None or neighbor_mask is None:
+        raise ValueError("neighbors 和 neighbor_mask 必须成对提供，或者都省略（按缺位补零）")
+    neigh_t = neighbors if isinstance(neighbors, torch.Tensor) else torch.as_tensor(neighbors)
+    mask_t = neighbor_mask if isinstance(neighbor_mask, torch.Tensor) else torch.as_tensor(neighbor_mask)
+    if neigh_t.ndim == 2:
+        neigh_t = neigh_t[None]
+    if mask_t.ndim == 1:
+        mask_t = mask_t[None]
+    k = int(cfg.n_neighbors)
+    if tuple(neigh_t.shape) != (batch, k, NEIGHBOR_FEAT_DIM):
+        raise ValueError(f"neighbors 应为 {(batch, k, NEIGHBOR_FEAT_DIM)}，收到 {tuple(neigh_t.shape)}")
+    if tuple(mask_t.shape) != (batch, k):
+        raise ValueError(f"neighbor_mask 应为 {(batch, k)}，收到 {tuple(mask_t.shape)}")
+    return neigh_t, mask_t
+
+
+def predict(
+    model: MultiHeadStudent | None,
+    depth,
+    state,
+    neighbors=None,
+    neighbor_mask=None,
+    *,
+    enabled: bool | None = None,
+) -> ContinuousTrajectory | None:
     """推理入口。默认关：返回 None，不建网络。
 
     ``enabled`` 为 None 时用模型配置。模型是 None 且没有显式打开时也是关。
     ``enabled=False`` 即使模型配置打开也直接返回。
+    关着的时候不检查邻机形状。
     """
     if enabled is None:
         flag = False if model is None else bool(model.cfg.enabled)
@@ -139,12 +249,15 @@ def predict(model: MultiHeadStudent | None, depth, state, *, enabled: bool | Non
         return None
     torch = _torch()
     depth_b, state_b = _as_batched(depth, state, model.cfg)
+    neigh_b, mask_b = _as_neighbors(neighbors, neighbor_mask, depth_b.shape[0], model.cfg)
     net = model._module()
     net.eval()
     with torch.no_grad():
         pos, vel, yaw = net(
             torch.from_numpy(depth_b),
             torch.from_numpy(state_b),
+            torch.from_numpy(neigh_b),
+            torch.from_numpy(mask_b),
         )
     return ContinuousTrajectory(
         position_body=pos.numpy().copy(),
@@ -169,6 +282,8 @@ def train_smoke(
     position: np.ndarray,
     velocity: np.ndarray,
     yaw: np.ndarray,
+    neighbors: np.ndarray | None = None,
+    neighbor_mask: np.ndarray | None = None,
     *,
     enabled: bool = False,
     steps: int = 200,
@@ -199,11 +314,14 @@ def train_smoke(
     if yaw_b.shape != (depth_b.shape[0], cfg.horizon_steps):
         raise ValueError(f"yaw 应为 {(depth_b.shape[0], cfg.horizon_steps)}，收到 {yaw_b.shape}")
 
+    neigh_b, mask_b = _as_neighbors(neighbors, neighbor_mask, depth_b.shape[0], cfg)
     model = MultiHeadStudent(cfg)
     net = model._module()
     opt = torch.optim.Adam(net.parameters(), lr=float(lr))
     depth_t = torch.from_numpy(depth_b)
     state_t = torch.from_numpy(state_b)
+    neigh_t = torch.from_numpy(neigh_b)
+    mask_t = torch.from_numpy(mask_b)
     pos_t = torch.from_numpy(pos_b)
     vel_t = torch.from_numpy(vel_b)
     yaw_t = torch.from_numpy(yaw_b)
@@ -211,7 +329,7 @@ def train_smoke(
     def _eval():
         net.eval()
         with torch.no_grad():
-            ph, vh, yh = net(depth_t, state_t)
+            ph, vh, yh = net(depth_t, state_t, neigh_t, mask_t)
             total, pos, vel, yaw_l = trajectory_loss(pos_t, vel_t, yaw_t, ph, vh, yh)
         return float(total), float(pos), float(vel), float(yaw_l)
 
@@ -219,7 +337,7 @@ def train_smoke(
     for _ in range(int(steps)):
         net.train()
         opt.zero_grad(set_to_none=True)
-        ph, vh, yh = net(depth_t, state_t)
+        ph, vh, yh = net(depth_t, state_t, neigh_t, mask_t)
         total, _, _, _ = trajectory_loss(pos_t, vel_t, yaw_t, ph, vh, yh)
         total.backward()
         opt.step()
@@ -262,8 +380,14 @@ class _StudentNet:
                     torch.nn.Linear(64, 64),
                     torch.nn.ReLU(inplace=True),
                 )
+                self.neighbor_fc = torch.nn.Sequential(
+                    torch.nn.Linear(NEIGHBOR_FEAT_DIM, 32),
+                    torch.nn.ReLU(inplace=True),
+                    torch.nn.Linear(32, 64),
+                    torch.nn.ReLU(inplace=True),
+                )
                 self.fuse = torch.nn.Sequential(
-                    torch.nn.Linear(128, 128),
+                    torch.nn.Linear(192, 128),
                     torch.nn.ReLU(inplace=True),
                 )
                 k = cfg.horizon_steps
@@ -271,12 +395,16 @@ class _StudentNet:
                 self.velocity_head = torch.nn.Linear(128, k * 3)
                 self.yaw_head = torch.nn.Linear(128, k)
 
-            def forward(self, depth, state):
+            def forward(self, depth, state, neighbors, neighbor_mask):
                 x = self.conv(depth)
                 x = self.depth_fc(torch.flatten(x, 1))
                 s = self.state_fc(state)
-                h = self.fuse(torch.cat([x, s], dim=1))
                 b = depth.shape[0]
+                k_nb = self.cfg.n_neighbors
+                n = self.neighbor_fc(neighbors.reshape(b * k_nb, NEIGHBOR_FEAT_DIM))
+                n = n.reshape(b, k_nb, 64) * neighbor_mask.reshape(b, k_nb, 1)
+                n = n.sum(dim=1)
+                h = self.fuse(torch.cat([x, s, n], dim=1))
                 k = self.cfg.horizon_steps
                 return (
                     self.position_head(h).reshape(b, k, 3),

@@ -91,10 +91,11 @@ def _write_run(
             "ground_z": 0.0,
             "drones": [
                 {
-                    "id": "uav0",
-                    "start_enu": [0.0, 0.0, 1.0],
-                    "goal_enu": [float(goal[0]), float(goal[1]), float(goal[2])],
+                    "id": f"uav{i}",
+                    "start_enu": [0.0, 3.0 if i == 1 else 0.0, 1.0],
+                    "goal_enu": [float(goals[i, 0]), float(goals[i, 1]), float(goals[i, 2])],
                 }
+                for i in range(n_drones)
             ],
             "task": {"type": "goto", "duration_s": 5.0},
             "criteria": {"frozen": False, "body_radius_m": 0.2},
@@ -184,6 +185,11 @@ def test_straight_flight_maps_into_the_body_frame(tmp_path):
     np.testing.assert_allclose(batch.position_body[0, 0], [0.4, 0.0, 0.0], atol=1e-5)
     np.testing.assert_allclose(batch.velocity_body[0, 0], [2.0, 0.0, 0.0], atol=1e-5)
     np.testing.assert_allclose(batch.yaw_rel[0], 0.0, atol=1e-5)
+    assert batch.neighbor_rel.shape == (1, 3, 6)
+    assert batch.neighbor_mask.shape == (1, 3)
+    np.testing.assert_array_equal(batch.neighbor_mask, 0)
+    np.testing.assert_array_equal(batch.neighbor_rel, 0)
+    np.testing.assert_array_equal(batch.ego_index, [0])
     # 卡上写了 0.02 的噪声。转换强制为 0，同一姿态两次深度相同，空场景没有回波。
     again = convert_run(run, max_windows=1)
     np.testing.assert_array_equal(batch.depth, again.depth)
@@ -211,11 +217,17 @@ def test_failed_record_yields_no_windows(tmp_path):
     assert convert_run(unknown).skipped == "success_not_true"
 
 
-def test_multi_drone_record_is_rejected(tmp_path):
+def test_multi_drone_record_is_no_longer_rejected_here(tmp_path):
+    # 形状和最近邻选择在 tests/test_d4_neighbour.py。这里只钉住：成功的双机记录能出窗口。
     run = tmp_path / "two"
-    _write_run(run, n_drones=2, with_scene=False)
-    with pytest.raises(DistillError, match="单机"):
-        convert_run(run)
+    _write_run(run, n_drones=2)
+    batch = convert_run(run)
+    assert batch.n > 0
+    assert set(batch.ego_index.tolist()) == {0, 1}
+    assert batch.neighbor_mask.shape[1] == 3
+    # 每个视点恰好一架邻机，另外两个槽位是缺位。
+    np.testing.assert_array_equal(batch.neighbor_mask[:, 0], 1)
+    np.testing.assert_array_equal(batch.neighbor_mask[:, 1:], 0)
 
 
 def test_wrong_schema_is_rejected(tmp_path):
@@ -239,6 +251,8 @@ def test_fixture_is_one_successful_single_drone_sample():
     assert batch.depth.shape == (4, 2, 24, 40)
     assert batch.state.shape == (4, 9)
     assert batch.position_body.shape == (4, 8, 3)
+    assert batch.neighbor_rel.shape == (4, 3, 6)
+    np.testing.assert_array_equal(batch.neighbor_mask, 0)
     # 高度 1 m，相机会看到地面或圆柱。四个窗口里应有回波。
     assert float(batch.depth[:, 1].sum()) > 0.0
 
@@ -253,6 +267,9 @@ def test_batch_roundtrip(tmp_path):
     np.testing.assert_allclose(loaded.position_body, batch.position_body)
     np.testing.assert_allclose(loaded.depth, batch.depth)
     np.testing.assert_allclose(loaded.state, batch.state)
+    np.testing.assert_allclose(loaded.neighbor_rel, batch.neighbor_rel)
+    np.testing.assert_allclose(loaded.neighbor_mask, batch.neighbor_mask)
+    np.testing.assert_array_equal(loaded.ego_index, batch.ego_index)
 
 
 def test_convert_cli_on_the_fixture(tmp_path):
