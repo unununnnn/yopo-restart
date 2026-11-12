@@ -13,6 +13,7 @@ MAVLink 端口（SITL 实例 0：UDP 18570）每秒发一个 GCS HEARTBEAT（只
 from __future__ import annotations
 
 import argparse
+import os
 import dataclasses
 import json
 import math
@@ -80,6 +81,9 @@ class Metrics:
     hover_alt_err_truth_rms_m: float | None = None
     hover_alt_err_truth_max_m: float | None = None
     goto_err_truth_m: float | None = None
+    hover_est_truth_alt_bias_mean_m: float | None = None
+    hover_est_truth_alt_bias_rms_m: float | None = None
+    hover_est_truth_alt_bias_max_m: float | None = None
     land_s: float | None = None
     landed_and_disarmed: bool = False
     phase_reached: str = "WARMUP"
@@ -91,6 +95,7 @@ class Mission:
 
     误差两套口径：*_m 相对 PX4 自己的估计（VehicleOdometry，飞控实际跟踪的量）；
     *_truth_* 相对 Gazebo 真值（起飞前真值位置 + 指令偏移），含估计器误差。
+    hover_est_truth_alt_bias_* 是悬停段估计高度减真值高度（同一世界系，不经各自 home）。
     """
 
     def __init__(self, cfg: MissionConfig | None = None):
@@ -107,6 +112,7 @@ class Mission:
         self.hover_alt_err: list[float] = []
         self.hover_horiz: list[float] = []
         self.hover_truth: list[float] = []
+        self.hover_est_truth_dz: list[float] = []
         self.goto_err: list[float] = []
         self.goto_truth: list[float] = []
         self.truth_home: np.ndarray | None = None
@@ -198,6 +204,8 @@ class Mission:
             self.hover_horiz.append(float(np.linalg.norm(s.position[:2] - self.hover_sp[:2])))
             if s.truth is not None and self.truth_home is not None:
                 self.hover_truth.append(float(s.truth[2] - (self.truth_home[2] + c.takeoff_alt_m)))
+            if s.truth is not None:
+                self.hover_est_truth_dz.append(float(s.position[2] - s.truth[2]))
             if dt >= c.hover_s:
                 a = np.asarray(self.hover_alt_err)
                 self.metrics.hover_alt_err_rms_m = float(np.sqrt(np.mean(a * a)))
@@ -208,6 +216,11 @@ class Mission:
                     b = np.asarray(self.hover_truth)
                     self.metrics.hover_alt_err_truth_rms_m = float(np.sqrt(np.mean(b * b)))
                     self.metrics.hover_alt_err_truth_max_m = float(np.max(np.abs(b)))
+                if self.hover_est_truth_dz:
+                    d = np.asarray(self.hover_est_truth_dz)
+                    self.metrics.hover_est_truth_alt_bias_mean_m = float(np.mean(d))
+                    self.metrics.hover_est_truth_alt_bias_rms_m = float(np.sqrt(np.mean(d * d)))
+                    self.metrics.hover_est_truth_alt_bias_max_m = float(np.max(np.abs(d)))
                 self._enter("GOTO", s.t)
                 return Action(self._pva(self.goal_sp), self.yaw_enu)
             return Action(self._pva(self.hover_sp), self.yaw_enu)
@@ -414,6 +427,7 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - 需要 rcl
     out = {
         "schema": "yopo-restart/s1-sitl-smoke/1",
         "report_only": True,
+        "positioning": os.environ.get("YOPO_POSITIONING", "default"),
         "ok": mission.phase == "DONE",
         "phase": mission.phase,
         "config": dataclasses.asdict(mission.cfg),

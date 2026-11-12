@@ -1,0 +1,156 @@
+--- a/src/modules/simulation/gz_bridge/parameters.c
++++ b/src/modules/simulation/gz_bridge/parameters.c
+@@ -105,3 +105,72 @@
+  * @value 1 Enabled
+  */
+ PARAM_DEFINE_INT32(SIM_GZ_EN_GPS, 1);
++
++/**
++ * Simulated GPS fix type published by the Gazebo bridge
++ *
++ * 3 = 3D fix (default, metre-level). 6 = RTK fixed.
++ * Other values follow SensorGps.msg (0/1 none, 2 2D, 4 RTCM, 5 RTK float).
++ *
++ * @min 0
++ * @max 8
++ * @group Simulation
++ * @value 0 No fix
++ * @value 3 3D fix
++ * @value 5 RTK float
++ * @value 6 RTK fixed
++ */
++PARAM_DEFINE_INT32(SIM_GZ_GPS_FIX, 3);
++
++/**
++ * Simulated GPS horizontal accuracy (eph) published by the Gazebo bridge
++ *
++ * EKF2 uses max(eph, EKF2_GPS_P_NOISE) as horizontal position measurement noise.
++ *
++ * @min 0.01
++ * @max 100
++ * @decimal 2
++ * @unit m
++ * @group Simulation
++ */
++PARAM_DEFINE_FLOAT(SIM_GZ_GPS_EPH, 0.9f);
++
++/**
++ * Simulated GPS vertical accuracy (epv) published by the Gazebo bridge
++ *
++ * EKF2 uses max(epv, 1.5 * EKF2_GPS_P_NOISE) as vertical measurement noise.
++ *
++ * @min 0.01
++ * @max 100
++ * @decimal 2
++ * @unit m
++ * @group Simulation
++ */
++PARAM_DEFINE_FLOAT(SIM_GZ_GPS_EPV, 1.78f);
++
++/**
++ * Gazebo bridge GPS position noise amplitude (addGpsNoise)
++ *
++ * Default 0.8 m matches the ublox F9P standalone model hardcoded in PX4 v1.17.0.
++ * RTK-class: about 0.02 m.
++ *
++ * @min 0.0
++ * @max 10
++ * @decimal 3
++ * @unit m
++ * @group Simulation
++ */
++PARAM_DEFINE_FLOAT(SIM_GZ_GPS_NAMP, 0.8f);
++
++/**
++ * Gazebo bridge GPS velocity noise amplitude (addGpsNoise)
++ *
++ * Default 0.05 m/s matches PX4 v1.17.0. RTK-class: about 0.01 m/s.
++ *
++ * @min 0.0
++ * @max 5
++ * @decimal 3
++ * @unit m/s
++ * @group Simulation
++ */
++PARAM_DEFINE_FLOAT(SIM_GZ_GPS_VAMP, 0.05f);
+--- a/src/modules/simulation/gz_bridge/GZBridge.hpp
++++ b/src/modules/simulation/gz_bridge/GZBridge.hpp
+@@ -186,10 +186,8 @@
+ 	float _gps_vel_noise_n = 0.0f;
+ 	float _gps_vel_noise_e = 0.0f;
+ 	float _gps_vel_noise_d = 0.0f;
+-	const float _pos_noise_amplitude = 0.8f;    // Position noise amplitude [m]
+ 	const float _pos_random_walk = 0.01f;       // Position random walk coefficient
+ 	const float _pos_markov_time = 0.95f;       // Position Markov process coefficient
+-	const float _vel_noise_amplitude = 0.05f;   // Velocity noise amplitude [m/s]
+ 	const float _vel_noise_density = 0.2f;      // Velocity noise process density
+ 	const float _vel_markov_time = 0.85f;       // Velocity Markov process coefficient
+ 
+@@ -200,6 +198,11 @@
+ 		(ParamInt<px4::params::SIM_GZ_EN_ASPD>) _sim_gz_en_aspd,
+ 		(ParamInt<px4::params::SIM_GZ_EN_BARO>) _sim_gz_en_baro,
+ 		(ParamInt<px4::params::SIM_GZ_EN_ODOM>) _sim_gz_en_odom,
+-		(ParamInt<px4::params::SIM_GZ_EN_GPS>) _sim_gz_en_gps
++		(ParamInt<px4::params::SIM_GZ_EN_GPS>) _sim_gz_en_gps,
++		(ParamInt<px4::params::SIM_GZ_GPS_FIX>) _sim_gz_gps_fix,
++		(ParamFloat<px4::params::SIM_GZ_GPS_EPH>) _sim_gz_gps_eph,
++		(ParamFloat<px4::params::SIM_GZ_GPS_EPV>) _sim_gz_gps_epv,
++		(ParamFloat<px4::params::SIM_GZ_GPS_NAMP>) _sim_gz_gps_namp,
++		(ParamFloat<px4::params::SIM_GZ_GPS_VAMP>) _sim_gz_gps_vamp
+ 	)
+ };
+--- a/src/modules/simulation/gz_bridge/GZBridge.cpp
++++ b/src/modules/simulation/gz_bridge/GZBridge.cpp
+@@ -681,15 +681,15 @@
+ 			   float &vel_north, float &vel_east, float &vel_down)
+ {
+ 	_gps_pos_noise_n = _pos_markov_time * _gps_pos_noise_n +
+-			   _pos_random_walk * generate_wgn() * _pos_noise_amplitude -
++			   _pos_random_walk * generate_wgn() * _sim_gz_gps_namp.get() -
+ 			   0.02f * _gps_pos_noise_n;
+ 
+ 	_gps_pos_noise_e = _pos_markov_time * _gps_pos_noise_e +
+-			   _pos_random_walk * generate_wgn() * _pos_noise_amplitude -
++			   _pos_random_walk * generate_wgn() * _sim_gz_gps_namp.get() -
+ 			   0.02f * _gps_pos_noise_e;
+ 
+ 	_gps_pos_noise_d = _pos_markov_time * _gps_pos_noise_d +
+-			   _pos_random_walk * generate_wgn() * _pos_noise_amplitude * 1.5f -
++			   _pos_random_walk * generate_wgn() * _sim_gz_gps_namp.get() * 1.5f -
+ 			   0.02f * _gps_pos_noise_d;
+ 
+ 	latitude += math::degrees((double)_gps_pos_noise_n / CONSTANTS_RADIUS_OF_EARTH);
+@@ -697,13 +697,13 @@
+ 	altitude += (double)_gps_pos_noise_d;
+ 
+ 	_gps_vel_noise_n = _vel_markov_time * _gps_vel_noise_n +
+-			   _vel_noise_density * generate_wgn() * _vel_noise_amplitude;
++			   _vel_noise_density * generate_wgn() * _sim_gz_gps_vamp.get();
+ 
+ 	_gps_vel_noise_e = _vel_markov_time * _gps_vel_noise_e +
+-			   _vel_noise_density * generate_wgn() * _vel_noise_amplitude;
++			   _vel_noise_density * generate_wgn() * _sim_gz_gps_vamp.get();
+ 
+ 	_gps_vel_noise_d = _vel_markov_time * _gps_vel_noise_d +
+-			   _vel_noise_density * generate_wgn() * _vel_noise_amplitude * 1.2f;
++			   _vel_noise_density * generate_wgn() * _sim_gz_gps_vamp.get() * 1.2f;
+ 
+ 	vel_north += _gps_vel_noise_n;
+ 	vel_east += _gps_vel_noise_e;
+@@ -751,12 +751,12 @@
+ 	sensor_gps_s sensor_gps{};
+ 
+ 	if (_sim_gps_used.get() >= 4) {
+-		// fix
+-		sensor_gps.fix_type = 3; // 3D fix
++		// fix (defaults: 3D, eph 0.9 m, epv 1.78 m — same as v1.17.0 literals)
++		sensor_gps.fix_type = static_cast<uint8_t>(_sim_gz_gps_fix.get());
+ 		sensor_gps.s_variance_m_s = 0.4f;
+ 		sensor_gps.c_variance_rad = 0.1f;
+-		sensor_gps.eph = 0.9f;
+-		sensor_gps.epv = 1.78f;
++		sensor_gps.eph = _sim_gz_gps_eph.get();
++		sensor_gps.epv = _sim_gz_gps_epv.get();
+ 		sensor_gps.hdop = 0.7f;
+ 		sensor_gps.vdop = 1.1f;
+ 

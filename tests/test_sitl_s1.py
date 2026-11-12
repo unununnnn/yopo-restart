@@ -88,6 +88,10 @@ def test_mission_completes_takeoff_hover_goto_land():
     # 起飞前就有的固定偏差在真值口径里抵消
     assert x.hover_alt_err_truth_rms_m == pytest.approx(x.hover_alt_err_rms_m, abs=1e-9)
     assert x.goto_err_truth_m == pytest.approx(x.goto_err_m, abs=1e-9)
+    # 真值 = 估计 + 0.05 m，同一世界系的 est_z − truth_z 应为 −0.05 m
+    assert x.hover_est_truth_alt_bias_mean_m == pytest.approx(-0.05, abs=1e-9)
+    assert x.hover_est_truth_alt_bias_rms_m == pytest.approx(0.05, abs=1e-9)
+    assert x.hover_est_truth_alt_bias_max_m == pytest.approx(0.05, abs=1e-9)
     np.testing.assert_allclose(m.goal_sp, [6.0, 1.0, 2.5])
 
 
@@ -127,14 +131,56 @@ def _code_lines(path):
     return "\n".join(out)
 
 
+def _iter_sitl_scripts():
+    for p in sorted(SITL.rglob("*")):
+        if not p.is_file() or p.name == "Dockerfile" or p.suffix == ".patch":
+            continue
+        if p.suffix in (".sh", ".py", ".env", "") or p.name.endswith(".env"):
+            yield p
+
+
+PARAM_WHITELIST = {
+    "SIM_GZ_GPS_FIX",
+    "SIM_GZ_GPS_EPH",
+    "SIM_GZ_GPS_EPV",
+    "SIM_GZ_GPS_NAMP",
+    "SIM_GZ_GPS_VAMP",
+    "EKF2_GPS_P_NOISE",
+    "EKF2_GPS_V_NOISE",
+    "EKF2_HGT_REF",
+}
+
+
 def test_sitl_scripts_never_set_px4_params():
-    for p in sorted(SITL.iterdir()):
-        if not p.is_file() or p.suffix not in (".sh", ".py", "") or p.name == "Dockerfile":
+    """默认路径脚本不许改参数；只有 positioning-rtk.env 可写白名单 PX4_PARAM_*。"""
+    for p in _iter_sitl_scripts():
+        if p.name == "positioning-rtk.env":
             continue
         code = _code_lines(p)
         assert not re.search(r"PX4_PARAM_[A-Z]", code), p
         assert not re.search(r"px4-param[^\n]*\bset\b", code), p
         assert "param set" not in code, p
+
+
+def test_rtk_positioning_env_is_localization_whitelist():
+    env = SITL / "positioning-rtk.env"
+    text = env.read_text()
+    assert "param set" not in _code_lines(env)
+    names = re.findall(r"PX4_PARAM_([A-Z0-9_]+)", text)
+    assert names, "rtk env 应设置白名单参数"
+    assert set(names) <= PARAM_WHITELIST, set(names) - PARAM_WHITELIST
+    # 安全参数不得出现
+    assert not re.search(r"PX4_PARAM_(NAV_DLL_ACT|NAV_RCL_ACT|COM_|GF_)", text)
+
+
+def test_dockerfile_applies_gz_gps_patch():
+    d = (SITL / "Dockerfile").read_text()
+    assert "patches/gz-gps-params.patch" in d
+    assert (SITL / "patches/gz-gps-params.patch").is_file()
+    patch = (SITL / "patches/gz-gps-params.patch").read_text()
+    assert "PARAM_DEFINE_INT32(SIM_GZ_GPS_FIX, 3)" in patch
+    assert "PARAM_DEFINE_FLOAT(SIM_GZ_GPS_NAMP, 0.8f)" in patch
+
 
 
 def test_dockerfile_pins_match_core_px4():
@@ -145,7 +191,7 @@ def test_dockerfile_pins_match_core_px4():
 
 
 def test_shell_scripts_parse():
-    for name in ("up.sh", "smoke.sh", "in_container.sh", "common.sh"):
+    for name in ("up.sh", "smoke.sh", "in_container.sh", "common.sh", "compare.sh"):
         subprocess.run(["bash", "-n", str(SITL / name)], check=True)
 
 
@@ -158,7 +204,11 @@ def test_summarize_renders_metrics(tmp_path):
         "ok": True,
         "phase": "DONE",
         "metrics": {"hover_alt_err_rms_m": 0.031, "hover_alt_err_max_m": 0.08, "goto_err_m": 0.12,
-                    "takeoff_s": 6.0, "goto_s": 8.0, "land_s": 9.0},
+                    "takeoff_s": 6.0, "goto_s": 8.0, "land_s": 9.0,
+                    "hover_est_truth_alt_bias_mean_m": 0.186,
+                    "hover_est_truth_alt_bias_rms_m": 0.214,
+                    "hover_est_truth_alt_bias_max_m": 0.330},
+        "positioning": "default",
         "mission_wall_s": 50.0,
         "mission_sim_s": 40.0,
         "rtf": 0.8,
@@ -166,5 +216,15 @@ def test_summarize_renders_metrics(tmp_path):
     (tmp_path / "result.json").write_text(json.dumps(res))
     text = summ.render(res, 120.0, "img")
     assert "report-only" in text and "| RTF | 0.80 |" in text and "| 到点误差 (m) | 0.120 |" in text
+    assert "`default`" in text and "0.186 / 0.214 / 0.330" in text
+    cmp = summ.render_compare([
+        {"positioning": "default", "run": "1", "ok": True, "metrics": res["metrics"]},
+        {"positioning": "rtk", "run": "1", "ok": True, "metrics": {"hover_alt_err_rms_m": 0.02,
+            "hover_alt_err_max_m": 0.04, "hover_alt_err_truth_rms_m": 0.03,
+            "hover_alt_err_truth_max_m": 0.05, "goto_err_m": 0.04, "goto_err_truth_m": 0.05,
+            "hover_est_truth_alt_bias_mean_m": 0.01, "hover_est_truth_alt_bias_rms_m": 0.02,
+            "hover_est_truth_alt_bias_max_m": 0.03}},
+    ])
+    assert "| default | 1 |" in cmp and "| rtk | 1 |" in cmp
     assert summ.main([str(tmp_path)]) == 0
     assert summ.main([str(tmp_path / "missing")]) == 1

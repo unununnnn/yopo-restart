@@ -42,6 +42,10 @@ RUN wget -q https://packages.osrfoundation.org/gazebo.gpg -O /usr/share/keyrings
     python3-gz-transport13 python3-gz-msgs10 \
  && rm -rf /var/lib/apt/lists/*
 
+# 票 S1b：给 GZBridge 增加 GPS fix/eph/epv/噪声幅度参数；默认值等于 v1.17.0 写死的数。
+COPY patches/gz-gps-params.patch /tmp/gz-gps-params.patch
+RUN cd /opt/PX4-Autopilot && patch -p1 < /tmp/gz-gps-params.patch
+
 # 编译 SITL（nice，限并行）
 RUN cd /opt/PX4-Autopilot && nice -n "${NICE}" make px4_sitl_default j="${JOBS}"
 

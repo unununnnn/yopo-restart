@@ -3,7 +3,7 @@ SITL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SITL_DIR/../.." && pwd)"
 # 镜像标签随 Dockerfile 内容变：内容不变就复用，变了就重建（幂等）。
 SITL_HASH="$(sha256sum "$SITL_DIR/Dockerfile" | cut -c1-12)"
-SITL_IMAGE="${YOPO_SITL_IMAGE:-yopo-restart-sitl:s1-$SITL_HASH}"
+SITL_IMAGE="${YOPO_SITL_IMAGE:-yopo-restart-sitl:s1b-$SITL_HASH}"
 # box 共享机器：状态与日志放 /workspace/yopo-ops/sitl（不进仓库，不进 /tmp）。
 SITL_STATE="${YOPO_SITL_STATE:-/workspace/yopo-ops/sitl}"
 SITL_NICE="${YOPO_SITL_NICE:-15}"
