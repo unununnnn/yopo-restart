@@ -39,6 +39,7 @@ from .policy import (
     Observation,
     PolicyContext,
     deviates_from_upstream,
+    read_empty_brake,
     empty_solution_count,
     read_safe_radius,
 )
@@ -484,6 +485,10 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         radius_m = read_safe_radius(tuned.get("policy_params"))
         result["safe_radius_m"] = radius_m
         result["upstream_deviation"] = deviates_from_upstream(radius_m)
+        # E-B4b：只有 goto / hover 的 upstream 策略读这个开关。关时不加字段。
+        if fleet is None and cfg.policy == "upstream" and read_empty_brake(tuned.get("policy_params")):
+            result["empty_brake"] = True
+            result["upstream_deviation"] = True
         if fleet is not None and hasattr(fleet, "empty_solution"):
             result["empty_solution_count"] = int(fleet.empty_solution)
         else:
