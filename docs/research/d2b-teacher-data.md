@@ -1,5 +1,7 @@
 # D2b：加种后的 EGO-Swarm 教师数据（中途收口）
 
+全量补齐后的清单和统计见 [d2c-teacher-data.md](d2c-teacher-data.md)。本文和 [d2b-teacher-manifest.json](d2b-teacher-manifest.json) 仍以收口时的 663 场为准，数字不改。
+
 在 D2 的教师管线上加种子，密度只取 0、0.14、0.28。几何假设沿用 [assumptions.py](../../scripts/teacher/assumptions.py)，不改那份文件，也没有改仓库外的 [ego-planner-swarm](https://github.com/ZJU-FAST-Lab/ego-planner-swarm) 提交 `92fe9f7227b2da819133eb8e0e8c7fc000f6ae20`。源码在 `~/ext/ego-planner-swarm`，不进本仓库，也不加子模块。
 
 大文件在仓库外 `/workspace/yopo-teacher-data/d2b/`。本仓库只交脚本、sha256 清单和这篇文档。没有改 `core/`、冻结门、`scenes/suite.txt`、`docs/tickets.md`、README，也没有改 `yopo_l0/student.py` 和 `scripts/distill/`。
