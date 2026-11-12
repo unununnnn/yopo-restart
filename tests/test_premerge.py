@@ -358,6 +358,7 @@ def _run_premerge(tmp_path, repo, sha, fixture_path, make_log, *args, mergeable=
     env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
     env["PREMERGE_TEST"] = "1"
     env["PREMERGE_ROOT"] = str(repo)
+    env["PREMERGE_VERIFIED_TREES"] = str(tmp_path / "verified-trees.tsv")
     env["PREMERGE_FIXTURE_LOG"] = str(fixture_path)
     env["PREMERGE_FIXTURE_RC"] = str(regress_rc)
     env["PREMERGE_MAKE_LOG"] = str(make_log)

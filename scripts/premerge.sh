@@ -149,6 +149,81 @@ premerge_fmt_counts() {
   printf '%s' "$out"
 }
 
+PREMERGE_VERIFIED_HEADER=$'tree_sha\ttime\thead_sha\tsource\tl0\tcore\tbatch\trc'
+
+premerge_merged_tree() {
+  # $1 仓库 $2 基线 commit $3 head commit。输出合入后的 tree，不创建 commit。
+  local repo=$1 base=$2 head=$3
+  if git -C "$repo" merge-base --is-ancestor "$base" "$head"; then
+    git -C "$repo" rev-parse "${head}^{tree}"
+  else
+    git -C "$repo" merge-tree --write-tree "$base" "$head"
+  fi
+}
+
+premerge_verified_lookup() {
+  # 严格校验整份 TSV；命中输出该行，未命中返回 1，损坏返回 2 并输出原因。
+  python3 - "$1" "$2" <<'PY'
+import pathlib, re, sys
+path, wanted = pathlib.Path(sys.argv[1]), sys.argv[2]
+header = "tree_sha\ttime\thead_sha\tsource\tl0\tcore\tbatch\trc"
+if not path.is_file():
+    print("缓存文件不存在")
+    raise SystemExit(2)
+try:
+    lines = path.read_text(encoding="utf-8").splitlines()
+except Exception as exc:
+    print(f"缓存读取失败：{exc}")
+    raise SystemExit(2)
+if not lines or lines[0] != header:
+    print("缓存表头错误")
+    raise SystemExit(2)
+seen = set()
+match = None
+for number, line in enumerate(lines[1:], 2):
+    cols = line.split("\t")
+    if len(cols) != 8:
+        print(f"缓存第 {number} 行列数错误")
+        raise SystemExit(2)
+    tree, _time, head, _source, _l0, _core, _batch, rc = cols
+    if not re.fullmatch(r"[0-9a-fA-F]{40}", tree):
+        print(f"缓存第 {number} 行 tree_sha 无效")
+        raise SystemExit(2)
+    if not re.fullmatch(r"[0-9a-fA-F]{40}", head):
+        print(f"缓存第 {number} 行 head_sha 无效")
+        raise SystemExit(2)
+    if rc != "0":
+        print(f"缓存第 {number} 行 rc 不是 0")
+        raise SystemExit(2)
+    key = tree.lower()
+    if key in seen:
+        print(f"缓存第 {number} 行 tree_sha 重复")
+        raise SystemExit(2)
+    seen.add(key)
+    if key == wanted.lower():
+        match = line
+if match is None:
+    raise SystemExit(1)
+print(match)
+PY
+}
+
+premerge_append_verified() {
+  # $1 文件，后 8 个参数为列。flock 覆盖初始化/追加的整个临界区。
+  local file=$1 tree=$2 time=$3 head=$4 source=$5 l0=$6 core=$7 batch=$8 rc=$9
+  local value lock="${file}.lock"
+  for value in "$tree" "$time" "$head" "$source" "$l0" "$core" "$batch" "$rc"; do
+    [[ "$value" != *$'\t'* && "$value" != *$'\n'* && "$value" != *$'\r'* ]] || return 1
+  done
+  mkdir -p "$(dirname "$file")"
+  (
+    flock -x 9
+    [[ -e "$file" ]] || printf '%s\n' "$PREMERGE_VERIFIED_HEADER" >"$file"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "$tree" "$time" "$head" "$source" "$l0" "$core" "$batch" "$rc" >>"$file"
+  ) 9>"$lock"
+}
+
 premerge_usage() {
   cat <<'EOF'
 用法：scripts/premerge.sh <PR号> [--merge|--squash]
@@ -503,16 +578,38 @@ premerge_main() {
   git worktree add --detach "$WT" "$sha" >&2
   printf 'worktree %s @ %s\n' "$WT" "$sha" >&2
 
-  local regress_log="$TMP/regress.log" regress_rc
+  local regress_log="$TMP/regress.log" regress_rc verified_file verified_tree cache_row="" cache_reason="" cache_hit=0 cache_append=0 lookup_rc
+  verified_file=${PREMERGE_VERIFIED_TREES:-/workspace/yopo-ops/verified-trees.tsv}
+  verified_tree=$(premerge_merged_tree "$ROOT" "$base_sha" "$sha") || { printf '无法计算待合入 tree\n' >&2; return 1; }
   set +e
-  (
-    set -euo pipefail
-    cd "$WT"
-    make venv
-    scripts/regress.sh
-  ) 2>&1 | tee "$regress_log"
-  regress_rc=${PIPESTATUS[0]}
+  cache_row=$(premerge_verified_lookup "$verified_file" "$verified_tree")
+  lookup_rc=$?
   set -e
+  if [[ "$lookup_rc" -eq 0 ]]; then
+    cache_hit=1
+    printf '已验树缓存命中：%s\n' "$verified_tree" >&2
+    : >"$regress_log"
+    regress_rc=0
+  else
+    if [[ "$lookup_rc" -eq 2 ]]; then
+      cache_reason=$cache_row
+      printf '已验树缓存不可信，退回全量回归：%s\n' "$cache_reason" >&2
+    else
+      cache_reason="没有 tree ${verified_tree} 的记录"
+      cache_append=1
+      printf '已验树缓存未命中，运行全量回归：%s\n' "$cache_reason" >&2
+    fi
+    if [[ "$cache_reason" == "缓存文件不存在" ]]; then cache_append=1; fi
+    set +e
+    (
+      set -euo pipefail
+      cd "$WT"
+      make venv
+      scripts/regress.sh
+    ) 2>&1 | tee "$regress_log"
+    regress_rc=${PIPESTATUS[0]}
+    set -e
+  fi
 
   premerge_split_regress "$regress_log" "$TMP/parsed"
   local l0_line core_line
@@ -523,7 +620,13 @@ premerge_main() {
   read -r l0p l0s l0f l0e l0parsed <<<"$l0_line"
   read -r cp cs cf ce cparsed <<<"$core_line"
   local batch_ok=0
-  if grep -q '| seed |' "$TMP/parsed/batch.md"; then
+  local l0_txt_cached="" core_txt_cached="" batch_txt_cached=""
+  if [[ "$cache_hit" -eq 1 ]]; then
+    IFS=$'\t' read -r _ _ _ _ l0_txt_cached core_txt_cached batch_txt_cached _ <<<"$cache_row"
+    l0p=0; l0s=0; l0f=0; l0e=0; l0parsed=1
+    cp=0; cs=0; cf=0; ce=0; cparsed=1
+    batch_ok=1
+  elif grep -q '| seed |' "$TMP/parsed/batch.md"; then
     batch_ok=1
   fi
 
@@ -545,6 +648,13 @@ premerge_main() {
   # --merge 会保留原提交，无旗标的检查同样把 trailer 当失败。
   if [[ -n "$coauthors" && "$mode" != "squash" ]]; then gate=1; fi
 
+  if [[ "$gate" -eq 0 && "$cache_hit" -eq 0 && "$cache_append" -eq 1 ]]; then
+    premerge_append_verified "$verified_file" "$verified_tree" \
+      "$(TZ=Etc/GMT+3 date '+%Y-%m-%d %H:%M:%S UTC-3')" "$sha" "premerge ${pr}" \
+      "$(premerge_fmt_counts "$l0p" "$l0s" "$l0f" "$l0e" "$l0parsed")" \
+      "$(premerge_fmt_counts "$cp" "$cs" "$cf" "$ce" "$cparsed")" "批跑通过" "0"
+  fi
+
   local merge_note="未请求" final=$gate body_file="$TMP/squash.md" merge_rc=0
   local merge_err_file="$TMP/merge.err" catchup_note="" caught_sha=""
   : >"$merge_err_file"
@@ -565,6 +675,13 @@ premerge_main() {
           fi
           base_sha=$(git rev-parse "$baseref")
           range="${baseref}..${sha}"
+          final_tree=$(premerge_merged_tree "$ROOT" "$base_sha" "$sha") || final_tree=""
+          if [[ "$cache_hit" -eq 1 && "$final_tree" != "$verified_tree" ]]; then
+            printf '基线前进后最终 tree %s 与已验 tree %s 不同；拒绝使用缓存合入。\n' "$final_tree" "$verified_tree" >"$merge_err_file"
+            merge_note="合并失败（已验 tree 已变化）"
+            merge_rc=1
+            final=1
+          fi
         fi
         if [[ "$mode" == "squash" ]]; then
           premerge_squash_body "$ROOT" "$range" >"$body_file"
@@ -575,8 +692,8 @@ premerge_main() {
             title="PR #${pr}"
           fi
         fi
-        : >"$merge_err_file"
-        if [[ "$caught_sha" != "$head_before" ]]; then
+        if [[ "$merge_rc" -eq 0 ]]; then : >"$merge_err_file"; fi
+        if [[ "$merge_rc" -eq 0 && "$caught_sha" != "$head_before" ]]; then
           if ! premerge_wait_mergeable "$pr" "$merge_err_file"; then
             merge_note="合并失败（等待可合并状态失败）"
             merge_rc=1
@@ -607,8 +724,13 @@ premerge_main() {
   fi
 
   local l0_txt core_txt co_txt
-  l0_txt=$(premerge_fmt_counts "$l0p" "$l0s" "$l0f" "$l0e" "$l0parsed")
-  core_txt=$(premerge_fmt_counts "$cp" "$cs" "$cf" "$ce" "$cparsed")
+  if [[ "$cache_hit" -eq 1 ]]; then
+    l0_txt=$l0_txt_cached
+    core_txt=$core_txt_cached
+  else
+    l0_txt=$(premerge_fmt_counts "$l0p" "$l0s" "$l0f" "$l0e" "$l0parsed")
+    core_txt=$(premerge_fmt_counts "$cp" "$cs" "$cf" "$ce" "$cparsed")
+  fi
   if [[ "$co_rc" -ne 0 ]]; then
     co_txt="检查失败"
   elif [[ -z "$coauthors" ]]; then
@@ -628,6 +750,15 @@ premerge_main() {
     printf '| Co-authored-by | %s |\n' "$co_txt"
     printf '| 合并 | %s |\n' "$merge_note"
     printf '| 退出码 | %s |\n' "$final"
+    if [[ "$cache_hit" -eq 1 ]]; then
+      local cache_tree cache_time cache_head cache_source cache_l0 cache_core cache_batch cache_rc
+      IFS=$'\t' read -r cache_tree cache_time cache_head cache_source cache_l0 cache_core cache_batch cache_rc <<<"$cache_row"
+      printf '\n## 已验树缓存命中\n\n'
+      printf -- '- tree: `%s`\n- 时间: %s\n- 来源: %s\n- L0: %s\n- core: %s\n- batch: %s\n' \
+        "$cache_tree" "$cache_time" "$cache_source" "$cache_l0" "$cache_core" "$cache_batch"
+    elif [[ -n "$cache_reason" ]]; then
+      printf '\n## 已验树缓存未使用\n\n%s\n' "$cache_reason"
+    fi
     if [[ -s "$merge_err_file" ]]; then
       printf '\n## 合并失败\n\n```\n'
       cat "$merge_err_file"
@@ -642,7 +773,9 @@ premerge_main() {
       done <<<"$coauthors"
     fi
     printf '\n## 批跑\n\n'
-    if [[ "$batch_ok" == 1 ]]; then
+    if [[ "$cache_hit" -eq 1 ]]; then
+      printf '%s\n' "$batch_txt_cached"
+    elif [[ "$batch_ok" == 1 ]]; then
       cat "$TMP/parsed/batch.md"
     else
       printf '（没有批跑表）\n'
