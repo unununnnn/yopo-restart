@@ -884,7 +884,10 @@ class CrossingFleet:
     def _apply_backend(self, traj: PiecewisePolynomial, goal: np.ndarray) -> PiecewisePolynomial:
         from .backend.bspline import refine_yopo
 
-        out, rec = refine_yopo(traj, self._backend, self._backend_obstacles, goal)
+        neighbors = None
+        if self._backend.swarm_penalty and self._score_node is not None:
+            neighbors = committed_neighbor_samples(self._score_node, float(traj.t_start))
+        out, rec = refine_yopo(traj, self._backend, self._backend_obstacles, goal, neighbors=neighbors)
         self.backend_log.append(rec)
         return out
 

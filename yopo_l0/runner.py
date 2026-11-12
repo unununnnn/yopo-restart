@@ -31,6 +31,7 @@ from .dynamics import HoverPlan, PointMassLag, State, make_model
 from .geom_fallback import FIELD as GEOM_FIELD
 from .geom_fallback import KIND as GEOM_KIND
 from .geom_fallback import GeomSession
+from .backend.config import swarm_penalty_enabled
 from .inter_drone import inter_drone_config, samples_from_pva
 from .plan_wall import PLAN_WALL_FIELD, begin as begin_plan_wall, stats as plan_wall_stats, take as take_plan_wall
 from .policy import (
@@ -225,8 +226,13 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         )
     faults = _faults(card, cfg)
     bus = MessageBus(faults, rng=np.random.default_rng(np.random.SeedSequence([cfg.seed, _BUS_SEED_SALT])))
-    # 只在 upstream 且场景卡打开机间项时，才把已提交采样放进既有的 peer_plan。关时载荷与以前相同。
-    broadcast_traj = fleet is None and cfg.policy == "upstream" and inter_drone_config(tuned.get("policy_params")) is not None
+    # 只在 upstream 且打开 E-A1 或 E-B3 时，才把已提交采样放进既有的 peer_plan。两项都关时载荷与以前相同。
+    params = tuned.get("policy_params")
+    broadcast_traj = (
+        fleet is None
+        and cfg.policy == "upstream"
+        and (inter_drone_config(params) is not None or swarm_penalty_enabled(params))
+    )
     slots: list = []  # 本机计划对象。不下发到他机，也不放进总线 payload。
     # 票 10：策略实例已经建好。None 时不进入。
     if bridge is not None:
