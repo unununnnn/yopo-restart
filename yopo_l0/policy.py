@@ -373,6 +373,15 @@ class StudentPolicy:
     - weights：检查点路径，仓库外。缺了就拒绝构造。
     - max_range_m：深度归一化，默认 20.0，和教师转换一致。
     - arrive_radius_m / arrive_mode / stop_time_s：与上游相同的终端规则，不是网络学出来的。
+
+    D5b 接口选项。默认值就是 D5 的行为，不传时逐位不变：
+    - knots：``"network"``（D5，结点速度取速度头）或 ``"position"``（结点速度由位置结点中心差分得到，与位置自洽）。
+    - yaw_source：``"calculate_yaw"``（D5，上游 YOPO 的速度/目标混合，0.5π rad/s）或
+      ``"ego_lookahead"``（教师 EGO-Swarm traj_server 的规则：朝 1.0 s 后的轨迹点，位移 ≤ 0.1 m 时保持，π rad/s 限速）。
+    - accel_source：``"state"``（D5，里程计加速度）或 ``"reference"``（当前计划在此刻的参考加速度；
+      教师记录的加速度是 fake drone 写入的指令加速度）。
+    - vertical：``"network"``（D5，高度取网络位置头的 z）或 ``"hold_goal_z"``（低维动作：网络只管水平，
+      结点高度按时间常数 vertical_tau_s 指数趋近目标高度）。教师 EGO-Swarm 场景是定高飞行，网络的 z 头没有学到可用的高度控制。
     """
 
     name = "student"
@@ -382,7 +391,16 @@ class StudentPolicy:
         "arrive_radius_m": 1.5,
         "arrive_mode": "stop_at_goal",
         "stop_time_s": 2.0,
+        "knots": "network",
+        "yaw_source": "calculate_yaw",
+        "accel_source": "state",
+        "vertical": "network",
+        "vertical_tau_s": 1.0,
     }
+    KNOTS = ("network", "position")
+    YAW_SOURCES = ("calculate_yaw", "ego_lookahead")
+    ACCEL_SOURCES = ("state", "reference")
+    VERTICALS = ("network", "hold_goal_z")
 
     def __init__(self, ctx: PolicyContext):
         import os
@@ -394,6 +412,10 @@ class StudentPolicy:
             raise ValueError("学生策略需要 policy_params.student.weights 或环境变量 YOPO_STUDENT_WEIGHTS")
         from yopo_l0.student import load_checkpoint
 
+        for key, allowed in (("knots", self.KNOTS), ("yaw_source", self.YAW_SOURCES), ("accel_source", self.ACCEL_SOURCES),
+                             ("vertical", self.VERTICALS)):
+            if self.p[key] not in allowed:
+                raise ValueError(f"policy_params.student.{key} 只能是 {allowed}，收到 {self.p[key]!r}")
         self.model, self.meta = load_checkpoint(weights, enabled=True)
         self.plan_obj: _TrajPlan | None = None
         self.arrived = False
@@ -468,7 +490,10 @@ class StudentPolicy:
             return self.plan_obj
 
         depth = depth_from_hw(obs.frame.depth, float(self.p["max_range_m"]))
-        state = pack_ego_state(s.p, s.v, s.a, obs.goal, s.yaw)
+        accel = s.a
+        if self.p["accel_source"] == "reference" and self.plan_obj is not None:
+            accel = np.asarray(self.plan_obj.pva(now)[2], dtype=float)
+        state = pack_ego_state(s.p, s.v, accel, obs.goal, s.yaw)
         if self._neighbors:
             ids = sorted(self._neighbors)
             nb_p = np.stack([self._neighbors[i][0] for i in ids], axis=0)
@@ -498,7 +523,15 @@ class StudentPolicy:
             self.plan_obj = _TrajPlan(traj, obs.goal, yaw, self.ctx.physics_dt, brake=True)
             return self.plan_obj
         p_w = s.p + (rot @ p_b.T).T
-        v_w = (rot @ v_b.T).T
+        if self.p["vertical"] == "hold_goal_z":
+            p_w[:, 2], vz = student_vertical_hold(float(s.p[2]), float(np.asarray(obs.goal, float)[2]), HORIZON_STEPS,
+                                                  float(HORIZON_DT_S), float(self.p["vertical_tau_s"]))
+        if self.p["knots"] == "position":
+            v_w = student_knot_velocities(np.asarray(s.p, float), p_w, float(HORIZON_DT_S))
+        else:
+            v_w = (rot @ v_b.T).T
+            if self.p["vertical"] == "hold_goal_z":
+                v_w[:, 2] = vz
         head = np.array([np.asarray(s.p, float), np.asarray(s.v, float), np.zeros(3)])
         segs = []
         prev = head
@@ -514,8 +547,48 @@ class StudentPolicy:
             self.plan_obj = _TrajPlan(traj, obs.goal, yaw, self.ctx.physics_dt, brake=True)
             return self.plan_obj
         self.last_code = "OK"
-        self.plan_obj = _TrajPlan(traj, obs.goal, yaw, self.ctx.physics_dt, brake=False)
+        plan_cls = _EgoLookaheadPlan if self.p["yaw_source"] == "ego_lookahead" else _TrajPlan
+        self.plan_obj = plan_cls(traj, obs.goal, yaw, self.ctx.physics_dt, brake=False)
         return self.plan_obj
+
+
+def student_vertical_hold(z0: float, z_goal: float, steps: int, dt: float, tau_s: float):
+    """结点高度和竖直速度：从当前高度按指数趋近目标高度。返回 (z (K,), vz (K,))。"""
+    if not tau_s > 0.0:
+        raise ValueError(f"vertical_tau_s 必须为正，收到 {tau_s}")
+    t = dt * np.arange(1, int(steps) + 1, dtype=float)
+    decay = np.exp(-t / float(tau_s))
+    z = z_goal + (z0 - z_goal) * decay
+    vz = (z_goal - z0) / float(tau_s) * decay
+    return z, vz
+
+
+def student_knot_velocities(p0: np.ndarray, p_w: np.ndarray, dt: float) -> np.ndarray:
+    """位置结点 (K, 3) → 结点速度。内部结点用中心差分，末结点用后向差分。起点 p0 不在返回里。"""
+    pts = np.vstack([np.asarray(p0, dtype=float).reshape(1, 3), np.asarray(p_w, dtype=float)])
+    v = np.empty_like(pts[1:])
+    v[:-1] = (pts[2:] - pts[:-2]) / (2.0 * dt)
+    v[-1] = (pts[-1] - pts[-2]) / dt
+    return v
+
+
+class _EgoLookaheadPlan(_TrajPlan):
+    """偏航按 EGO-Swarm traj_server（92fe9f7 ``calculate_yaw``）：朝 1.0 s 后的轨迹点，
+    位移不超过 0.1 m 时保持上一偏航，变化率不超过 π rad/s。只给学生的 ``ego_lookahead`` 用。"""
+
+    LOOKAHEAD_S = 1.0
+    YAW_RATE_RAD_S = np.pi
+
+    def sample(self, t: float):
+        p, v, a = self.pva(t)
+        tr = self.traj
+        tf = min(max(t + self.LOOKAHEAD_S, tr.t_start), tr.t_end)
+        d = np.asarray(tr.evaluate(tf, 0), dtype=float) - p
+        if float(np.linalg.norm(d)) > 0.1:
+            diff = (float(np.arctan2(d[1], d[0])) - self.yaw + np.pi) % (2.0 * np.pi) - np.pi
+            step = self.YAW_RATE_RAD_S * self.dt
+            self.yaw = float((self.yaw + float(np.clip(diff, -step, step)) + np.pi) % (2.0 * np.pi) - np.pi)
+        return p, v, a, self.yaw
 
 
 POLICIES = {"hover": HoverPolicy, "upstream": UpstreamPolicy, "certified": CertifiedPolicy, "student": StudentPolicy}
