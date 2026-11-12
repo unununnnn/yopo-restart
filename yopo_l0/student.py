@@ -1,4 +1,4 @@
-"""多头连续轨迹学生。默认关。飞行环不导入本模块。
+"""多头连续轨迹学生。默认关。不选 student 策略时，飞行环不导入本模块。
 
 YOPO 在离散候选格子上输出末端参数、分数和走廊，飞行时对过走廊的分数做 argmax。
 这里没有格子，也没有分数头。共享干路后面三个头回归同一条连续曲线在固定时刻上的
@@ -8,8 +8,8 @@ YOPO 在离散候选格子上输出末端参数、分数和走廊，飞行时对
 K 默认 3。特征来源是位置和速度，和总线上能广播的量同类，不是 B 样条系数。
 
 ``StudentConfig.enabled`` 默认 False。``predict`` 在关着的时候直接返回 None，不跑网络。
-打开只发生在显式构造 ``StudentConfig(enabled=True)`` 或 ``predict(..., enabled=True)`` 的地方。
-D5 才允许接到闭环，本票不接。
+打开只发生在显式构造 ``StudentConfig(enabled=True)`` 的地方，以及 ``--policy student`` 选中学生策略时。
+不选 ``student`` 时，飞行环不构造网络、不读权重。
 """
 
 from __future__ import annotations
@@ -96,6 +96,140 @@ def pack_neighbor_features(
         feat[slot, 3:6] = rel_v[j]
         mask[slot] = 1.0
     return feat, mask
+
+
+def pack_ego_state(p, v, a, goal, yaw: float):
+    """机体坐标系：速度 3、加速度 3、目标相对位置 3。和教师窗口的 state 同一套。"""
+    from yopo_l0.policy import R_yaw
+
+    world_to_body = R_yaw(float(yaw)).T
+    p = np.asarray(p, dtype=np.float64).reshape(3)
+    v = np.asarray(v, dtype=np.float64).reshape(3)
+    a = np.asarray(a, dtype=np.float64).reshape(3)
+    goal = np.asarray(goal, dtype=np.float64).reshape(3)
+    return np.concatenate([world_to_body @ v, world_to_body @ a, world_to_body @ (goal - p)]).astype(np.float32)
+
+
+def resize_depth(depth, height: int, width: int):
+    """把深度图缩到学生的空间尺寸。无回波是 NaN，块平均只统计有效像素。
+
+    源尺寸能整除目标时按块平均；否则按面积加权（双线性），无效像素不进入平均。
+    某个输出像素没有任何有效来源时，仍是 NaN。
+    """
+    depth = np.asarray(depth, dtype=np.float32)
+    if depth.ndim != 2:
+        raise ValueError(f"depth 应为 (H, W)，收到 {depth.shape}")
+    h1, w1 = int(height), int(width)
+    if h1 < 1 or w1 < 1:
+        raise ValueError(f"目标尺寸必须为正，收到 {h1}×{w1}")
+    h0, w0 = int(depth.shape[0]), int(depth.shape[1])
+    if (h0, w0) == (h1, w1):
+        return depth.copy()
+    if h0 % h1 == 0 and w0 % w1 == 0:
+        sh, sw = h0 // h1, w0 // w1
+        blocks = depth.reshape(h1, sh, w1, sw)
+        valid = np.isfinite(blocks)
+        acc = np.where(valid, blocks, 0.0).sum(axis=(1, 3))
+        cnt = valid.sum(axis=(1, 3))
+        out = np.full((h1, w1), np.nan, dtype=np.float32)
+        np.divide(acc, cnt, out=out, where=cnt > 0)
+        return out
+    # 面积加权：把每个源像素按覆盖比例加到目标格子。
+    out_acc = np.zeros((h1, w1), dtype=np.float64)
+    out_cnt = np.zeros((h1, w1), dtype=np.float64)
+    ys = np.linspace(0.0, h1, h0 + 1)
+    xs = np.linspace(0.0, w1, w0 + 1)
+    finite = np.isfinite(depth)
+    for i in range(h0):
+        y0, y1 = ys[i], ys[i + 1]
+        r0, r1 = int(np.floor(y0)), int(np.ceil(y1) - 1)
+        r0 = max(0, r0)
+        r1 = min(h1 - 1, r1)
+        if r0 > r1:
+            continue
+        for j in range(w0):
+            if not finite[i, j]:
+                continue
+            x0, x1 = xs[j], xs[j + 1]
+            c0, c1 = int(np.floor(x0)), int(np.ceil(x1) - 1)
+            c0 = max(0, c0)
+            c1 = min(w1 - 1, c1)
+            if c0 > c1:
+                continue
+            val = float(depth[i, j])
+            for r in range(r0, r1 + 1):
+                ya, yb = max(y0, r), min(y1, r + 1)
+                if yb <= ya:
+                    continue
+                for c in range(c0, c1 + 1):
+                    xa, xb = max(x0, c), min(x1, c + 1)
+                    if xb <= xa:
+                        continue
+                    wgt = (yb - ya) * (xb - xa)
+                    out_acc[r, c] += val * wgt
+                    out_cnt[r, c] += wgt
+    out = np.full((h1, w1), np.nan, dtype=np.float32)
+    np.divide(out_acc, out_cnt, out=out, where=out_cnt > 0)
+    return out
+
+
+def depth_from_hw(depth_hw, max_range_m: float, *, height: int = DEPTH_HEIGHT, width: int = DEPTH_WIDTH):
+    """观测深度 → 学生输入 (2, H, W)。先缩尺寸，再按教师转换同样的方式归一化。"""
+    from yopo_l0.distill import pack_depth
+
+    return pack_depth(resize_depth(depth_hw, height, width), float(max_range_m))
+
+
+def checkpoint_sha256(path) -> str:
+    import hashlib
+    from pathlib import Path
+
+    data = Path(path).read_bytes()
+    return hashlib.sha256(data).hexdigest()
+
+
+def save_checkpoint(model: MultiHeadStudent, path, meta: dict | None = None):
+    """写出权重和形状。路径由调用方决定；仓库默认不提交这个文件。"""
+    from pathlib import Path
+
+    torch = _torch()
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema": "yopo-student-checkpoint/1",
+        "state_dict": model._module().state_dict(),
+        "cfg": {
+            "depth_height": int(model.cfg.depth_height),
+            "depth_width": int(model.cfg.depth_width),
+            "horizon_steps": int(model.cfg.horizon_steps),
+            "horizon_dt_s": float(model.cfg.horizon_dt_s),
+            "state_dim": int(model.cfg.state_dim),
+            "n_neighbors": int(model.cfg.n_neighbors),
+        },
+        "meta": dict(meta or {}),
+    }
+    torch.save(payload, path)
+    return path, checkpoint_sha256(path)
+
+
+def load_checkpoint(path, *, enabled: bool = True) -> tuple[MultiHeadStudent, dict]:
+    """读回权重。默认打开配置，因为飞行和评估需要能前向。"""
+    from pathlib import Path
+
+    torch = _torch()
+    path = Path(path)
+    payload = torch.load(path, map_location="cpu", weights_only=False)
+    if not isinstance(payload, dict) or payload.get("schema") != "yopo-student-checkpoint/1":
+        raise ValueError(f"{path} 不是 yopo-student-checkpoint/1")
+    raw_cfg = dict(payload.get("cfg") or {})
+    cfg = StudentConfig(enabled=bool(enabled), **raw_cfg)
+    model = MultiHeadStudent(cfg)
+    model._module().load_state_dict(payload["state_dict"])
+    model._module().eval()
+    meta = dict(payload.get("meta") or {})
+    meta["weights_sha256"] = checkpoint_sha256(path)
+    meta["weights_path"] = str(path)
+    return model, meta
 
 
 @dataclass(frozen=True)

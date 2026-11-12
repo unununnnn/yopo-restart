@@ -1,0 +1,132 @@
+{
+  "schema": "yopo-student-d5-train/1",
+  "cutoff_local": "2026-11-12 01:26:35 -0300",
+  "cutoff_zone": "America/Argentina/San_Juan (UTC-3)",
+  "assumption": "地图边长和障碍半径是假设，不是论文复现。",
+  "data": {
+    "source": "/workspace/yopo-teacher-data/d2b/snapshots/20261112T012635",
+    "n_frozen": 663,
+    "n_success": 635,
+    "n_windows": 192637,
+    "n_train_runs": 505,
+    "n_hold_runs": 130,
+    "hold_rule": "seed % 5 == 0 进留出，其余进训练。同一场次不会跨集合。"
+  },
+  "fit": {
+    "lr": 0.001,
+    "batch_size": 64,
+    "epochs": 5,
+    "seed": 0,
+    "num_threads": 2,
+    "loss_weights": [
+      1.0,
+      0.25,
+      0.05
+    ],
+    "optimizer": "Adam",
+    "note": "这些数是本票为 CPU 训练定的，不是论文参数。"
+  },
+  "weights": {
+    "path_outside_repo": "/workspace/yopo-teacher-data/d5/student.pt",
+    "schema": "yopo-student-checkpoint/1",
+    "sha256": "bdd2769c4c5aafb10f639b03fd9f45765af9cf4c86273f5e7ca26d846197d4f2",
+    "epochs_done": 5
+  },
+  "holdout": {
+    "n_windows": 39318,
+    "n_runs": 130,
+    "loss": 0.005239867368735749,
+    "position_mse": 0.0032458581102194966,
+    "velocity_mse": 0.007429968764412064,
+    "yaw_mse": 0.00273034084024251,
+    "position_rmse_m": 0.05697243289714331
+  },
+  "history": [
+    {
+      "epoch": 1,
+      "steps": 2500,
+      "n_train_windows_seen": 153319,
+      "train_loss": 0.011381699357703215,
+      "train_position_mse": 0.007480912949396708,
+      "holdout": {
+        "n_windows": 39318,
+        "n_runs": 130,
+        "loss": 0.006430271607292609,
+        "position_mse": 0.0038725106585490985,
+        "velocity_mse": 0.00905278194884496,
+        "yaw_mse": 0.0058913095618315795,
+        "position_rmse_m": 0.0622294999059859
+      },
+      "wall_s": 14.696113320002041
+    },
+    {
+      "epoch": 2,
+      "steps": 2505,
+      "n_train_windows_seen": 153319,
+      "train_loss": 0.0062114301391261485,
+      "train_position_mse": 0.003880621114886045,
+      "holdout": {
+        "n_windows": 39318,
+        "n_runs": 130,
+        "loss": 0.005885420234500075,
+        "position_mse": 0.003656204417784932,
+        "velocity_mse": 0.00826992833621697,
+        "yaw_mse": 0.0032346753314702165,
+        "position_rmse_m": 0.06046655619253449
+      },
+      "wall_s": 28.71841442600271
+    },
+    {
+      "epoch": 3,
+      "steps": 2505,
+      "n_train_windows_seen": 153319,
+      "train_loss": 0.005793556152487091,
+      "train_position_mse": 0.0036120019815346865,
+      "holdout": {
+        "n_windows": 39318,
+        "n_runs": 130,
+        "loss": 0.005398458823841304,
+        "position_mse": 0.0033104651024235096,
+        "velocity_mse": 0.007739204712785025,
+        "yaw_mse": 0.0030638507082358496,
+        "position_rmse_m": 0.057536641389844
+      },
+      "wall_s": 43.44777988400165
+    },
+    {
+      "epoch": 4,
+      "steps": 2498,
+      "n_train_windows_seen": 153319,
+      "train_loss": 0.005419758308015658,
+      "train_position_mse": 0.003355995055153601,
+      "holdout": {
+        "n_windows": 39318,
+        "n_runs": 130,
+        "loss": 0.007087347651231698,
+        "position_mse": 0.004582701614431059,
+        "velocity_mse": 0.009332561276070848,
+        "yaw_mse": 0.0034301143866132824,
+        "position_rmse_m": 0.06769565432456547
+      },
+      "wall_s": 57.59102465000615
+    },
+    {
+      "epoch": 5,
+      "steps": 2497,
+      "n_train_windows_seen": 153319,
+      "train_loss": 0.005262893873494161,
+      "train_position_mse": 0.003255818613329354,
+      "holdout": {
+        "n_windows": 39318,
+        "n_runs": 130,
+        "loss": 0.005239867334879729,
+        "position_mse": 0.0032458580943329715,
+        "velocity_mse": 0.007429968798826208,
+        "yaw_mse": 0.002730340839176228,
+        "position_rmse_m": 0.05697243275772039
+      },
+      "wall_s": 72.37634971100488
+    }
+  ],
+  "train_wall_s": 74.31169941600092
+}
