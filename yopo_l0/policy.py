@@ -5,6 +5,7 @@
 - `upstream`：上游等价（YOPO-MINCO test_yopo_ros 规则）：从期望状态出发，候选按预测走廊（0.05 m）
   准入、取最高分；无准入候选时本帧悬停、下帧照常重规划。不经任何安全门。
 - `certified`：现行全部门：vendored `UavRuntime` + `Planner` + `SafetyGate`，参数同 L1 G2（g2_run.py）。
+- `student`：D5 学生网络。默认不选。只有 ``--policy student``（或同等显式选择）才构造网络、读权重。
 两条路径共用 vendored 的解码（decode_params / minco_two_piece / corridor_mu_lo / select_action）和推理。
 """
 
@@ -364,4 +365,157 @@ class CertifiedPolicy:
         return self.plan_obj
 
 
-POLICIES = {"hover": HoverPolicy, "upstream": UpstreamPolicy, "certified": CertifiedPolicy}
+
+class StudentPolicy:
+    """D5：用多头学生网络给出一条连续轨迹。只有显式选 ``student`` 时才会构造。
+
+    参数（policy_params.student，或环境变量 YOPO_STUDENT_WEIGHTS）：
+    - weights：检查点路径，仓库外。缺了就拒绝构造。
+    - max_range_m：深度归一化，默认 20.0，和教师转换一致。
+    - arrive_radius_m / arrive_mode / stop_time_s：与上游相同的终端规则，不是网络学出来的。
+    """
+
+    name = "student"
+    DEFAULTS = {
+        "weights": None,
+        "max_range_m": 20.0,
+        "arrive_radius_m": 1.5,
+        "arrive_mode": "stop_at_goal",
+        "stop_time_s": 2.0,
+    }
+
+    def __init__(self, ctx: PolicyContext):
+        import os
+
+        self.ctx = ctx
+        self.p = {**self.DEFAULTS, **ctx.params.get("student", {})}
+        weights = self.p.get("weights") or os.environ.get("YOPO_STUDENT_WEIGHTS")
+        if not weights:
+            raise ValueError("学生策略需要 policy_params.student.weights 或环境变量 YOPO_STUDENT_WEIGHTS")
+        from yopo_l0.student import load_checkpoint
+
+        self.model, self.meta = load_checkpoint(weights, enabled=True)
+        self.plan_obj: _TrajPlan | None = None
+        self.arrived = False
+        self.last_code = ""
+        self._neighbors: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+        self.infer_s: list[float] = []
+        self.weights_sha256 = str(self.meta.get("weights_sha256") or "")
+
+    def note_neighbor_odom(self, src: str, odom) -> None:
+        """总线上邻机当前里程计。缺字段就丢掉这一条。"""
+        if not isinstance(odom, dict) or "p" not in odom or "v" not in odom:
+            return
+        p = np.asarray(odom["p"], dtype=np.float64).reshape(3)
+        v = np.asarray(odom["v"], dtype=np.float64).reshape(3)
+        if not (np.all(np.isfinite(p)) and np.all(np.isfinite(v))):
+            return
+        self._neighbors[str(src)] = (p.copy(), v.copy())
+
+    def infer_report(self) -> dict | None:
+        if not self.infer_s:
+            return {
+                "n": 0,
+                "mean_ms": None,
+                "p50_ms": None,
+                "p95_ms": None,
+                "max_ms": None,
+                "weights_sha256": self.weights_sha256,
+            }
+        arr = np.asarray(self.infer_s, dtype=np.float64) * 1e3
+        return {
+            "n": int(arr.size),
+            "mean_ms": float(arr.mean()),
+            "p50_ms": float(np.percentile(arr, 50)),
+            "p95_ms": float(np.percentile(arr, 95)),
+            "max_ms": float(arr.max()),
+            "weights_sha256": self.weights_sha256,
+        }
+
+    def plan(self, obs: Observation) -> Plan:
+        import time as time_mod
+
+        from yopo_swarm_core.plan import hold_traj, quintic
+        from yopo_swarm_core.trajectory import PiecewisePolynomial
+
+        from yopo_l0.student import (
+            HORIZON_DT_S,
+            HORIZON_STEPS,
+            depth_from_hw,
+            pack_ego_state,
+            pack_neighbor_features,
+            predict,
+        )
+
+        s, now = obs.state, obs.now
+        yaw = s.yaw if self.plan_obj is None else self.plan_obj.yaw
+        if self.arrived or np.linalg.norm(s.p - obs.goal) < self.p["arrive_radius_m"]:
+            if not self.arrived:
+                self.arrived = True
+                if self.p["arrive_mode"] == "hold_here":
+                    traj = hold_traj(s.p, now, now + 1e-3)
+                else:
+                    head = np.array(self.plan_obj.pva(now)) if self.plan_obj else np.array([s.p, s.v, np.zeros(3)])
+                    end = np.array([np.asarray(obs.goal, float), np.zeros(3), np.zeros(3)])
+                    traj = PiecewisePolynomial(now, [quintic(head, end, float(self.p["stop_time_s"]))])
+                self.plan_obj = _TrajPlan(traj, obs.goal, yaw, self.ctx.physics_dt, brake=True)
+            self.last_code = "ARRIVED_HOLD"
+            return self.plan_obj
+        if obs.frame is None:
+            self.last_code = "NO_DEPTH_HOVER"
+            traj = hold_traj(s.p, now, now + 1e-3)
+            self.plan_obj = _TrajPlan(traj, obs.goal, yaw, self.ctx.physics_dt, brake=True)
+            return self.plan_obj
+
+        depth = depth_from_hw(obs.frame.depth, float(self.p["max_range_m"]))
+        state = pack_ego_state(s.p, s.v, s.a, obs.goal, s.yaw)
+        if self._neighbors:
+            ids = sorted(self._neighbors)
+            nb_p = np.stack([self._neighbors[i][0] for i in ids], axis=0)
+            nb_v = np.stack([self._neighbors[i][1] for i in ids], axis=0)
+            feat, mask = pack_neighbor_features(s.p, s.v, s.yaw, nb_p, nb_v, k=self.model.cfg.n_neighbors)
+        else:
+            feat, mask = pack_neighbor_features(
+                s.p, s.v, s.yaw, np.zeros((0, 3)), np.zeros((0, 3)), k=self.model.cfg.n_neighbors
+            )
+        t0 = time_mod.perf_counter()
+        pred = predict(self.model, depth, state, feat, mask)
+        self.infer_s.append(time_mod.perf_counter() - t0)
+        if pred is None:
+            self.last_code = "STUDENT_DISABLED_HOVER"
+            traj = hold_traj(s.p, now, now + 1e-3)
+            self.plan_obj = _TrajPlan(traj, obs.goal, yaw, self.ctx.physics_dt, brake=True)
+            return self.plan_obj
+
+        rot = R_yaw(s.yaw)
+        p_b = np.asarray(pred.position_body[0], dtype=np.float64)
+        v_b = np.asarray(pred.velocity_body[0], dtype=np.float64)
+        if p_b.shape != (HORIZON_STEPS, 3) or v_b.shape != (HORIZON_STEPS, 3) or not (
+            np.all(np.isfinite(p_b)) and np.all(np.isfinite(v_b))
+        ):
+            self.last_code = "STUDENT_BAD_TRAJ_HOVER"
+            traj = hold_traj(s.p, now, now + 1e-3)
+            self.plan_obj = _TrajPlan(traj, obs.goal, yaw, self.ctx.physics_dt, brake=True)
+            return self.plan_obj
+        p_w = s.p + (rot @ p_b.T).T
+        v_w = (rot @ v_b.T).T
+        head = np.array([np.asarray(s.p, float), np.asarray(s.v, float), np.zeros(3)])
+        segs = []
+        prev = head
+        try:
+            for i in range(HORIZON_STEPS):
+                end = np.array([p_w[i], v_w[i], np.zeros(3)])
+                segs.append(quintic(prev, end, float(HORIZON_DT_S)))
+                prev = end
+            traj = PiecewisePolynomial(now, segs)
+        except (ValueError, np.linalg.LinAlgError, FloatingPointError):
+            self.last_code = "STUDENT_FIT_HOVER"
+            traj = hold_traj(s.p, now, now + 1e-3)
+            self.plan_obj = _TrajPlan(traj, obs.goal, yaw, self.ctx.physics_dt, brake=True)
+            return self.plan_obj
+        self.last_code = "OK"
+        self.plan_obj = _TrajPlan(traj, obs.goal, yaw, self.ctx.physics_dt, brake=False)
+        return self.plan_obj
+
+
+POLICIES = {"hover": HoverPolicy, "upstream": UpstreamPolicy, "certified": CertifiedPolicy, "student": StudentPolicy}
