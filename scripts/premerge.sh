@@ -578,9 +578,10 @@ premerge_main() {
   git worktree add --detach "$WT" "$sha" >&2
   printf 'worktree %s @ %s\n' "$WT" "$sha" >&2
 
-  local regress_log="$TMP/regress.log" regress_rc verified_file verified_tree cache_row="" cache_reason="" cache_hit=0 cache_append=0 lookup_rc
+  local regress_log="$TMP/regress.log" regress_rc verified_file verified_tree tested_tree cache_row="" cache_reason="" cache_hit=0 cache_append=0 lookup_rc
   verified_file=${PREMERGE_VERIFIED_TREES:-/workspace/yopo-ops/verified-trees.tsv}
   verified_tree=$(premerge_merged_tree "$ROOT" "$base_sha" "$sha") || { printf '无法计算待合入 tree\n' >&2; return 1; }
+  tested_tree=$(git -C "$ROOT" rev-parse "${sha}^{tree}")
   set +e
   cache_row=$(premerge_verified_lookup "$verified_file" "$verified_tree")
   lookup_rc=$?
@@ -649,7 +650,8 @@ premerge_main() {
   if [[ -n "$coauthors" && "$mode" != "squash" ]]; then gate=1; fi
 
   if [[ "$gate" -eq 0 && "$cache_hit" -eq 0 && "$cache_append" -eq 1 ]]; then
-    premerge_append_verified "$verified_file" "$verified_tree" \
+    # 回归在 PR head worktree 上跑，只能登记真正测过的 head tree。
+    premerge_append_verified "$verified_file" "$tested_tree" \
       "$(TZ=Etc/GMT+3 date '+%Y-%m-%d %H:%M:%S UTC-3')" "$sha" "premerge ${pr}" \
       "$(premerge_fmt_counts "$l0p" "$l0s" "$l0f" "$l0e" "$l0parsed")" \
       "$(premerge_fmt_counts "$cp" "$cs" "$cf" "$ce" "$cparsed")" "批跑通过" "0"

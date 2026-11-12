@@ -18,10 +18,10 @@ git rev-parse --verify --quiet refs/remotes/origin/main >/dev/null || {
   exit 1
 }
 BASE_SHA=$(git rev-parse refs/remotes/origin/main)
-TREE_SHA=$(premerge_merged_tree "$ROOT" "$BASE_SHA" "$HEAD_SHA") || {
-  printf '当前 HEAD 无法合入 origin/main。\n' >&2
-  exit 1
-}
+TREE_SHA=$(git rev-parse 'HEAD^{tree}')
+if ! git merge-base --is-ancestor "$BASE_SHA" "$HEAD_SHA"; then
+  printf 'HEAD 未包含 origin/main，premerge 时合并后 tree 不同，缓存不会命中；先 git merge origin/main 再跑回归登记。\n' >&2
+fi
 LOG="$OUT/regress.log"
 [[ -f "$LOG" ]] || {
   printf '缺少 %s；请保存 regress 的完整 stdout/stderr 为 OUT/regress.log。\n' "$LOG" >&2
