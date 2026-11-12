@@ -6,6 +6,11 @@ YOPO 已经选出一条多项式。这里把它拟合成均匀三次 B 样条，
 邻机同时刻位置的椭球距离加平方铰链。邻机轨迹来自总线上已提交采样。关上时
 不读邻机，代价与加这项之前逐位相同。
 
+E-B3c（``swarm_segment_penalty``，默认关）把同一条椭球铰链改到每段的内点上
+算，梯度按三次基函数分回控制点。头三个控制点仍钉死当前 PVA。末端三个在这项
+打开时不再钉死：最近点常常落在轨迹尾部，钉死的末端收不到步长。关掉时自由集
+和代价都与 E-B3 逐位相同。
+
 不复制 ego-planner-swarm。那份代码是 GPLv3，本仓库根目录没有 LICENSE。
 代价按论文的角色重写：平滑是控制点三阶差分，碰撞是米制有符号距离上的平方铰链，
 可行是速度、加速度超过上限的平方铰链，机间是论文式 (5)(6) 的椭球软障碍。
@@ -38,6 +43,8 @@ _LAMBDA_ANCHOR = 0.15
 _LAMBDA_W = 40.0
 # 椭球距离过近、梯度无定义时的下限。
 _SWARM_EPS = 1e-9
+# E-B3c：每段内点个数，落在 4–8。取各等分箱的中点，段端点不重复计。
+_SWARM_SEGMENT_SAMPLES = 6
 # 软惩罚比机体半径多出来的一截。铰链在门槛上梯度为零，留 5 cm 才推得动表面。
 _CLEARANCE_BUFFER_M = 0.05
 _MIN_DURATION_S = 0.6
@@ -123,10 +130,13 @@ def summarize_log(rows: list[dict]) -> dict:
 def refine_yopo(traj, cfg: BackendConfig, obstacles, goal=None, neighbors=None):
     """优化一条已选中的 YOPO 多项式。失败时返回同一个对象。
 
-    ``goal`` 留在签名里：末端 PVA 钉死在这条前缀上，本原型不另加终端进度。
+    ``goal`` 留在签名里：本原型不另加终端进度。段内惩罚关掉时，末端 PVA 钉死
+    在这条前缀上。打开时末端三个控制点放开，起点 PVA 仍然钉死。
     形状不合法就当这次失败，交回原曲线。
     ``neighbors`` 是邻机已提交轨迹的采样，每份 (t, x, y, z)。只有
     ``cfg.swarm_penalty`` 为真时才读；关上时这个参数不影响代价。
+    ``cfg.swarm_segment_penalty`` 为真时，椭球项改在段内点上算。该项为假时
+    仍用控制点上的椭球项，自由集也不变，与 E-B3 逐位相同。
     """
     # 首次 import 不计入这次调用的时间预算。
     import scipy.optimize  # noqa: F401
@@ -187,7 +197,12 @@ def _refine(traj, cfg: BackendConfig, obstacles, t0: float, neighbors=None):
     q_fixed = np.zeros((n_ctrl, 3), dtype=float)
     q_fixed[0], q_fixed[1], q_fixed[2] = _boundary_controls(p0, v0, a0, dt)
     q_fixed[-3], q_fixed[-2], q_fixed[-1] = _boundary_controls(p1, v1, a1, dt)
-    free = np.arange(3, n_ctrl - 3)
+    swarm = bool(cfg.swarm_penalty)
+    # 段内惩罚只在机间项已经打开时替换采样位置。单独打开它不读邻机。
+    segment = swarm and bool(cfg.swarm_segment_penalty)
+    # 关：自由集是中间控制点，末端三元组钉死，与 E-B3 相同。
+    # 开：末端三个也放开。它们不是当前状态，钉死时尾部最近点推不动。
+    free = np.arange(3, n_ctrl if segment else n_ctrl - 3)
     q_fit, rmse = _fit_free(traj, q_fixed, free, n_span, dt)
     if not np.all(np.isfinite(q_fit)):
         return traj, _record(False, "nonfinite", 0, t0, budget_cut=False, fit_rmse_m=rmse)
@@ -196,7 +211,6 @@ def _refine(traj, cfg: BackendConfig, obstacles, t0: float, neighbors=None):
     idx, wts = _sample_layout(n_span)
     packed = _pack_obstacles(obstacles)
     clr_before = min_signed_distance(traj, obstacles, packed=packed)
-    swarm = bool(cfg.swarm_penalty)
     swarm_nbs = tuple(neighbors or ()) if swarm else ()
 
     def cost_grad(q):
@@ -213,6 +227,16 @@ def _refine(traj, cfg: BackendConfig, obstacles, t0: float, neighbors=None):
             wts,
             packed=packed,
         )
+        if segment:
+            sc, sg = _swarm_segment_cost_grad(
+                q,
+                dt,
+                float(traj.t_start),
+                swarm_nbs,
+                float(cfg.swarm_clearance_m),
+                float(cfg.swarm_c),
+            )
+            return cost + sc, grad + sg
         if swarm:
             sc, sg = _swarm_cost_grad(
                 q,
@@ -237,7 +261,7 @@ def _refine(traj, cfg: BackendConfig, obstacles, t0: float, neighbors=None):
     for alpha in (1.0, 0.5, 0.25, 0.125, 0.0):
         q = q_opt if alpha == 1.0 else (1.0 - alpha) * q_fit + alpha * q_opt
         built = _to_traj(q, float(traj.t_start), dt, n_span)
-        if built is None or not _ends_match(built, (p0, v0, a0), (p1, v1, a1)):
+        if built is None or not _ends_match(built, (p0, v0, a0), (p1, v1, a1), match_end=not segment):
             kin_fail += 1
             continue
         if not _kin_ok(built, float(cfg.a_max)):
@@ -311,6 +335,8 @@ _BP_DYN = np.stack([_deriv_basis(u) for u in _U_DYN])
 _BPP_DYN = np.stack([_second_basis(u) for u in _U_DYN])
 _B_POS = np.stack([_basis(u) for u in _U_DYN])
 _B_POS_LAST = np.stack([_basis(u) for u in _U_POS_LAST])
+_SEGMENT_U = (np.arange(_SWARM_SEGMENT_SAMPLES, dtype=float) + 0.5) / _SWARM_SEGMENT_SAMPLES
+_B_SEGMENT = np.stack([_basis(float(u)) for u in _SEGMENT_U])
 
 
 def _dyn_samples(n_span: int):
@@ -477,6 +503,73 @@ def _swarm_cost_grad(q, dt, t_start, neighbors, clearance, c, lam: float = _LAMB
     return float(cost), grad
 
 
+def _swarm_segment_cost_grad(q, dt, t_start, neighbors, clearance, c, lam: float = _LAMBDA_W):
+    """段内点上的椭球平方铰链，梯度按三次基函数分到控制点。
+
+    每段取 ``_SWARM_SEGMENT_SAMPLES`` 个箱中点（不含段端点，避免相邻段重复）。
+    样本位置 p(u) = Σ_j B_j(u) Q_{s+j}。铰链对 p 的梯度乘上 B_j(u) 加回
+    Q_{s+j}。头三个控制点仍钉死。末端三个在段内惩罚打开时一并放开，近端样本
+    的梯度才能推动轨迹尾部。控制点版只在自由点自己的 Greville 时刻看邻机，
+    段内和尾部最近点的代价常常是 0。
+
+    距离、门槛、重合时不推梯度，都和 ``_swarm_cost_grad`` 同一套。C、c、λ
+    仍是假设，不是论文数值。没有时间重叠的邻机采样不外推。
+    """
+    n = int(q.shape[0])
+    n_span = n - 3
+    grad = np.zeros_like(q)
+    if n_span < 1 or not neighbors:
+        return 0.0, grad
+    windows = _control_windows(q)
+    pts = np.einsum("kb,sbc->skc", _B_SEGMENT, windows)
+    span = np.arange(n_span, dtype=float)[:, None]
+    times = float(t_start) + (span + _SEGMENT_U[None, :]) * float(dt)
+    flat_t = times.reshape(-1)
+    flat_p = pts.reshape(-1, 3)
+    cost = 0.0
+    dpos = np.zeros_like(flat_p)
+    c2 = float(c) * float(c)
+    thresh = float(clearance)
+    scale_lam = float(lam)
+    for raw in neighbors:
+        arr = np.asarray(raw, dtype=float)
+        if arr.ndim != 2 or arr.shape[1] != 4 or arr.shape[0] == 0:
+            continue
+        if not bool(np.all(np.isfinite(arr))):
+            continue
+        ts = arr[:, 0]
+        mask = (flat_t >= float(ts[0])) & (flat_t <= float(ts[-1]))
+        if not bool(np.any(mask)):
+            continue
+        t = flat_t[mask]
+        delta = flat_p[mask] - np.column_stack((
+            np.interp(t, ts, arr[:, 1]),
+            np.interp(t, ts, arr[:, 2]),
+            np.interp(t, ts, arr[:, 3]),
+        ))
+        dist = np.sqrt(delta[:, 0] * delta[:, 0] + delta[:, 1] * delta[:, 1] + c2 * delta[:, 2] * delta[:, 2])
+        zero = dist <= _SWARM_EPS
+        active = (dist < thresh) & ~zero
+        if bool(np.any(zero)):
+            cost += scale_lam * float(np.sum((thresh - dist[zero]) ** 2))
+        if not bool(np.any(active)):
+            continue
+        viol = thresh - dist[active]
+        cost += scale_lam * float(np.sum(viol * viol))
+        push = ((-2.0 * scale_lam * viol) / dist[active])[:, None] * np.column_stack((
+            delta[active, 0],
+            delta[active, 1],
+            c2 * delta[active, 2],
+        ))
+        idx = np.flatnonzero(mask)
+        dpos[idx[active]] += push
+    d_sk = dpos.reshape(n_span, _SWARM_SEGMENT_SAMPLES, 3)
+    contrib = np.einsum("kb,skc->sbc", _B_SEGMENT, d_sk)
+    for j in range(4):
+        grad[j : j + n_span] += contrib[:, j, :]
+    return float(cost), grad
+
+
 def _cost_grad(q, q_fit, free, dt, obstacles, d_safe, v_max, a_max, idx, wts, packed=None):
     n = q.shape[0]
     n_span = n - 3
@@ -582,10 +675,12 @@ def _pva(traj, t: float):
     return tuple(np.asarray(traj.evaluate(t, k), dtype=float) for k in range(3))
 
 
-def _ends_match(traj, start, end) -> bool:
+def _ends_match(traj, start, end, *, match_end: bool = True) -> bool:
     got0 = _pva(traj, float(traj.t_start))
-    got1 = _pva(traj, float(traj.t_end))
-    for got, want in ((got0, start), (got1, end)):
+    pairs = [(got0, start)]
+    if match_end:
+        pairs.append((_pva(traj, float(traj.t_end)), end))
+    for got, want in pairs:
         for a, b in zip(got, want, strict=True):
             if float(np.max(np.abs(a - b))) > 1e-6:
                 return False

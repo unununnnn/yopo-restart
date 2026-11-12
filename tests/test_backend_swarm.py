@@ -9,6 +9,7 @@ from yopo_swarm_core.plan import quintic
 from yopo_swarm_core.trajectory import PiecewisePolynomial
 
 from yopo_l0.backend.bspline import (
+    _SWARM_SEGMENT_SAMPLES,
     _boundary_controls,
     _choose_knots,
     _cost_grad,
@@ -16,6 +17,7 @@ from yopo_l0.backend.bspline import (
     _pva,
     _sample_layout,
     _swarm_cost_grad,
+    _swarm_segment_cost_grad,
     refine_yopo,
 )
 from yopo_l0.backend.config import (
@@ -239,3 +241,198 @@ def test_swarm_on_broadcasts_samples_and_records_backend(monkeypatch):
     plan_payloads = [p for p in published if p.get("kind") == "peer_plan"]
     assert plan_payloads
     assert any(isinstance(p.get("traj_samples"), list) and p["traj_samples"] for p in plan_payloads)
+
+
+def _fit_line(traj):
+    n_span, dt = _choose_knots(float(traj.t_end - traj.t_start))
+    p0, v0, a0 = _pva(traj, traj.t_start)
+    p1, v1, a1 = _pva(traj, traj.t_end)
+    n_ctrl = n_span + 3
+    q = np.zeros((n_ctrl, 3))
+    q[0], q[1], q[2] = _boundary_controls(p0, v0, a0, dt)
+    q[-3], q[-2], q[-1] = _boundary_controls(p1, v1, a1, dt)
+    free = np.arange(3, n_ctrl - 3)
+    q, _rmse = _fit_free(traj, q, free, n_span, dt)
+    return q, free, n_span, dt
+
+
+def _curve_at(q, span: int, u: float) -> np.ndarray:
+    from yopo_l0.backend.bspline import _basis
+
+    return _basis(float(u)) @ q[span : span + 4]
+
+
+def _neighbor_rows(rows) -> np.ndarray:
+    rows = sorted(rows, key=lambda item: item[0])
+    out = np.zeros((len(rows), 4), dtype=float)
+    for i, (t, p) in enumerate(rows):
+        out[i, 0] = float(t)
+        out[i, 1:] = np.asarray(p, dtype=float)
+    return out
+
+
+def test_segment_switch_is_off_unless_json_true():
+    assert 4 <= _SWARM_SEGMENT_SAMPLES <= 8
+    plain = config_from_params({"backend": {"enabled": True, "swarm_penalty": True}}, a_max=6.0)
+    assert plain is not None and plain.swarm_segment_penalty is False
+    for raw in (False, "true", 1, None):
+        cfg = config_from_params(
+            {"backend": {"enabled": True, "swarm_penalty": True, "swarm_segment_penalty": raw}},
+            a_max=6.0,
+        )
+        assert cfg is not None and cfg.swarm_segment_penalty is False
+    on = config_from_params(
+        {"backend": {"enabled": True, "swarm_penalty": True, "swarm_segment_penalty": True}},
+        a_max=6.0,
+    )
+    assert on is not None and on.swarm_segment_penalty is True
+    # 段内开关自己不打开邻机项。采样仍由 swarm_penalty 决定。
+    alone = config_from_params({"backend": {"enabled": True, "swarm_segment_penalty": True}}, a_max=6.0)
+    assert alone is not None and alone.swarm_penalty is False and alone.swarm_segment_penalty is True
+    assert swarm_penalty_enabled({"backend": {"enabled": True, "swarm_segment_penalty": True}}) is False
+
+
+def test_existing_scene_cards_leave_segment_penalty_off():
+    for path in sorted(SCENES.glob("*.json")):
+        raw = json.loads(path.read_text())
+        assert "swarm_segment_penalty" not in json.dumps(raw), path.name
+    assert "swarm_segment_penalty" not in (SCENES / "suite.txt").read_text()
+
+
+def test_segment_flag_off_matches_control_point_refine():
+    traj = _line()
+    close = _samples(_line(y=0.40))
+    point = _cfg(swarm_penalty=True)
+    explicit = _cfg(swarm_penalty=True, swarm_segment_penalty=False)
+    out_a, rec_a = refine_yopo(traj, point, (), neighbors=[close])
+    out_b, rec_b = refine_yopo(traj, explicit, (), neighbors=[close])
+    assert rec_a["applied"] is True and rec_b["applied"] is True
+    np.testing.assert_array_equal(_positions(out_a), _positions(out_b))
+    assert rec_a["iterations"] == rec_b["iterations"]
+    assert rec_a["reason"] == rec_b["reason"]
+
+
+def test_segment_without_swarm_ignores_neighbors():
+    traj = _line()
+    close = _samples(_line(y=0.40))
+    off = _cfg()
+    flagged = _cfg(swarm_segment_penalty=True)
+    out_a, rec_a = refine_yopo(traj, off, ())
+    out_b, rec_b = refine_yopo(traj, flagged, (), neighbors=[close])
+    assert rec_a["applied"] is True and rec_b["applied"] is True
+    np.testing.assert_array_equal(_positions(out_a), _positions(out_b))
+    assert rec_a["iterations"] == rec_b["iterations"]
+
+
+def test_segment_penalty_sees_gap_between_control_points():
+    """控制点 Greville 时刻离邻机很远，段内中点贴着邻机。控制点代价为 0，段内代价为正。"""
+    traj = _line(y=0.0)
+    q, free, n_span, dt = _fit_line(traj)
+    t0 = float(traj.t_start)
+    rows = []
+    for i in free:
+        rows.append((t0 + (int(i) - 1) * dt, q[int(i)] + np.array([0.0, 2.0, 0.0])))
+    # 只在第一、二段（钉死区附近）把邻机放到曲线旁边。自由控制点自己的时刻仍在 2 m 外。
+    from yopo_l0.backend.bspline import _SEGMENT_U
+
+    for span in (0, 1):
+        for u in _SEGMENT_U:
+            t = t0 + (span + float(u)) * dt
+            rows.append((t, _curve_at(q, span, float(u)) + np.array([0.0, 0.15, 0.0])))
+    neighbor = _neighbor_rows(rows)
+    point_cost, point_grad = _swarm_cost_grad(q, dt, t0, [neighbor], 0.80, 2.0)
+    seg_cost, seg_grad = _swarm_segment_cost_grad(q, dt, t0, [neighbor], 0.80, 2.0)
+    assert point_cost == 0.0
+    np.testing.assert_array_equal(point_grad[free], np.zeros((len(free), 3)))
+    assert seg_cost > 0.0
+    # 下标 3 是头端钉死三元组旁边第一个能动的点。段内样本的梯度要送到它，而不是停在钉死点上。
+    assert float(np.linalg.norm(seg_grad[3])) > 0.0
+    assert float(np.linalg.norm(seg_grad[int(free[-1])])) == 0.0
+
+
+def test_segment_gradient_matches_finite_difference():
+    traj = _line(y=0.0)
+    q, free, _n_span, dt = _fit_line(traj)
+    q = q.copy()
+    q[int(free[len(free) // 2]), 1] = 0.20
+    neighbor = _samples(_line(y=0.55))
+    cost, grad = _swarm_segment_cost_grad(q, dt, float(traj.t_start), [neighbor], 0.80, 2.0)
+    assert cost > 0.0
+    eps = 1e-6
+    # 自由点，以及头端钉死点：基函数把近端样本分到这两类上，两边都要和差分一致。
+    indices = [int(free[0]), int(free[len(free) // 2]), 1]
+    for index in indices:
+        for axis in range(3):
+            qp, qm = q.copy(), q.copy()
+            qp[index, axis] += eps
+            qm[index, axis] -= eps
+            cp, _ = _swarm_segment_cost_grad(qp, dt, float(traj.t_start), [neighbor], 0.80, 2.0)
+            cm, _ = _swarm_segment_cost_grad(qm, dt, float(traj.t_start), [neighbor], 0.80, 2.0)
+            numeric = (cp - cm) / (2 * eps)
+            assert numeric == pytest.approx(float(grad[index, axis]), rel=1e-3, abs=1e-4)
+
+
+def test_segment_penalty_pushes_a_gap_the_control_points_miss():
+    traj = _line(y=0.0)
+    q, free, n_span, dt = _fit_line(traj)
+    t0 = float(traj.t_start)
+    rows = []
+    for i in range(q.shape[0]):
+        t = t0 + (i - 1) * dt
+        rows.append((float(np.clip(t, t0, float(traj.t_end))), q[i] + np.array([0.0, 2.0, 0.0])))
+    from yopo_l0.backend.bspline import _SEGMENT_U
+
+    for span in range(n_span):
+        for u in _SEGMENT_U:
+            t = t0 + (span + float(u)) * dt
+            rows.append((t, _curve_at(q, span, float(u)) + np.array([0.0, 0.20, 0.0])))
+    neighbor = _neighbor_rows(rows)
+    point_cost, _ = _swarm_cost_grad(q, dt, t0, [neighbor], 0.80, 2.0)
+    assert point_cost == 0.0
+    cfg = _cfg(swarm_penalty=True, swarm_segment_penalty=True, max_iterations=8, time_budget_s=0.20)
+    out, rec = refine_yopo(traj, cfg, (), neighbors=[neighbor])
+    assert rec["applied"] is True, rec
+    # 邻机在曲线 +y 侧 0.20 m。段内铰链应把中段推向更小的 y。控制点版代价为 0，推不动。
+    off, rec_off = refine_yopo(traj, _cfg(swarm_penalty=True, time_budget_s=0.20), (), neighbors=[neighbor])
+    assert rec_off["applied"] is True
+    mid = 0.5 * (float(out.t_start) + float(out.t_end))
+    assert float(out.evaluate(mid, 0)[1]) < float(off.evaluate(mid, 0)[1]) - 0.05
+
+
+def test_segment_penalty_moves_the_unpinned_end_and_keeps_the_start():
+    """邻机贴在轨迹终点上。控制点版钉死末端，终点不动；段内版放开末端三个控制点。"""
+    traj = _line(y=0.0)
+    end = np.asarray(traj.evaluate(float(traj.t_end), 0), dtype=float)
+    times = np.linspace(float(traj.t_start), float(traj.t_end), 40)
+    neighbor = np.column_stack((times, np.repeat(end[None, :], len(times), axis=0)))
+    kw = dict(max_iterations=8, time_budget_s=0.20)
+    out_point, rec_point = refine_yopo(traj, _cfg(swarm_penalty=True, **kw), (), neighbors=[neighbor])
+    out_seg, rec_seg = refine_yopo(
+        traj, _cfg(swarm_penalty=True, swarm_segment_penalty=True, **kw), (), neighbors=[neighbor]
+    )
+    assert rec_point["applied"] is True, rec_point
+    assert rec_seg["applied"] is True, rec_seg
+    for out in (out_point, out_seg):
+        for order in range(3):
+            np.testing.assert_allclose(
+                out.evaluate(float(out.t_start), order),
+                traj.evaluate(float(traj.t_start), order),
+                atol=1e-6,
+            )
+    d_point = float(np.linalg.norm(np.asarray(out_point.evaluate(float(out_point.t_end), 0)) - end))
+    d_seg = float(np.linalg.norm(np.asarray(out_seg.evaluate(float(out_seg.t_end), 0)) - end))
+    assert d_point < 1e-5
+    assert d_seg > 0.30
+
+
+def test_far_neighbor_segment_matches_swarm_off():
+    traj = _line()
+    far = _samples(_line(y=8.0))
+    off = _cfg()
+    seg = _cfg(swarm_penalty=True, swarm_segment_penalty=True)
+    out_off, rec_off = refine_yopo(traj, off, ())
+    out_seg, rec_seg = refine_yopo(traj, seg, (), neighbors=[far])
+    assert rec_off["applied"] is True and rec_seg["applied"] is True
+    # 末端放开后拟合维数变了，远邻机时代价仍是 0，曲线只差舍入。
+    np.testing.assert_allclose(_positions(out_off), _positions(out_seg), atol=1e-9, rtol=0.0)
+    assert rec_off["iterations"] == rec_seg["iterations"]
