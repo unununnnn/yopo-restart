@@ -1,13 +1,16 @@
-"""单机、无邻机的均匀三次 B 样条后段。
+"""均匀三次 B 样条后段。
 
 YOPO 已经选出一条多项式。这里把它拟合成均匀三次 B 样条，只动中间控制点，
 用解析梯度下降一条 EGO 风格的代价：平滑、到场景圆柱 / 盒子 / 地面的最近距离、
-速度和加速度超过上限。没有机间项。
+速度和加速度超过上限。机间椭球项默认关（E-B3）：打开时，对自身中间控制点与
+邻机同时刻位置的椭球距离加平方铰链。邻机轨迹来自总线上已提交采样。关上时
+不读邻机，代价与加这项之前逐位相同。
 
 不复制 ego-planner-swarm。那份代码是 GPLv3，本仓库根目录没有 LICENSE。
 代价按论文的角色重写：平滑是控制点三阶差分，碰撞是米制有符号距离上的平方铰链，
-可行是速度、加速度超过上限的平方铰链。论文用的是 {p, v} 平面距离和另一组权重，
-数值对不上，所以权重写在下面，不假装是论文表里的 λ。
+可行是速度、加速度超过上限的平方铰链，机间是论文式 (5)(6) 的椭球软障碍。
+论文用的是 {p, v} 平面距离和另一组权重，数值对不上，所以权重写在下面，
+不假装是论文表里的 λ。椭球的 C、c 是假设，正文只写 c > 1、C 由用户定。
 
 求解器用 scipy 的 L-BFGS-B，迭代上限和时间预算都是硬的。失败、超时后没有更安全的点、
 或运动学守不住时，交回原来的多项式对象。
@@ -31,6 +34,10 @@ _LAMBDA_S = 1.0
 _LAMBDA_C = 40.0
 _LAMBDA_D = 0.1
 _LAMBDA_ANCHOR = 0.15
+# 机间椭球权重。假设，不是论文 λ_w=0.5：那里的距离量纲对不上米制铰链。
+_LAMBDA_W = 40.0
+# 椭球距离过近、梯度无定义时的下限。
+_SWARM_EPS = 1e-9
 # 软惩罚比机体半径多出来的一截。铰链在门槛上梯度为零，留 5 cm 才推得动表面。
 _CLEARANCE_BUFFER_M = 0.05
 _MIN_DURATION_S = 0.6
@@ -113,11 +120,13 @@ def summarize_log(rows: list[dict]) -> dict:
     }
 
 
-def refine_yopo(traj, cfg: BackendConfig, obstacles, goal=None):
+def refine_yopo(traj, cfg: BackendConfig, obstacles, goal=None, neighbors=None):
     """优化一条已选中的 YOPO 多项式。失败时返回同一个对象。
 
     ``goal`` 留在签名里：末端 PVA 钉死在这条前缀上，本原型不另加终端进度。
     形状不合法就当这次失败，交回原曲线。
+    ``neighbors`` 是邻机已提交轨迹的采样，每份 (t, x, y, z)。只有
+    ``cfg.swarm_penalty`` 为真时才读；关上时这个参数不影响代价。
     """
     # 首次 import 不计入这次调用的时间预算。
     import scipy.optimize  # noqa: F401
@@ -129,7 +138,7 @@ def refine_yopo(traj, cfg: BackendConfig, obstacles, goal=None):
             return traj, _record(False, "bad_goal", 0, t0, budget_cut=False)
 
     try:
-        return _refine(traj, cfg, tuple(obstacles or ()), t0)
+        return _refine(traj, cfg, tuple(obstacles or ()), t0, neighbors=neighbors)
     except (ValueError, FloatingPointError, np.linalg.LinAlgError):
         return traj, _record(False, "exception", 0, t0, budget_cut=False)
 
@@ -166,7 +175,7 @@ def _json_float(value) -> float | None:
     return out
 
 
-def _refine(traj, cfg: BackendConfig, obstacles, t0: float):
+def _refine(traj, cfg: BackendConfig, obstacles, t0: float, neighbors=None):
     duration = float(traj.t_end - traj.t_start)
     knots = _choose_knots(duration)
     if knots is None:
@@ -187,9 +196,11 @@ def _refine(traj, cfg: BackendConfig, obstacles, t0: float):
     idx, wts = _sample_layout(n_span)
     packed = _pack_obstacles(obstacles)
     clr_before = min_signed_distance(traj, obstacles, packed=packed)
+    swarm = bool(cfg.swarm_penalty)
+    swarm_nbs = tuple(neighbors or ()) if swarm else ()
 
     def cost_grad(q):
-        return _cost_grad(
+        cost, grad = _cost_grad(
             q,
             q_fit,
             free,
@@ -202,6 +213,17 @@ def _refine(traj, cfg: BackendConfig, obstacles, t0: float):
             wts,
             packed=packed,
         )
+        if swarm:
+            sc, sg = _swarm_cost_grad(
+                q,
+                dt,
+                float(traj.t_start),
+                swarm_nbs,
+                float(cfg.swarm_clearance_m),
+                float(cfg.swarm_c),
+            )
+            return cost + sc, grad + sg
+        return cost, grad
 
     x0 = q_fit[free].reshape(-1).copy()
     x_best, iterations, budget_cut = _minimize(x0, q_fit, free, cost_grad, cfg, t0)
@@ -395,6 +417,64 @@ def _hinge_limit(grad: np.ndarray, vecs: np.ndarray, limit: float, basis: np.nda
     for k in range(4):
         grad[k : k + n_span] += contrib[:, k, :]
     return cost
+
+
+def _swarm_cost_grad(q, dt, t_start, neighbors, clearance, c, lam: float = _LAMBDA_W):
+    """中间控制点对邻机同时刻位置的椭球平方铰链。
+
+    距离 d = sqrt(dx² + dy² + (c·dz)²)。d < C 时代价是 λ (C - d)²。
+    C、c、λ 都是假设，不是论文数值。控制点 i 对应时刻 t_start + (i - 1)·dt
+    （均匀三次样条的 Greville 横坐标），夹到曲线区间。只罚可动的中间点。
+    没有时间重叠的邻机采样不外推。
+    """
+    n = int(q.shape[0])
+    free = np.arange(3, n - 3)
+    grad = np.zeros_like(q)
+    if free.size == 0 or not neighbors:
+        return 0.0, grad
+    t_end = float(t_start) + float(dt) * (n - 3)
+    times = np.clip(float(t_start) + (free.astype(float) - 1.0) * float(dt), float(t_start), t_end)
+    pts = q[free]
+    cost = 0.0
+    g_free = np.zeros_like(pts)
+    c2 = float(c) * float(c)
+    thresh = float(clearance)
+    scale_lam = float(lam)
+    for raw in neighbors:
+        arr = np.asarray(raw, dtype=float)
+        if arr.ndim != 2 or arr.shape[1] != 4 or arr.shape[0] == 0:
+            continue
+        if not bool(np.all(np.isfinite(arr))):
+            continue
+        ts = arr[:, 0]
+        mask = (times >= float(ts[0])) & (times <= float(ts[-1]))
+        if not bool(np.any(mask)):
+            continue
+        t = times[mask]
+        delta = pts[mask] - np.column_stack((
+            np.interp(t, ts, arr[:, 1]),
+            np.interp(t, ts, arr[:, 2]),
+            np.interp(t, ts, arr[:, 3]),
+        ))
+        dist = np.sqrt(delta[:, 0] * delta[:, 0] + delta[:, 1] * delta[:, 1] + c2 * delta[:, 2] * delta[:, 2])
+        zero = dist <= _SWARM_EPS
+        active = (dist < thresh) & ~zero
+        if bool(np.any(zero)):
+            # 重合时椭球距离的梯度无定义，只加代价，不推梯度。
+            cost += scale_lam * float(np.sum((thresh - dist[zero]) ** 2))
+        if not bool(np.any(active)):
+            continue
+        viol = thresh - dist[active]
+        cost += scale_lam * float(np.sum(viol * viol))
+        push = ((-2.0 * scale_lam * viol) / dist[active])[:, None] * np.column_stack((
+            delta[active, 0],
+            delta[active, 1],
+            c2 * delta[active, 2],
+        ))
+        idx = np.flatnonzero(mask)[active]
+        g_free[idx] += push
+    grad[free] = g_free
+    return float(cost), grad
 
 
 def _cost_grad(q, q_fit, free, dt, obstacles, d_safe, v_max, a_max, idx, wts, packed=None):
