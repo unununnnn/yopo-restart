@@ -25,9 +25,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--run", type=Path, required=True, help="含 trajectory.npz、record.json、scene.json 的目录")
     parser.add_argument("--out", type=Path, required=True, help="写出的 npz")
     parser.add_argument("--max-windows", type=int, default=None, help="沿（时刻，视点）均匀抽取的窗口数。缺省是全部合法窗口")
+    parser.add_argument(
+        "--altitude-shift",
+        type=float,
+        default=0.0,
+        help="把位置和目标的 z 平移这么多米，再按 L0 相机重渲深度。默认 0，与不传逐位相同。",
+    )
     args = parser.parse_args(argv)
     try:
-        batch = convert_run(args.run, max_windows=args.max_windows)
+        shift = float(args.altitude_shift)
+        batch = convert_run(
+            args.run,
+            max_windows=args.max_windows,
+            **({} if shift == 0.0 else {"altitude_shift_m": shift}),
+        )
     except DistillError as exc:
         print(f"转换失败：{exc}", file=sys.stderr)
         return 1

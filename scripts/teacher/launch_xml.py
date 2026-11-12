@@ -57,16 +57,16 @@ def _one_drone(drone_id: int, start, goal) -> str:
     <arg name="point0_z" value="{gz}"/>
     <arg name="point1_x" value="0.0"/>
     <arg name="point1_y" value="0.0"/>
-    <arg name="point1_z" value="1.0"/>
+    <arg name="point1_z" value="{gz}"/>
     <arg name="point2_x" value="0.0"/>
     <arg name="point2_y" value="0.0"/>
-    <arg name="point2_z" value="1.0"/>
+    <arg name="point2_z" value="{gz}"/>
     <arg name="point3_x" value="0.0"/>
     <arg name="point3_y" value="0.0"/>
-    <arg name="point3_z" value="1.0"/>
+    <arg name="point3_z" value="{gz}"/>
     <arg name="point4_x" value="0.0"/>
     <arg name="point4_y" value="0.0"/>
-    <arg name="point4_z" value="1.0"/>
+    <arg name="point4_z" value="{gz}"/>
   </include>
 
   <node pkg="ego_planner" name="drone_{drone_id}_traj_server" type="traj_server" output="log">
