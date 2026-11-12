@@ -45,6 +45,54 @@ def render(res: dict, total_wall: float | None, image: str | None) -> str:
     return "\n".join(out) + "\n"
 
 
+def render_fleet(res: dict, total_wall: float | None, image: str | None) -> str:
+    """多机冒烟表。数字只罗列，判据未冻结，不根据误差大小写通过。"""
+    vehicles = res.get("vehicles") or []
+    lines = [
+        "## S2 多机 PX4 SITL 冒烟（report-only，判据未冻结）",
+        "",
+        f"机数：{res.get('n', len(vehicles))}。DDS 域：`{res.get('dds_domain_id')}`。"
+        f"XRCE 端口：`{res.get('xrce_port')}`（各机共用）。",
+        f"定位源：`{res.get('positioning') or 'default'}`（default = 官方米级 GNSS 模型；rtk = 厘米级，默认关）。",
+        "每机悬停在自己起飞点上方 1.5 m，采样后降落。误差默认相对 PX4 自身估计；"
+        "标「真值」的列相对 Gazebo。高度偏差是悬停段 est_z − truth_z（同一世界系）。",
+        "「结果」只表示有没有落地并上锁，不是误差门。",
+        "",
+    ]
+    if image:
+        lines += [f"镜像：`{image}`", ""]
+    lines += [
+        "| 机 | namespace | MAV_SYS_ID | 结果 | 悬停估计高度误差 RMS / 最大 m | 悬停真值高度误差 RMS / 最大 m | 估计相对真值高度偏差 均值 / RMS / 最大 m | 降落用时 仿真 s |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for v in vehicles:
+        m = v.get("metrics") or {}
+        ns = v.get("namespace") or "—"
+        ok = "飞完" if v.get("ok") else f"未完成（{m.get('failure') or v.get('phase')}）"
+        est = f"{fmt(m.get('hover_alt_err_rms_m'))} / {fmt(m.get('hover_alt_err_max_m'))}"
+        tru = f"{fmt(m.get('hover_alt_err_truth_rms_m'))} / {fmt(m.get('hover_alt_err_truth_max_m'))}"
+        bias = (
+            f"{fmt(m.get('hover_est_truth_alt_bias_mean_m'))} / "
+            f"{fmt(m.get('hover_est_truth_alt_bias_rms_m'))} / "
+            f"{fmt(m.get('hover_est_truth_alt_bias_max_m'))}"
+        )
+        lines.append(
+            f"| {v.get('index', '—')} | {ns} | {v.get('mav_sys_id', '—')} | {ok} | {est} | {tru} | {bias} | {fmt(m.get('land_s'), 1)} |"
+        )
+    lines += [
+        "",
+        "| 项 | 值 |",
+        "|---|---|",
+        ("| 整趟结果 | 飞完 |" if res.get("ok") else f"| 整趟结果 | 未完成（{res.get('phase')}） |"),
+        f"| 任务墙钟 (s) | {fmt(res.get('mission_wall_s'), 1)} |",
+        f"| 任务仿真时长 (s) | {fmt(res.get('mission_sim_s'), 1)} |",
+        f"| RTF | {fmt(res.get('rtf'), 2)} |",
+        f"| 启动到预检通过墙钟 (s) | {fmt(res.get('wall_to_preflight_ok_s'), 1)} |",
+        f"| 总墙钟含容器 (s) | {fmt(total_wall, 1)} |",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("run_dir")
@@ -55,7 +103,12 @@ def main(argv=None) -> int:
     if not p.exists():
         print(f"没有 {p}：容器没跑到任务结束，看 {a.run_dir}/console.log 与 px4.log")
         return 1
-    print(render(json.loads(p.read_text()), a.total_wall, a.image), end="")
+    res = json.loads(p.read_text())
+    if res.get("vehicles"):
+        text = render_fleet(res, a.total_wall, a.image)
+    else:
+        text = render(res, a.total_wall, a.image)
+    print(text, end="")
     return 0
 
 

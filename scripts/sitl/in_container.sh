@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# 容器内入口（由 smoke.sh 以 nice 15 调起）：XRCE Agent + 单个 PX4 SITL 实例（gz_x500，headless）+ 任务驱动。
-# PX4 参数：全新空状态目录 → 默认只用官方 airframe 默认值。
+# 容器内入口（由 smoke.sh / up.sh 以 nice 15 调起）。
+# YOPO_SITL_N=1（默认）：单个 PX4（gz_x500，instance 0）+ S1 任务。与票 S1 相同。
+# YOPO_SITL_N=2 或 3：instance 1..N，uXRCE namespace px4_1..px4_N，同一个 DDS 域、同一个 XRCE Agent。
+#   YOPO_SITL_MISSION=0 只把仿真留着；=1（默认）再让各机起飞到自己的 1.5 m 悬停点后降落。
+# PX4 参数：全新空状态目录。默认只用官方 airframe 默认值。
 # YOPO_POSITIONING=rtk 时 source positioning-rtk.env（仅白名单定位/估计参数，经官方 PX4_PARAM_* 在启动时注入）。
 set -eo pipefail
 source /opt/ros/humble/setup.bash
@@ -10,6 +13,8 @@ source "$BUILD/rootfs/gz_env.sh"
 set -u
 OUT=/out
 mkdir -p "$OUT/px4-state"
+N="${YOPO_SITL_N:-1}"
+MISSION="${YOPO_SITL_MISSION:-1}"
 POSITIONING="${YOPO_POSITIONING:-default}"
 echo "$POSITIONING" > "$OUT/positioning.txt"
 if [[ "$POSITIONING" == "rtk" ]]; then
@@ -29,28 +34,136 @@ export YOPO_POSITIONING="$POSITIONING"
 cleanup() { kill $(jobs -pr) 2>/dev/null || true; pkill -f 'gz sim' 2>/dev/null || true; wait 2>/dev/null || true; }
 trap cleanup EXIT TERM INT
 
-MicroXRCEAgent udp4 -p 8888 > "$OUT/agent.log" 2>&1 &
-( cd "$OUT/px4-state" && exec "$BUILD/bin/px4" -d "$BUILD/etc" ) > "$OUT/px4.log" 2>&1 &
-PX4_PID=$!
-for _ in $(seq 1 1200); do
-  grep -q 'Startup script returned successfully' "$OUT/px4.log" 2>/dev/null && break
-  kill -0 "$PX4_PID" 2>/dev/null || { echo "PX4 进程提前退出，见 px4.log" >&2; exit 3; }
-  sleep 0.1
-done
+case "$N" in
+  ''|*[!0-9]*) echo "未知 YOPO_SITL_N=$N" >&2; exit 2 ;;
+esac
+
+wait_px4() {
+  local log=$1 pid=$2
+  local _
+  for _ in $(seq 1 1800); do
+    grep -q 'Startup script returned successfully' "$log" 2>/dev/null && return 0
+    kill -0 "$pid" 2>/dev/null || return 3
+    sleep 0.1
+  done
+  echo "PX4 启动超时，见 $log" >&2
+  return 4
+}
+
+dump_fail() {
+  local log
+  shopt -s nullglob
+  for log in "$OUT"/px4*.log; do
+    echo "-- $(basename "$log") --"
+    grep -E 'Preflight Fail|Arming denied|arming denied|Failsafe|failsafe|ERROR' "$log" | sort | uniq -c | sort -rn | head -10 || true
+  done
+}
+
+finish_mission_rc() {
+  local rc=$1
+  if [[ $rc -ne 0 && -f "$OUT/result.json" ]]; then
+    if python3 -c 'import json,sys; sys.exit(0 if json.load(open("/out/result.json")).get("ok") else 1)'; then
+      echo "mission ok, python rc=$rc (teardown); treating as success"
+      rc=0
+    fi
+  fi
+  dump_fail
+  exit "$rc"
+}
+
+if [[ "$N" -eq 1 ]]; then
+  MicroXRCEAgent udp4 -p 8888 > "$OUT/agent.log" 2>&1 &
+  ( cd "$OUT/px4-state" && exec "$BUILD/bin/px4" -d "$BUILD/etc" ) > "$OUT/px4.log" 2>&1 &
+  PX4_PID=$!
+  for _ in $(seq 1 1200); do
+    grep -q 'Startup script returned successfully' "$OUT/px4.log" 2>/dev/null && break
+    kill -0 "$PX4_PID" 2>/dev/null || { echo "PX4 进程提前退出，见 px4.log" >&2; exit 3; }
+    sleep 0.1
+  done
+  echo "px4_startup_wall_s $SECONDS"
+  # 只读：记下与默认值不同的参数，作为没改参数的证据。
+  "$BUILD/bin/px4-param" --instance 0 show -c > "$OUT/px4-params-changed.txt" 2>&1 || true
+  if [[ "$MISSION" == 0 ]]; then
+    date -Is > "$OUT/ready"
+    echo "sim ready n=1 mission=0; waiting"
+    wait
+    exit 0
+  fi
+  set +e
+  python3 /repo/scripts/sitl/offboard_mission.py --out "$OUT/result.json" --wall-timeout "${YOPO_SITL_WALL_TIMEOUT:-900}"
+  rc=$?
+  set -e
+  finish_mission_rc "$rc"
+fi
+
+if [[ "$N" -gt 3 ]]; then
+  echo "YOPO_SITL_N=$N 超出 1..3" >&2
+  exit 2
+fi
+
+python3 /repo/scripts/sitl/fleet.py --n "$N" --format shell > "$OUT/layout.txt"
+XRCE_PORT="$(awk -F= '/^xrce_port=/{print $2; exit}' "$OUT/layout.txt")"
+DDS_DOMAIN_ID="$(awk -F= '/^dds_domain_id=/{print $2; exit}' "$OUT/layout.txt")"
+if [[ -z "${XRCE_PORT}" || -z "${DDS_DOMAIN_ID}" ]]; then
+  echo "布局缺少 xrce_port 或 dds_domain_id" >&2
+  exit 2
+fi
+if [[ -n "${ROS_DOMAIN_ID:-}" && "$ROS_DOMAIN_ID" != "$DDS_DOMAIN_ID" ]]; then
+  echo "ROS_DOMAIN_ID=$ROS_DOMAIN_ID 与布局 dds_domain_id=$DDS_DOMAIN_ID 不是同一个 DDS 域" >&2
+  exit 2
+fi
+echo "$DDS_DOMAIN_ID" > "$OUT/dds_domain_id.txt"
+MicroXRCEAgent udp4 -p "$XRCE_PORT" > "$OUT/agent.log" 2>&1 &
+
+inst="" pose="" standalone=""
+start_vehicle() {
+  [[ -n "$inst" ]] || return 0
+  local dir="$OUT/px4-state/$inst" pid
+  mkdir -p "$dir"
+  echo "start instance=$inst pose=${pose:-<model default>} standalone=$standalone"
+  (
+    cd "$dir"
+    if [[ "$standalone" == 1 ]]; then
+      export PX4_GZ_STANDALONE=1
+    fi
+    if [[ -n "$pose" ]]; then
+      export PX4_GZ_MODEL_POSE="$pose"
+    fi
+    # 不设 PX4_UXRCE_DDS_NS：instance>0 时由 PX4 rcS 加 namespace px4_<instance>。
+    # -i 放在 rootfs 路径前面：px4_getopt 遇到非选项会停。
+    exec "$BUILD/bin/px4" -d -i "$inst" "$BUILD/etc"
+  ) > "$OUT/px4-${inst}.log" 2>&1 &
+  pid=$!
+  if ! wait_px4 "$OUT/px4-${inst}.log" "$pid"; then
+    echo "PX4 instance $inst 提前退出，见 px4-${inst}.log" >&2
+    exit 3
+  fi
+  "$BUILD/bin/px4-param" --instance "$inst" show -c > "$OUT/px4-${inst}-params-changed.txt" 2>&1 || true
+  inst="" pose="" standalone=""
+}
+
+while IFS= read -r line || [[ -n "${line:-}" ]]; do
+  case "$line" in
+    ---) start_vehicle ;;
+    n=*|dds_domain_id=*|xrce_port=*|mav_sys_id=*|namespace=*|model=*|gcs_port=*) ;;
+    instance=*) inst="${line#*=}" ;;
+    pose=*) pose="${line#*=}" ;;
+    standalone=*) standalone="${line#*=}" ;;
+    '') ;;
+    *) echo "无法识别的布局行：$line" >&2; exit 2 ;;
+  esac
+done < "$OUT/layout.txt"
+start_vehicle
+
 echo "px4_startup_wall_s $SECONDS"
-# 只读：记下与默认值不同的参数（应为空或只有 airframe/SITL 自己设的），作为没改参数的证据。
-"$BUILD/bin/px4-param" --instance 0 show -c > "$OUT/px4-params-changed.txt" 2>&1 || true
+date -Is > "$OUT/ready"
+if [[ "$MISSION" == 0 ]]; then
+  echo "sim ready n=$N domain=$DDS_DOMAIN_ID mission=0; waiting"
+  wait
+  exit 0
+fi
 set +e
-python3 /repo/scripts/sitl/offboard_mission.py --out "$OUT/result.json" --wall-timeout "${YOPO_SITL_WALL_TIMEOUT:-900}"
+python3 /repo/scripts/sitl/fleet.py run --out "$OUT/result.json" --n "$N" --wall-timeout "${YOPO_SITL_WALL_TIMEOUT:-900}"
 rc=$?
 set -e
-# 任务已写完 result.json 且 ok 时，进程在 rclpy/gz 拆卸阶段 SIGABRT 仍视为成功（S1b 实测出现过 134）。
-if [[ $rc -ne 0 && -f "$OUT/result.json" ]]; then
-  if python3 -c 'import json,sys; sys.exit(0 if json.load(open("/out/result.json")).get("ok") else 1)'; then
-    echo "mission ok, python rc=$rc (teardown); treating as success"
-    rc=0
-  fi
-fi
-# 卡住时最有用的几行：PX4 自己报的预检 / 解锁失败原因（去重）
-grep -E 'Preflight Fail|Arming denied|arming denied|Failsafe|failsafe' "$OUT/px4.log" | sort | uniq -c | sort -rn | head -10 || true
-exit $rc
+finish_mission_rc "$rc"
