@@ -1,23 +1,40 @@
 #!/usr/bin/env bash
 # 票 S1：headless 单机 PX4 SITL 冒烟（report-only，不进 scenes/suite.txt）。
-#   scripts/sitl/smoke.sh          前台跑一次，打印结果表
-#   scripts/sitl/smoke.sh --bg     setsid nohup 后台跑，打印 PID 文件与日志路径后立即返回
+#   scripts/sitl/smoke.sh [--positioning default|rtk]          前台跑一次，打印结果表
+#   scripts/sitl/smoke.sh [--positioning default|rtk] --bg     setsid nohup 后台跑，打印 PID 文件与日志路径后立即返回
+# --positioning 默认 default（与 S1 相同，不改参数）；rtk 为厘米级定位源（默认关）。
 # 流程：起飞到 2.5 m → 悬停 10 s（仿真时间）→ 飞到悬停点 +(5, 3, 0) m（ENU）→ NAV_LAND。
 # 输出：悬停高度误差（RMS / 最大）、到点误差、墙钟、RTF。镜像不存在时先跑 scripts/sitl/up.sh。
-# 只开 1 个 PX4 实例，全部进程 nice 15；只用 PX4 官方默认参数。
+# 只开 1 个 PX4 实例，全部进程 nice 15；默认路径只用 PX4 官方默认参数。
 set -euo pipefail
 # shellcheck source=common.sh
 . "$(dirname "$0")/common.sh"
 mkdir -p "$SITL_STATE/runs"
 PIDF="$SITL_STATE/smoke.pid"
 NAME=yopo-restart-s1-sitl
+BG=0
+POSITIONING="${YOPO_POSITIONING:-default}"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --bg) BG=1; shift ;;
+    --positioning) POSITIONING="${2:-}"; shift 2 ;;
+    --positioning=*) POSITIONING="${1#*=}"; shift ;;
+    -h|--help) echo "用法：$0 [--positioning default|rtk] [--bg]"; exit 0 ;;
+    *) echo "用法：$0 [--positioning default|rtk] [--bg]" >&2; exit 2 ;;
+  esac
+done
+if [[ "$POSITIONING" != "default" && "$POSITIONING" != "rtk" ]]; then
+  echo "未知 --positioning=$POSITIONING（只要 default 或 rtk）" >&2
+  exit 2
+fi
+export YOPO_POSITIONING="$POSITIONING"
 
-if [[ "${1:-}" == "--bg" ]]; then
+if [[ "$BG" == 1 ]]; then
   if pid_alive "$PIDF"; then echo "running pid=$(cat "$PIDF")"; exit 0; fi
-  LOG="$SITL_STATE/runs/smoke-$(date +%Y%m%dT%H%M%S).log"
-  setsid nohup "$0" >"$LOG" 2>&1 < /dev/null &
+  LOG="$SITL_STATE/runs/smoke-$(date +%Y%m%dT%H%M%S)-${POSITIONING}.log"
+  setsid nohup "$0" --positioning "$POSITIONING" >"$LOG" 2>&1 < /dev/null &
   echo $! > "$PIDF"
-  echo "started pid=$! pidfile=$PIDF log=$LOG"
+  echo "started pid=$! pidfile=$PIDF log=$LOG positioning=$POSITIONING"
   exit 0
 fi
 
@@ -37,6 +54,7 @@ t0=$(date +%s.%N)
 set +e
 "${DOCKER[@]}" run --rm --name "$NAME" \
   -e ROS_DOMAIN_ID=0 -e YOPO_SITL_WALL_TIMEOUT="${YOPO_SITL_WALL_TIMEOUT:-900}" \
+  -e YOPO_POSITIONING="${YOPO_POSITIONING:-default}" \
   -v "$REPO_ROOT:/repo:ro" -v "$RUN:/out" --shm-size 1g \
   "$SITL_IMAGE" nice -n "$SITL_NICE" bash /repo/scripts/sitl/in_container.sh 2>&1 | tee "$RUN/console.log"
 rc=${PIPESTATUS[0]}
