@@ -81,15 +81,25 @@ d014 的 35 次调用离线复算（`--dump-refine` + `--analyze-dump`，读 `bs
 
 ### 修复对照（seeds 0–9，只报数）
 
-**未跑完，后补。** 全关两张卡 0–9 已完成；修复臂 swap8 完成 0、1、7、8、9，d014 完成 0、1、6–9，其余在后台续跑。消融两臂（只放宽门槛 `a1m`；只换刹停 `a1b`）还没开始。表由 `--collect … --render-md` 生成，跑完后重新生成即可。d014 修复臂的撞树都是 `TRUTH_POSITION`，与 [e-c4b](e-c4b-density-seeds.md) 里 safe_radius 0.05 m「走廊过松」同一类，不是机间问题。
+四臂都跑完 seeds 0–9。「E-A1 1.0 m」就是上游原样的无解悬停（`hold_traj(s.p)`）加 1.0 m 门槛，用来和刹停比。表由 `--collect … --render-md` 生成。撞树都是 `TRUTH_POSITION`，与 [e-c4b](e-c4b-density-seeds.md) 里 safe_radius 0.05 m「走廊过松」同一类，不是机间问题，本票不处理。
+
+消融结论：
+
+- swap8 要两处一起改。只放宽门槛（上游悬停）48/80 到达，仍有 4 粒机间碰撞（seed 0、6、7、8，都是 `uav3-uav5`，0.693–0.695 m）；只换刹停、门槛仍 0.70 m 是 0/80，10 粒全部机间碰撞，0.671–0.699 m 擦线；两处一起 80/80，最小机间 1.069–1.077 m。
+- d014 上机间碰撞只靠门槛就去掉了：1.0 m 两臂都是 0；0.70 m + 刹停还剩 1 粒（seed 0，0.690 m）。剩下的失败都是撞树：上游悬停 7 粒，修复 6 粒，0.70 m + 刹停 3 粒。门槛放大以后绕行更多，撞树反而多于 0.70 m 臂，所以 d014 的到达是 0.70 m + 刹停最高（20/30），修复 14/30、上游悬停 11/30、全关 0/30。
+- 刹停原型在 d014 上每粒只触发 0–2 拍，修复和上游悬停有 5 粒结果完全相同；swap8 上每粒触发 6–10 拍，是它把 48/80 变成 80/80。
 
 <!-- e-b4-compare:start -->
 | 卡 | 臂 | seeds | 到达（架次） | 机间碰撞 | 撞树 | 超时 | 最小机间 m | 最小障碍 m | 刹停原型触发（规划拍） |
 |---|---|---|---|---|---|---|---|---|---|
 | swap8 | 全关 | 0–9 | 0/80 | 10 | 0 | 0 | 0.695–0.696 | 1.500–1.500 | — |
-| swap8 | 修复：E-A1 1.0 m + 刹停原型 | 0,1,7,8,9 | 40/40 | 0 | 0 | 0 | 1.069–1.077 | 1.146–1.459 | 6–10 |
+| swap8 | E-A1 1.0 m | 0–9 | 48/80 | 4 | 0 | 0 | 0.694–0.815 | 1.463–1.500 | — |
+| swap8 | E-A1 0.70 m + 刹停原型 | 0–9 | 0/80 | 10 | 0 | 0 | 0.671–0.699 | 1.457–1.500 | 8–13 |
+| swap8 | 修复：E-A1 1.0 m + 刹停原型 | 0–9 | 80/80 | 0 | 0 | 0 | 1.069–1.077 | 1.146–1.459 | 6–10 |
 | d014-swap3 | 全关 | 0–9 | 0/30 | 10 | 0 | 0 | 0.622–0.698 | 0.486–0.569 | — |
-| d014-swap3 | 修复：E-A1 1.0 m + 刹停原型 | 0,1,6,7,8,9 | 11/18 | 0 | 3 | 0 | 1.099–1.653 | 0.324–0.566 | 0–2 |
+| d014-swap3 | E-A1 1.0 m | 0–9 | 11/30 | 0 | 7 | 0 | 1.099–2.633 | 0.341–0.566 | — |
+| d014-swap3 | E-A1 0.70 m + 刹停原型 | 0–9 | 20/30 | 1 | 3 | 0 | 0.690–1.010 | 0.341–0.568 | 0–2 |
+| d014-swap3 | 修复：E-A1 1.0 m + 刹停原型 | 0–9 | 14/30 | 0 | 6 | 0 | 1.099–2.633 | 0.324–0.566 | 0–2 |
 
 | 卡 | 臂 | seed | 结果 | 原因 | 到达 | 最小机间 m | 最小障碍 m | 仿真 s |
 |---|---|---|---|---|---|---|---|---|
@@ -103,8 +113,33 @@ d014 的 35 次调用离线复算（`--dump-refine` + `--analyze-dump`，读 `bs
 | swap8 | 全关 | 7 | COLLISION | `uav3-uav4:INTER_DRONE` | 0/8 | 0.695 | 1.500 | 2.09 |
 | swap8 | 全关 | 8 | COLLISION | `uav3-uav4:INTER_DRONE` | 0/8 | 0.695 | 1.500 | 2.09 |
 | swap8 | 全关 | 9 | COLLISION | `uav3-uav4:INTER_DRONE` | 0/8 | 0.695 | 1.500 | 2.09 |
+| swap8 | E-A1 1.0 m | 0 | COLLISION | `uav3-uav5:INTER_DRONE` | 0/8 | 0.694 | 1.500 | 2.82 |
+| swap8 | E-A1 1.0 m | 1 | SUCCESS | `GOAL_REACHED_AND_HELD` | 8/8 | 0.814 | 1.463 | 9.20 |
+| swap8 | E-A1 1.0 m | 2 | SUCCESS | `GOAL_REACHED_AND_HELD` | 8/8 | 0.812 | 1.463 | 8.96 |
+| swap8 | E-A1 1.0 m | 3 | SUCCESS | `GOAL_REACHED_AND_HELD` | 8/8 | 0.814 | 1.463 | 9.20 |
+| swap8 | E-A1 1.0 m | 4 | SUCCESS | `GOAL_REACHED_AND_HELD` | 8/8 | 0.811 | 1.463 | 8.96 |
+| swap8 | E-A1 1.0 m | 5 | SUCCESS | `GOAL_REACHED_AND_HELD` | 8/8 | 0.815 | 1.463 | 9.20 |
+| swap8 | E-A1 1.0 m | 6 | COLLISION | `uav3-uav5:INTER_DRONE` | 0/8 | 0.695 | 1.500 | 2.82 |
+| swap8 | E-A1 1.0 m | 7 | COLLISION | `uav3-uav5:INTER_DRONE` | 0/8 | 0.694 | 1.500 | 2.82 |
+| swap8 | E-A1 1.0 m | 8 | COLLISION | `uav3-uav5:INTER_DRONE` | 0/8 | 0.695 | 1.500 | 2.82 |
+| swap8 | E-A1 1.0 m | 9 | SUCCESS | `GOAL_REACHED_AND_HELD` | 8/8 | 0.812 | 1.463 | 8.96 |
+| swap8 | E-A1 0.70 m + 刹停原型 | 0 | COLLISION | `uav3-uav5:INTER_DRONE` | 0/8 | 0.696 | 1.500 | 2.38 |
+| swap8 | E-A1 0.70 m + 刹停原型 | 1 | COLLISION | `uav0-uav6:INTER_DRONE` | 0/8 | 0.671 | 1.457 | 2.81 |
+| swap8 | E-A1 0.70 m + 刹停原型 | 2 | COLLISION | `uav0-uav6:INTER_DRONE` | 0/8 | 0.674 | 1.457 | 2.81 |
+| swap8 | E-A1 0.70 m + 刹停原型 | 3 | COLLISION | `uav0-uav6:INTER_DRONE` | 0/8 | 0.673 | 1.457 | 2.81 |
+| swap8 | E-A1 0.70 m + 刹停原型 | 4 | COLLISION | `uav0-uav6:INTER_DRONE` | 0/8 | 0.672 | 1.458 | 2.81 |
+| swap8 | E-A1 0.70 m + 刹停原型 | 5 | COLLISION | `uav0-uav6:INTER_DRONE` | 0/8 | 0.673 | 1.458 | 2.81 |
+| swap8 | E-A1 0.70 m + 刹停原型 | 6 | COLLISION | `uav3-uav5:INTER_DRONE` | 0/8 | 0.698 | 1.500 | 2.38 |
+| swap8 | E-A1 0.70 m + 刹停原型 | 7 | COLLISION | `uav3-uav5:INTER_DRONE` | 0/8 | 0.697 | 1.500 | 2.38 |
+| swap8 | E-A1 0.70 m + 刹停原型 | 8 | COLLISION | `uav3-uav5:INTER_DRONE` | 0/8 | 0.699 | 1.500 | 2.38 |
+| swap8 | E-A1 0.70 m + 刹停原型 | 9 | COLLISION | `uav0-uav6:INTER_DRONE` | 0/8 | 0.672 | 1.457 | 2.81 |
 | swap8 | 修复：E-A1 1.0 m + 刹停原型 | 0 | SUCCESS | `GOAL_REACHED_AND_HELD` | 8/8 | 1.077 | 1.459 | 8.86 |
 | swap8 | 修复：E-A1 1.0 m + 刹停原型 | 1 | SUCCESS | `GOAL_REACHED_AND_HELD` | 8/8 | 1.069 | 1.146 | 8.78 |
+| swap8 | 修复：E-A1 1.0 m + 刹停原型 | 2 | SUCCESS | `GOAL_REACHED_AND_HELD` | 8/8 | 1.069 | 1.146 | 8.78 |
+| swap8 | 修复：E-A1 1.0 m + 刹停原型 | 3 | SUCCESS | `GOAL_REACHED_AND_HELD` | 8/8 | 1.070 | 1.146 | 8.78 |
+| swap8 | 修复：E-A1 1.0 m + 刹停原型 | 4 | SUCCESS | `GOAL_REACHED_AND_HELD` | 8/8 | 1.070 | 1.146 | 8.78 |
+| swap8 | 修复：E-A1 1.0 m + 刹停原型 | 5 | SUCCESS | `GOAL_REACHED_AND_HELD` | 8/8 | 1.070 | 1.146 | 8.78 |
+| swap8 | 修复：E-A1 1.0 m + 刹停原型 | 6 | SUCCESS | `GOAL_REACHED_AND_HELD` | 8/8 | 1.075 | 1.459 | 8.86 |
 | swap8 | 修复：E-A1 1.0 m + 刹停原型 | 7 | SUCCESS | `GOAL_REACHED_AND_HELD` | 8/8 | 1.076 | 1.459 | 8.86 |
 | swap8 | 修复：E-A1 1.0 m + 刹停原型 | 8 | SUCCESS | `GOAL_REACHED_AND_HELD` | 8/8 | 1.076 | 1.459 | 8.86 |
 | swap8 | 修复：E-A1 1.0 m + 刹停原型 | 9 | SUCCESS | `GOAL_REACHED_AND_HELD` | 8/8 | 1.069 | 1.146 | 8.78 |
@@ -118,8 +153,32 @@ d014 的 35 次调用离线复算（`--dump-refine` + `--analyze-dump`，读 `bs
 | d014-swap3 | 全关 | 7 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0.658 | 0.553 | 2.60 |
 | d014-swap3 | 全关 | 8 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0.666 | 0.530 | 2.60 |
 | d014-swap3 | 全关 | 9 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0.629 | 0.536 | 2.61 |
+| d014-swap3 | E-A1 1.0 m | 0 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 1.653 | 0.519 | 16.32 |
+| d014-swap3 | E-A1 1.0 m | 1 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 1.310 | 0.357 | 8.89 |
+| d014-swap3 | E-A1 1.0 m | 2 | COLLISION | `uav1:TRUTH_POSITION` | 0/3 | 1.134 | 0.348 | 4.41 |
+| d014-swap3 | E-A1 1.0 m | 3 | COLLISION | `uav0:TRUTH_POSITION` | 0/3 | 2.411 | 0.346 | 2.66 |
+| d014-swap3 | E-A1 1.0 m | 4 | COLLISION | `uav0:TRUTH_POSITION` | 0/3 | 2.633 | 0.347 | 2.63 |
+| d014-swap3 | E-A1 1.0 m | 5 | COLLISION | `uav1:TRUTH_POSITION` | 0/3 | 1.167 | 0.347 | 4.49 |
+| d014-swap3 | E-A1 1.0 m | 6 | COLLISION | `uav0:TRUTH_POSITION` | 0/3 | 1.272 | 0.341 | 3.00 |
+| d014-swap3 | E-A1 1.0 m | 7 | COLLISION | `uav0:TRUTH_POSITION` | 2/3 | 1.136 | 0.341 | 8.65 |
+| d014-swap3 | E-A1 1.0 m | 8 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 1.308 | 0.566 | 16.72 |
+| d014-swap3 | E-A1 1.0 m | 9 | COLLISION | `uav1:TRUTH_POSITION` | 0/3 | 1.099 | 0.346 | 4.36 |
+| d014-swap3 | E-A1 0.70 m + 刹停原型 | 0 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0.690 | 0.568 | 2.77 |
+| d014-swap3 | E-A1 0.70 m + 刹停原型 | 1 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0.984 | 0.531 | 8.34 |
+| d014-swap3 | E-A1 0.70 m + 刹停原型 | 2 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0.926 | 0.426 | 16.18 |
+| d014-swap3 | E-A1 0.70 m + 刹停原型 | 3 | COLLISION | `uav1:TRUTH_POSITION` | 0/3 | 1.010 | 0.348 | 4.12 |
+| d014-swap3 | E-A1 0.70 m + 刹停原型 | 4 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0.916 | 0.373 | 16.72 |
+| d014-swap3 | E-A1 0.70 m + 刹停原型 | 5 | COLLISION | `uav1:TRUTH_POSITION` | 0/3 | 0.785 | 0.341 | 4.32 |
+| d014-swap3 | E-A1 0.70 m + 刹停原型 | 6 | COLLISION | `uav0:TRUTH_POSITION` | 2/3 | 0.783 | 0.347 | 8.69 |
+| d014-swap3 | E-A1 0.70 m + 刹停原型 | 7 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0.928 | 0.443 | 8.82 |
+| d014-swap3 | E-A1 0.70 m + 刹停原型 | 8 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0.828 | 0.480 | 16.46 |
+| d014-swap3 | E-A1 0.70 m + 刹停原型 | 9 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0.908 | 0.555 | 8.97 |
 | d014-swap3 | 修复：E-A1 1.0 m + 刹停原型 | 0 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 1.653 | 0.519 | 16.32 |
 | d014-swap3 | 修复：E-A1 1.0 m + 刹停原型 | 1 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 1.310 | 0.357 | 8.89 |
+| d014-swap3 | 修复：E-A1 1.0 m + 刹停原型 | 2 | COLLISION | `uav1:TRUTH_POSITION` | 0/3 | 1.134 | 0.348 | 4.41 |
+| d014-swap3 | 修复：E-A1 1.0 m + 刹停原型 | 3 | COLLISION | `uav0:TRUTH_POSITION` | 0/3 | 2.411 | 0.346 | 2.66 |
+| d014-swap3 | 修复：E-A1 1.0 m + 刹停原型 | 4 | COLLISION | `uav0:TRUTH_POSITION` | 0/3 | 2.633 | 0.347 | 2.63 |
+| d014-swap3 | 修复：E-A1 1.0 m + 刹停原型 | 5 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 1.167 | 0.354 | 16.72 |
 | d014-swap3 | 修复：E-A1 1.0 m + 刹停原型 | 6 | COLLISION | `uav0:TRUTH_POSITION` | 0/3 | 1.281 | 0.324 | 2.88 |
 | d014-swap3 | 修复：E-A1 1.0 m + 刹停原型 | 7 | COLLISION | `uav0:TRUTH_POSITION` | 2/3 | 1.136 | 0.341 | 8.65 |
 | d014-swap3 | 修复：E-A1 1.0 m + 刹停原型 | 8 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 1.308 | 0.566 | 16.72 |
