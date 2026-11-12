@@ -233,6 +233,8 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         and cfg.policy == "upstream"
         and (inter_drone_config(params) is not None or swarm_penalty_enabled(params))
     )
+    # 只有显式选 student 才附带邻机里程计。其他策略的载荷与以前相同。
+    broadcast_student = fleet is None and cfg.policy == "student"
     slots: list = []  # 本机计划对象。不下发到他机，也不放进总线 payload。
     # 票 10：策略实例已经建好。None 时不进入。
     if bridge is not None:
@@ -285,6 +287,11 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
                                 sampled = samples_from_pva(proposed, now)
                                 if sampled is not None:
                                     payload["traj_samples"] = sampled
+                            if broadcast_student:
+                                payload["odom"] = {
+                                    "p": [float(x) for x in np.asarray(s.p, dtype=float)],
+                                    "v": [float(x) for x in np.asarray(s.v, dtype=float)],
+                                }
                         bus.publish(now, src=dr["id"], dest=dest["id"], topic="plan", payload=payload)
                 # 只读复验本机刚选出的计划。不碰总线，也不改 proposed。
                 if fleet is None and dr["shadow"] is not None and fresh:
@@ -312,6 +319,11 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
                             note = getattr(by_id[msg.dest]["policy"], "note_neighbor_samples", None)
                             if note is not None:
                                 note(msg.src, samples)
+                        odom = msg.payload.get("odom") if kind == "peer_plan" else None
+                        if odom is not None and msg.dest in by_id:
+                            note_odom = getattr(by_id[msg.dest]["policy"], "note_neighbor_odom", None)
+                            if note_odom is not None:
+                                note_odom(msg.src, odom)
             else:
                 # 提案 / ACK / COMMIT 只经总线。本机 COMMIT 之后 executing() 才换计划。
                 # crossing 在这里收本机深度。编队保持没有 ingest，不进这条。
@@ -484,6 +496,12 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
     if rep is not None:
         result["inter_drone_filter"] = rep
 
+    if cfg.policy == "student":
+        result["network"] = _student_provenance(drones)
+        infer = _student_infer_summary(drones)
+        if infer is not None:
+            result["student_infer"] = infer
+
     return RunOutput(result, ticks, inputs)
 
 
@@ -540,3 +558,42 @@ def write(out: RunOutput, out_dir: str | Path) -> Path:
         for t in out.ticks:
             f.write(json.dumps(t, separators=(",", ":")) + "\n")
     return out_dir
+
+
+def _student_provenance(drones) -> dict | None:
+    for dr in drones:
+        sha = getattr(dr["policy"], "weights_sha256", None)
+        if sha:
+            return {"name": "student", "weights_sha256": str(sha)}
+    return {"name": "student", "weights_sha256": None}
+
+
+def _student_infer_summary(drones) -> dict | None:
+    times: list[float] = []
+    sha = None
+    n = 0
+    for dr in drones:
+        fn = getattr(dr["policy"], "infer_report", None)
+        if fn is None:
+            continue
+        rec = fn()
+        if rec is None:
+            continue
+        sha = rec.get("weights_sha256") or sha
+        raw = getattr(dr["policy"], "infer_s", None)
+        if raw:
+            times.extend(float(x) for x in raw)
+        else:
+            n += int(rec.get("n") or 0)
+    if not times:
+        return {"n": n, "mean_ms": None, "p50_ms": None, "p95_ms": None, "max_ms": None, "weights_sha256": sha}
+    arr = np.asarray(times, dtype=np.float64) * 1e3
+    return {
+        "n": int(arr.size),
+        "mean_ms": float(arr.mean()),
+        "p50_ms": float(np.percentile(arr, 50)),
+        "p95_ms": float(np.percentile(arr, 95)),
+        "max_ms": float(arr.max()),
+        "weights_sha256": sha,
+    }
+

@@ -408,3 +408,46 @@ def load_batch(path: Path | str) -> WindowBatch:
             max_range_m=float(meta["max_range_m"]),
             n_neighbors=int(meta.get("n_neighbors", NEIGHBOR_K)),
         )
+
+
+HOLD_SEED_MOD = 5
+
+
+def parse_run_id(run_id: str) -> dict:
+    """解析 d000-n3-headon-s12 这类教师场次编号。"""
+    import re
+
+    m = re.fullmatch(r"d(\d+)-n(\d+)-(headon|parallel)-s(\d+)", str(run_id))
+    if m is None:
+        raise DistillError(f"无法解析场次编号：{run_id}")
+    density_code = m.group(1)
+    density = int(density_code) / 100.0
+    return {
+        "id": str(run_id),
+        "density_code": density_code,
+        "density_per_m2": density,
+        "n_drones": int(m.group(2)),
+        "pattern": m.group(3),
+        "seed": int(m.group(4)),
+        "scene_key": f"d{density_code}-n{m.group(2)}-{m.group(3)}",
+    }
+
+
+def is_holdout_seed(seed: int, *, mod: int = HOLD_SEED_MOD) -> bool:
+    """按种子取模分留出，同一场次不会同时进训练集和留出集。"""
+    if int(mod) < 2:
+        raise DistillError(f"留出取模至少为 2，收到 {mod}")
+    return int(seed) % int(mod) == 0
+
+
+def split_runs_by_seed(run_ids, *, mod: int = HOLD_SEED_MOD) -> tuple[list[str], list[str]]:
+    """按场景键分组、再按种子划训练/留出。返回 (train_ids, hold_ids)。"""
+    train: list[str] = []
+    hold: list[str] = []
+    for raw in run_ids:
+        info = parse_run_id(raw)
+        if is_holdout_seed(info["seed"], mod=mod):
+            hold.append(info["id"])
+        else:
+            train.append(info["id"])
+    return train, hold

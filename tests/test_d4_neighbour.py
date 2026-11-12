@@ -117,13 +117,15 @@ def test_default_is_off_and_predict_returns_none_even_with_neighbors():
         model.forward(depth, state, neigh, mask)
 
 
-def test_flight_loop_does_not_import_student():
+def test_flight_loop_does_not_import_student_on_default_files():
+    allowed = {"yopo_l0/policy.py", "yopo_l0/runner.py", "yopo_l0/run.py"}
     for rel in FLIGHT_FILES:
         text = (ROOT / rel).read_text(encoding="utf-8")
-        assert "yopo_l0.student" not in text, rel
         assert "yopo_l0.distill" not in text, rel
-        assert "pack_neighbor_features" not in text, rel
-        assert "MultiHeadStudent" not in text, rel
+        if rel not in allowed:
+            assert "yopo_l0.student" not in text, rel
+            assert "pack_neighbor_features" not in text, rel
+            assert "MultiHeadStudent" not in text, rel
     suite = (ROOT / "scenes/suite.txt").read_text(encoding="utf-8")
     assert "distill" not in suite
     assert "d000-n3-headon-s0" not in suite
