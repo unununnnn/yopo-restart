@@ -1,0 +1,1338 @@
+{
+ "note": "开臂 = E-A1 1.0 m + empty_brake（偏离上游）",
+ "determinism": "runs=68 diff=0",
+ "runs": [
+  {
+   "scene": "d014-swap3",
+   "arm": "off",
+   "seed": 0,
+   "proto_brake": false,
+   "extra": null,
+   "scene_card_hash": "1157ac52b54f051a51f6f60086ae1ed788ff2d6661b485ceb9ee384cd699d352",
+   "outcome": "COLLISION",
+   "reason": "uav1-uav2:INTER_DRONE",
+   "arrived": 0,
+   "n_drones": 3,
+   "inter_drone_collision": 1,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 0.634219779248544,
+   "min_obstacle_distance_m": 0.4859080246592406,
+   "sim_duration_s": 2.6,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 26
+   },
+   "inter_drone_filter": null,
+   "proto_brakes": null,
+   "label": "off"
+  },
+  {
+   "scene": "d014-swap3",
+   "arm": "off",
+   "seed": 1,
+   "proto_brake": false,
+   "extra": null,
+   "scene_card_hash": "1157ac52b54f051a51f6f60086ae1ed788ff2d6661b485ceb9ee384cd699d352",
+   "outcome": "COLLISION",
+   "reason": "uav1-uav2:INTER_DRONE",
+   "arrived": 0,
+   "n_drones": 3,
+   "inter_drone_collision": 1,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 0.6385215340050958,
+   "min_obstacle_distance_m": 0.5310726840912887,
+   "sim_duration_s": 2.61,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 27
+   },
+   "inter_drone_filter": null,
+   "proto_brakes": null,
+   "label": "off"
+  },
+  {
+   "scene": "d014-swap3",
+   "arm": "off",
+   "seed": 2,
+   "proto_brake": false,
+   "extra": null,
+   "scene_card_hash": "1157ac52b54f051a51f6f60086ae1ed788ff2d6661b485ceb9ee384cd699d352",
+   "outcome": "COLLISION",
+   "reason": "uav1-uav2:INTER_DRONE",
+   "arrived": 0,
+   "n_drones": 3,
+   "inter_drone_collision": 1,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 0.6289550145259836,
+   "min_obstacle_distance_m": 0.5691012772400765,
+   "sim_duration_s": 2.6,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 26
+   },
+   "inter_drone_filter": null,
+   "proto_brakes": null,
+   "label": "off"
+  },
+  {
+   "scene": "d014-swap3",
+   "arm": "off",
+   "seed": 3,
+   "proto_brake": false,
+   "extra": null,
+   "scene_card_hash": "1157ac52b54f051a51f6f60086ae1ed788ff2d6661b485ceb9ee384cd699d352",
+   "outcome": "COLLISION",
+   "reason": "uav1-uav2:INTER_DRONE",
+   "arrived": 0,
+   "n_drones": 3,
+   "inter_drone_collision": 1,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 0.6978395137034793,
+   "min_obstacle_distance_m": 0.5558304555061513,
+   "sim_duration_s": 2.6,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 26
+   },
+   "inter_drone_filter": null,
+   "proto_brakes": null,
+   "label": "off"
+  },
+  {
+   "scene": "d014-swap3",
+   "arm": "off",
+   "seed": 4,
+   "proto_brake": false,
+   "extra": null,
+   "scene_card_hash": "1157ac52b54f051a51f6f60086ae1ed788ff2d6661b485ceb9ee384cd699d352",
+   "outcome": "COLLISION",
+   "reason": "uav1-uav2:INTER_DRONE",
+   "arrived": 0,
+   "n_drones": 3,
+   "inter_drone_collision": 1,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 0.6220458905259868,
+   "min_obstacle_distance_m": 0.5498046291253835,
+   "sim_duration_s": 2.61,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 27
+   },
+   "inter_drone_filter": null,
+   "proto_brakes": null,
+   "label": "off"
+  },
+  {
+   "scene": "d014-swap3",
+   "arm": "off",
+   "seed": 5,
+   "proto_brake": false,
+   "extra": null,
+   "scene_card_hash": "1157ac52b54f051a51f6f60086ae1ed788ff2d6661b485ceb9ee384cd699d352",
+   "outcome": "COLLISION",
+   "reason": "uav1-uav2:INTER_DRONE",
+   "arrived": 0,
+   "n_drones": 3,
+   "inter_drone_collision": 1,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 0.6841521415555876,
+   "min_obstacle_distance_m": 0.5457166510005453,
+   "sim_duration_s": 2.61,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 27
+   },
+   "inter_drone_filter": null,
+   "proto_brakes": null,
+   "label": "off"
+  },
+  {
+   "scene": "d014-swap3",
+   "arm": "off",
+   "seed": 6,
+   "proto_brake": false,
+   "extra": null,
+   "scene_card_hash": "1157ac52b54f051a51f6f60086ae1ed788ff2d6661b485ceb9ee384cd699d352",
+   "outcome": "COLLISION",
+   "reason": "uav1-uav2:INTER_DRONE",
+   "arrived": 0,
+   "n_drones": 3,
+   "inter_drone_collision": 1,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 0.6825751704106781,
+   "min_obstacle_distance_m": 0.5168276321318945,
+   "sim_duration_s": 2.61,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 27
+   },
+   "inter_drone_filter": null,
+   "proto_brakes": null,
+   "label": "off"
+  },
+  {
+   "scene": "d014-swap3",
+   "arm": "off",
+   "seed": 7,
+   "proto_brake": false,
+   "extra": null,
+   "scene_card_hash": "1157ac52b54f051a51f6f60086ae1ed788ff2d6661b485ceb9ee384cd699d352",
+   "outcome": "COLLISION",
+   "reason": "uav1-uav2:INTER_DRONE",
+   "arrived": 0,
+   "n_drones": 3,
+   "inter_drone_collision": 1,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 0.6577988330411583,
+   "min_obstacle_distance_m": 0.5529169528829214,
+   "sim_duration_s": 2.6,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 26
+   },
+   "inter_drone_filter": null,
+   "proto_brakes": null,
+   "label": "off"
+  },
+  {
+   "scene": "d014-swap3",
+   "arm": "off",
+   "seed": 8,
+   "proto_brake": false,
+   "extra": null,
+   "scene_card_hash": "1157ac52b54f051a51f6f60086ae1ed788ff2d6661b485ceb9ee384cd699d352",
+   "outcome": "COLLISION",
+   "reason": "uav1-uav2:INTER_DRONE",
+   "arrived": 0,
+   "n_drones": 3,
+   "inter_drone_collision": 1,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 0.6660109372593441,
+   "min_obstacle_distance_m": 0.5296288291562499,
+   "sim_duration_s": 2.6,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 26
+   },
+   "inter_drone_filter": null,
+   "proto_brakes": null,
+   "label": "off"
+  },
+  {
+   "scene": "d014-swap3",
+   "arm": "off",
+   "seed": 9,
+   "proto_brake": false,
+   "extra": null,
+   "scene_card_hash": "1157ac52b54f051a51f6f60086ae1ed788ff2d6661b485ceb9ee384cd699d352",
+   "outcome": "COLLISION",
+   "reason": "uav1-uav2:INTER_DRONE",
+   "arrived": 0,
+   "n_drones": 3,
+   "inter_drone_collision": 1,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 0.6285777510244962,
+   "min_obstacle_distance_m": 0.5363939175358343,
+   "sim_duration_s": 2.61,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 27
+   },
+   "inter_drone_filter": null,
+   "proto_brakes": null,
+   "label": "off"
+  },
+  {
+   "scene": "d014-swap3",
+   "arm": "a1",
+   "seed": 0,
+   "proto_brake": false,
+   "extra": {
+    "upstream": {
+     "inter_drone_threshold_m": 1.0,
+     "empty_brake": true
+    }
+   },
+   "scene_card_hash": "9ebd4e9a4b0a08871193239bf4ad4f6d6f73c000ea95f54a3bf84a43675f138b",
+   "outcome": "SUCCESS",
+   "reason": "GOAL_REACHED_AND_HELD",
+   "arrived": 3,
+   "n_drones": 3,
+   "inter_drone_collision": 0,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 1.6528514307063744,
+   "min_obstacle_distance_m": 0.5188557427669143,
+   "sim_duration_s": 16.32,
+   "arrival_time_s": 15.32,
+   "plan_codes": {
+    "ARRIVED_HOLD": 127,
+    "OK": 37
+   },
+   "inter_drone_filter": {
+    "enabled": true,
+    "threshold_m": 1.0,
+    "penalty": 0.0,
+    "filtered_candidates": 222,
+    "penalized_candidates": 0,
+    "empty_fallbacks": 0,
+    "fallback": "CORRIDOR_EMPTY_HOVER"
+   },
+   "proto_brakes": null,
+   "label": "on"
+  },
+  {
+   "scene": "d014-swap3",
+   "arm": "a1",
+   "seed": 1,
+   "proto_brake": false,
+   "extra": {
+    "upstream": {
+     "inter_drone_threshold_m": 1.0,
+     "empty_brake": true
+    }
+   },
+   "scene_card_hash": "9ebd4e9a4b0a08871193239bf4ad4f6d6f73c000ea95f54a3bf84a43675f138b",
+   "outcome": "SUCCESS",
+   "reason": "GOAL_REACHED_AND_HELD",
+   "arrived": 3,
+   "n_drones": 3,
+   "inter_drone_collision": 0,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 1.3100602451861758,
+   "min_obstacle_distance_m": 0.3567905345440237,
+   "sim_duration_s": 8.89,
+   "arrival_time_s": 7.89,
+   "plan_codes": {
+    "ARRIVED_HOLD": 51,
+    "OK": 38
+   },
+   "inter_drone_filter": {
+    "enabled": true,
+    "threshold_m": 1.0,
+    "penalty": 0.0,
+    "filtered_candidates": 238,
+    "penalized_candidates": 0,
+    "empty_fallbacks": 0,
+    "fallback": "CORRIDOR_EMPTY_HOVER"
+   },
+   "proto_brakes": null,
+   "label": "on"
+  },
+  {
+   "scene": "d014-swap3",
+   "arm": "a1",
+   "seed": 2,
+   "proto_brake": false,
+   "extra": {
+    "upstream": {
+     "inter_drone_threshold_m": 1.0,
+     "empty_brake": true
+    }
+   },
+   "scene_card_hash": "9ebd4e9a4b0a08871193239bf4ad4f6d6f73c000ea95f54a3bf84a43675f138b",
+   "outcome": "COLLISION",
+   "reason": "uav1:TRUTH_POSITION",
+   "arrived": 0,
+   "n_drones": 3,
+   "inter_drone_collision": 0,
+   "tree_collision": 1,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 1.1342600187539051,
+   "min_obstacle_distance_m": 0.34770589450298717,
+   "sim_duration_s": 4.41,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 37,
+    "ARRIVED_HOLD": 8
+   },
+   "inter_drone_filter": {
+    "enabled": true,
+    "threshold_m": 1.0,
+    "penalty": 0.0,
+    "filtered_candidates": 284,
+    "penalized_candidates": 0,
+    "empty_fallbacks": 0,
+    "fallback": "CORRIDOR_EMPTY_HOVER"
+   },
+   "proto_brakes": null,
+   "label": "on"
+  },
+  {
+   "scene": "d014-swap3",
+   "arm": "a1",
+   "seed": 3,
+   "proto_brake": false,
+   "extra": {
+    "upstream": {
+     "inter_drone_threshold_m": 1.0,
+     "empty_brake": true
+    }
+   },
+   "scene_card_hash": "9ebd4e9a4b0a08871193239bf4ad4f6d6f73c000ea95f54a3bf84a43675f138b",
+   "outcome": "COLLISION",
+   "reason": "uav0:TRUTH_POSITION",
+   "arrived": 0,
+   "n_drones": 3,
+   "inter_drone_collision": 0,
+   "tree_collision": 1,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 2.4108080621909598,
+   "min_obstacle_distance_m": 0.34623934457178857,
+   "sim_duration_s": 2.66,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 27
+   },
+   "inter_drone_filter": {
+    "enabled": true,
+    "threshold_m": 1.0,
+    "penalty": 0.0,
+    "filtered_candidates": 196,
+    "penalized_candidates": 0,
+    "empty_fallbacks": 0,
+    "fallback": "CORRIDOR_EMPTY_HOVER"
+   },
+   "proto_brakes": null,
+   "label": "on"
+  },
+  {
+   "scene": "d014-swap3",
+   "arm": "a1",
+   "seed": 4,
+   "proto_brake": false,
+   "extra": {
+    "upstream": {
+     "inter_drone_threshold_m": 1.0,
+     "empty_brake": true
+    }
+   },
+   "scene_card_hash": "9ebd4e9a4b0a08871193239bf4ad4f6d6f73c000ea95f54a3bf84a43675f138b",
+   "outcome": "COLLISION",
+   "reason": "uav0:TRUTH_POSITION",
+   "arrived": 0,
+   "n_drones": 3,
+   "inter_drone_collision": 0,
+   "tree_collision": 1,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 2.63295242264759,
+   "min_obstacle_distance_m": 0.347100512685048,
+   "sim_duration_s": 2.63,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 27
+   },
+   "inter_drone_filter": {
+    "enabled": true,
+    "threshold_m": 1.0,
+    "penalty": 0.0,
+    "filtered_candidates": 200,
+    "penalized_candidates": 0,
+    "empty_fallbacks": 0,
+    "fallback": "CORRIDOR_EMPTY_HOVER"
+   },
+   "proto_brakes": null,
+   "label": "on"
+  },
+  {
+   "scene": "d014-swap3",
+   "arm": "a1",
+   "seed": 5,
+   "proto_brake": false,
+   "extra": {
+    "upstream": {
+     "inter_drone_threshold_m": 1.0,
+     "empty_brake": true
+    }
+   },
+   "scene_card_hash": "9ebd4e9a4b0a08871193239bf4ad4f6d6f73c000ea95f54a3bf84a43675f138b",
+   "outcome": "SUCCESS",
+   "reason": "GOAL_REACHED_AND_HELD",
+   "arrived": 3,
+   "n_drones": 3,
+   "inter_drone_collision": 0,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 1.1671977235452462,
+   "min_obstacle_distance_m": 0.3538364374582503,
+   "sim_duration_s": 16.72,
+   "arrival_time_s": 15.72,
+   "plan_codes": {
+    "ARRIVED_HOLD": 131,
+    "OK": 37,
+    "CORRIDOR_EMPTY_HOVER": 1
+   },
+   "inter_drone_filter": {
+    "enabled": true,
+    "threshold_m": 1.0,
+    "penalty": 0.0,
+    "filtered_candidates": 287,
+    "penalized_candidates": 0,
+    "empty_fallbacks": 0,
+    "fallback": "CORRIDOR_EMPTY_HOVER"
+   },
+   "proto_brakes": null,
+   "label": "on"
+  },
+  {
+   "scene": "d014-swap3",
+   "arm": "a1",
+   "seed": 6,
+   "proto_brake": false,
+   "extra": {
+    "upstream": {
+     "inter_drone_threshold_m": 1.0,
+     "empty_brake": true
+    }
+   },
+   "scene_card_hash": "9ebd4e9a4b0a08871193239bf4ad4f6d6f73c000ea95f54a3bf84a43675f138b",
+   "outcome": "COLLISION",
+   "reason": "uav0:TRUTH_POSITION",
+   "arrived": 0,
+   "n_drones": 3,
+   "inter_drone_collision": 0,
+   "tree_collision": 1,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 1.281147937761708,
+   "min_obstacle_distance_m": 0.3240272744038932,
+   "sim_duration_s": 2.88,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "CORRIDOR_EMPTY_HOVER": 1,
+    "OK": 29
+   },
+   "inter_drone_filter": {
+    "enabled": true,
+    "threshold_m": 1.0,
+    "penalty": 0.0,
+    "filtered_candidates": 210,
+    "penalized_candidates": 0,
+    "empty_fallbacks": 1,
+    "fallback": "CORRIDOR_EMPTY_HOVER"
+   },
+   "proto_brakes": null,
+   "label": "on"
+  },
+  {
+   "scene": "d014-swap3",
+   "arm": "a1",
+   "seed": 7,
+   "proto_brake": false,
+   "extra": {
+    "upstream": {
+     "inter_drone_threshold_m": 1.0,
+     "empty_brake": true
+    }
+   },
+   "scene_card_hash": "9ebd4e9a4b0a08871193239bf4ad4f6d6f73c000ea95f54a3bf84a43675f138b",
+   "outcome": "COLLISION",
+   "reason": "uav0:TRUTH_POSITION",
+   "arrived": 2,
+   "n_drones": 3,
+   "inter_drone_collision": 0,
+   "tree_collision": 1,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 1.1364241118767373,
+   "min_obstacle_distance_m": 0.3406484878095308,
+   "sim_duration_s": 8.65,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 37,
+    "ARRIVED_HOLD": 50
+   },
+   "inter_drone_filter": {
+    "enabled": true,
+    "threshold_m": 1.0,
+    "penalty": 0.0,
+    "filtered_candidates": 295,
+    "penalized_candidates": 0,
+    "empty_fallbacks": 0,
+    "fallback": "CORRIDOR_EMPTY_HOVER"
+   },
+   "proto_brakes": null,
+   "label": "on"
+  },
+  {
+   "scene": "d014-swap3",
+   "arm": "a1",
+   "seed": 8,
+   "proto_brake": false,
+   "extra": {
+    "upstream": {
+     "inter_drone_threshold_m": 1.0,
+     "empty_brake": true
+    }
+   },
+   "scene_card_hash": "9ebd4e9a4b0a08871193239bf4ad4f6d6f73c000ea95f54a3bf84a43675f138b",
+   "outcome": "SUCCESS",
+   "reason": "GOAL_REACHED_AND_HELD",
+   "arrived": 3,
+   "n_drones": 3,
+   "inter_drone_collision": 0,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 1.3083665053454343,
+   "min_obstacle_distance_m": 0.5656677446883269,
+   "sim_duration_s": 16.72,
+   "arrival_time_s": 15.72,
+   "plan_codes": {
+    "ARRIVED_HOLD": 131,
+    "OK": 37
+   },
+   "inter_drone_filter": {
+    "enabled": true,
+    "threshold_m": 1.0,
+    "penalty": 0.0,
+    "filtered_candidates": 312,
+    "penalized_candidates": 0,
+    "empty_fallbacks": 0,
+    "fallback": "CORRIDOR_EMPTY_HOVER"
+   },
+   "proto_brakes": null,
+   "label": "on"
+  },
+  {
+   "scene": "d014-swap3",
+   "arm": "a1",
+   "seed": 9,
+   "proto_brake": false,
+   "extra": {
+    "upstream": {
+     "inter_drone_threshold_m": 1.0,
+     "empty_brake": true
+    }
+   },
+   "scene_card_hash": "9ebd4e9a4b0a08871193239bf4ad4f6d6f73c000ea95f54a3bf84a43675f138b",
+   "outcome": "COLLISION",
+   "reason": "uav1:TRUTH_POSITION",
+   "arrived": 0,
+   "n_drones": 3,
+   "inter_drone_collision": 0,
+   "tree_collision": 1,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 1.0990606912670553,
+   "min_obstacle_distance_m": 0.34770136692432446,
+   "sim_duration_s": 4.35,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 37,
+    "CORRIDOR_EMPTY_HOVER": 2,
+    "ARRIVED_HOLD": 7
+   },
+   "inter_drone_filter": {
+    "enabled": true,
+    "threshold_m": 1.0,
+    "penalty": 0.0,
+    "filtered_candidates": 296,
+    "penalized_candidates": 0,
+    "empty_fallbacks": 0,
+    "fallback": "CORRIDOR_EMPTY_HOVER"
+   },
+   "proto_brakes": null,
+   "label": "on"
+  },
+  {
+   "scene": "swap8",
+   "arm": "off",
+   "seed": 0,
+   "proto_brake": false,
+   "extra": null,
+   "scene_card_hash": "489946bf0db1fde539414dfd51abd5381e795984a191016cde93c5440f7a3853",
+   "outcome": "COLLISION",
+   "reason": "uav3-uav4:INTER_DRONE",
+   "arrived": 0,
+   "n_drones": 8,
+   "inter_drone_collision": 1,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 0.6948952328948194,
+   "min_obstacle_distance_m": 1.5,
+   "sim_duration_s": 2.09,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 21
+   },
+   "inter_drone_filter": null,
+   "proto_brakes": null,
+   "label": "off"
+  },
+  {
+   "scene": "swap8",
+   "arm": "off",
+   "seed": 1,
+   "proto_brake": false,
+   "extra": null,
+   "scene_card_hash": "489946bf0db1fde539414dfd51abd5381e795984a191016cde93c5440f7a3853",
+   "outcome": "COLLISION",
+   "reason": "uav3-uav4:INTER_DRONE",
+   "arrived": 0,
+   "n_drones": 8,
+   "inter_drone_collision": 1,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 0.6951077601825884,
+   "min_obstacle_distance_m": 1.5,
+   "sim_duration_s": 2.09,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 21
+   },
+   "inter_drone_filter": null,
+   "proto_brakes": null,
+   "label": "off"
+  },
+  {
+   "scene": "swap8",
+   "arm": "off",
+   "seed": 2,
+   "proto_brake": false,
+   "extra": null,
+   "scene_card_hash": "489946bf0db1fde539414dfd51abd5381e795984a191016cde93c5440f7a3853",
+   "outcome": "COLLISION",
+   "reason": "uav3-uav4:INTER_DRONE",
+   "arrived": 0,
+   "n_drones": 8,
+   "inter_drone_collision": 1,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 0.6954298885382999,
+   "min_obstacle_distance_m": 1.5,
+   "sim_duration_s": 2.09,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 21
+   },
+   "inter_drone_filter": null,
+   "proto_brakes": null,
+   "label": "off"
+  },
+  {
+   "scene": "swap8",
+   "arm": "off",
+   "seed": 3,
+   "proto_brake": false,
+   "extra": null,
+   "scene_card_hash": "489946bf0db1fde539414dfd51abd5381e795984a191016cde93c5440f7a3853",
+   "outcome": "COLLISION",
+   "reason": "uav3-uav4:INTER_DRONE",
+   "arrived": 0,
+   "n_drones": 8,
+   "inter_drone_collision": 1,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 0.695713641402469,
+   "min_obstacle_distance_m": 1.5,
+   "sim_duration_s": 2.09,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 21
+   },
+   "inter_drone_filter": null,
+   "proto_brakes": null,
+   "label": "off"
+  },
+  {
+   "scene": "swap8",
+   "arm": "off",
+   "seed": 4,
+   "proto_brake": false,
+   "extra": null,
+   "scene_card_hash": "489946bf0db1fde539414dfd51abd5381e795984a191016cde93c5440f7a3853",
+   "outcome": "COLLISION",
+   "reason": "uav3-uav4:INTER_DRONE",
+   "arrived": 0,
+   "n_drones": 8,
+   "inter_drone_collision": 1,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 0.6950339859175653,
+   "min_obstacle_distance_m": 1.5,
+   "sim_duration_s": 2.09,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 21
+   },
+   "inter_drone_filter": null,
+   "proto_brakes": null,
+   "label": "off"
+  },
+  {
+   "scene": "swap8",
+   "arm": "off",
+   "seed": 5,
+   "proto_brake": false,
+   "extra": null,
+   "scene_card_hash": "489946bf0db1fde539414dfd51abd5381e795984a191016cde93c5440f7a3853",
+   "outcome": "COLLISION",
+   "reason": "uav3-uav4:INTER_DRONE",
+   "arrived": 0,
+   "n_drones": 8,
+   "inter_drone_collision": 1,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 0.6949781114608665,
+   "min_obstacle_distance_m": 1.5,
+   "sim_duration_s": 2.09,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 21
+   },
+   "inter_drone_filter": null,
+   "proto_brakes": null,
+   "label": "off"
+  },
+  {
+   "scene": "swap8",
+   "arm": "off",
+   "seed": 6,
+   "proto_brake": false,
+   "extra": null,
+   "scene_card_hash": "489946bf0db1fde539414dfd51abd5381e795984a191016cde93c5440f7a3853",
+   "outcome": "COLLISION",
+   "reason": "uav3-uav4:INTER_DRONE",
+   "arrived": 0,
+   "n_drones": 8,
+   "inter_drone_collision": 1,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 0.6955751951144294,
+   "min_obstacle_distance_m": 1.5,
+   "sim_duration_s": 2.09,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 21
+   },
+   "inter_drone_filter": null,
+   "proto_brakes": null,
+   "label": "off"
+  },
+  {
+   "scene": "swap8",
+   "arm": "off",
+   "seed": 7,
+   "proto_brake": false,
+   "extra": null,
+   "scene_card_hash": "489946bf0db1fde539414dfd51abd5381e795984a191016cde93c5440f7a3853",
+   "outcome": "COLLISION",
+   "reason": "uav3-uav4:INTER_DRONE",
+   "arrived": 0,
+   "n_drones": 8,
+   "inter_drone_collision": 1,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 0.6952164982147069,
+   "min_obstacle_distance_m": 1.5,
+   "sim_duration_s": 2.09,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 21
+   },
+   "inter_drone_filter": null,
+   "proto_brakes": null,
+   "label": "off"
+  },
+  {
+   "scene": "swap8",
+   "arm": "off",
+   "seed": 8,
+   "proto_brake": false,
+   "extra": null,
+   "scene_card_hash": "489946bf0db1fde539414dfd51abd5381e795984a191016cde93c5440f7a3853",
+   "outcome": "COLLISION",
+   "reason": "uav3-uav4:INTER_DRONE",
+   "arrived": 0,
+   "n_drones": 8,
+   "inter_drone_collision": 1,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 0.6950744862518888,
+   "min_obstacle_distance_m": 1.5,
+   "sim_duration_s": 2.09,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 21
+   },
+   "inter_drone_filter": null,
+   "proto_brakes": null,
+   "label": "off"
+  },
+  {
+   "scene": "swap8",
+   "arm": "off",
+   "seed": 9,
+   "proto_brake": false,
+   "extra": null,
+   "scene_card_hash": "489946bf0db1fde539414dfd51abd5381e795984a191016cde93c5440f7a3853",
+   "outcome": "COLLISION",
+   "reason": "uav3-uav4:INTER_DRONE",
+   "arrived": 0,
+   "n_drones": 8,
+   "inter_drone_collision": 1,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 0.6951315850989938,
+   "min_obstacle_distance_m": 1.5,
+   "sim_duration_s": 2.09,
+   "arrival_time_s": null,
+   "plan_codes": {
+    "OK": 21
+   },
+   "inter_drone_filter": null,
+   "proto_brakes": null,
+   "label": "off"
+  },
+  {
+   "scene": "swap8",
+   "arm": "a1",
+   "seed": 0,
+   "proto_brake": false,
+   "extra": {
+    "upstream": {
+     "inter_drone_threshold_m": 1.0,
+     "empty_brake": true
+    }
+   },
+   "scene_card_hash": "88f9bd54f0444cbbec1b41100f462b7edec7cb004b023a474fa27d8a5015a2f1",
+   "outcome": "SUCCESS",
+   "reason": "GOAL_REACHED_AND_HELD",
+   "arrived": 8,
+   "n_drones": 8,
+   "inter_drone_collision": 0,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 1.076844936133748,
+   "min_obstacle_distance_m": 1.4590352598343581,
+   "sim_duration_s": 8.86,
+   "arrival_time_s": 7.86,
+   "plan_codes": {
+    "ARRIVED_HOLD": 41,
+    "OK": 48,
+    "CORRIDOR_EMPTY_HOVER": 2
+   },
+   "inter_drone_filter": {
+    "enabled": true,
+    "threshold_m": 1.0,
+    "penalty": 0.0,
+    "filtered_candidates": 1677,
+    "penalized_candidates": 0,
+    "empty_fallbacks": 10,
+    "fallback": "CORRIDOR_EMPTY_HOVER"
+   },
+   "proto_brakes": null,
+   "label": "on"
+  },
+  {
+   "scene": "swap8",
+   "arm": "a1",
+   "seed": 1,
+   "proto_brake": false,
+   "extra": {
+    "upstream": {
+     "inter_drone_threshold_m": 1.0,
+     "empty_brake": true
+    }
+   },
+   "scene_card_hash": "88f9bd54f0444cbbec1b41100f462b7edec7cb004b023a474fa27d8a5015a2f1",
+   "outcome": "SUCCESS",
+   "reason": "GOAL_REACHED_AND_HELD",
+   "arrived": 8,
+   "n_drones": 8,
+   "inter_drone_collision": 0,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 1.0689986612357965,
+   "min_obstacle_distance_m": 1.1461400399157096,
+   "sim_duration_s": 8.78,
+   "arrival_time_s": 7.78,
+   "plan_codes": {
+    "ARRIVED_HOLD": 46,
+    "OK": 42,
+    "CORRIDOR_EMPTY_HOVER": 5
+   },
+   "inter_drone_filter": {
+    "enabled": true,
+    "threshold_m": 1.0,
+    "penalty": 0.0,
+    "filtered_candidates": 1466,
+    "penalized_candidates": 0,
+    "empty_fallbacks": 6,
+    "fallback": "CORRIDOR_EMPTY_HOVER"
+   },
+   "proto_brakes": null,
+   "label": "on"
+  },
+  {
+   "scene": "swap8",
+   "arm": "a1",
+   "seed": 2,
+   "proto_brake": false,
+   "extra": {
+    "upstream": {
+     "inter_drone_threshold_m": 1.0,
+     "empty_brake": true
+    }
+   },
+   "scene_card_hash": "88f9bd54f0444cbbec1b41100f462b7edec7cb004b023a474fa27d8a5015a2f1",
+   "outcome": "SUCCESS",
+   "reason": "GOAL_REACHED_AND_HELD",
+   "arrived": 8,
+   "n_drones": 8,
+   "inter_drone_collision": 0,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 1.0693047676539187,
+   "min_obstacle_distance_m": 1.1461487810357385,
+   "sim_duration_s": 8.78,
+   "arrival_time_s": 7.78,
+   "plan_codes": {
+    "ARRIVED_HOLD": 46,
+    "OK": 42,
+    "CORRIDOR_EMPTY_HOVER": 5
+   },
+   "inter_drone_filter": {
+    "enabled": true,
+    "threshold_m": 1.0,
+    "penalty": 0.0,
+    "filtered_candidates": 1466,
+    "penalized_candidates": 0,
+    "empty_fallbacks": 6,
+    "fallback": "CORRIDOR_EMPTY_HOVER"
+   },
+   "proto_brakes": null,
+   "label": "on"
+  },
+  {
+   "scene": "swap8",
+   "arm": "a1",
+   "seed": 3,
+   "proto_brake": false,
+   "extra": {
+    "upstream": {
+     "inter_drone_threshold_m": 1.0,
+     "empty_brake": true
+    }
+   },
+   "scene_card_hash": "88f9bd54f0444cbbec1b41100f462b7edec7cb004b023a474fa27d8a5015a2f1",
+   "outcome": "SUCCESS",
+   "reason": "GOAL_REACHED_AND_HELD",
+   "arrived": 8,
+   "n_drones": 8,
+   "inter_drone_collision": 0,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 1.0695923070116378,
+   "min_obstacle_distance_m": 1.1463415607303704,
+   "sim_duration_s": 8.78,
+   "arrival_time_s": 7.78,
+   "plan_codes": {
+    "ARRIVED_HOLD": 46,
+    "OK": 42,
+    "CORRIDOR_EMPTY_HOVER": 5
+   },
+   "inter_drone_filter": {
+    "enabled": true,
+    "threshold_m": 1.0,
+    "penalty": 0.0,
+    "filtered_candidates": 1465,
+    "penalized_candidates": 0,
+    "empty_fallbacks": 6,
+    "fallback": "CORRIDOR_EMPTY_HOVER"
+   },
+   "proto_brakes": null,
+   "label": "on"
+  },
+  {
+   "scene": "swap8",
+   "arm": "a1",
+   "seed": 4,
+   "proto_brake": false,
+   "extra": {
+    "upstream": {
+     "inter_drone_threshold_m": 1.0,
+     "empty_brake": true
+    }
+   },
+   "scene_card_hash": "88f9bd54f0444cbbec1b41100f462b7edec7cb004b023a474fa27d8a5015a2f1",
+   "outcome": "SUCCESS",
+   "reason": "GOAL_REACHED_AND_HELD",
+   "arrived": 8,
+   "n_drones": 8,
+   "inter_drone_collision": 0,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 1.0699198296374608,
+   "min_obstacle_distance_m": 1.1459308711033869,
+   "sim_duration_s": 8.78,
+   "arrival_time_s": 7.78,
+   "plan_codes": {
+    "ARRIVED_HOLD": 46,
+    "OK": 42,
+    "CORRIDOR_EMPTY_HOVER": 5
+   },
+   "inter_drone_filter": {
+    "enabled": true,
+    "threshold_m": 1.0,
+    "penalty": 0.0,
+    "filtered_candidates": 1448,
+    "penalized_candidates": 0,
+    "empty_fallbacks": 6,
+    "fallback": "CORRIDOR_EMPTY_HOVER"
+   },
+   "proto_brakes": null,
+   "label": "on"
+  },
+  {
+   "scene": "swap8",
+   "arm": "a1",
+   "seed": 5,
+   "proto_brake": false,
+   "extra": {
+    "upstream": {
+     "inter_drone_threshold_m": 1.0,
+     "empty_brake": true
+    }
+   },
+   "scene_card_hash": "88f9bd54f0444cbbec1b41100f462b7edec7cb004b023a474fa27d8a5015a2f1",
+   "outcome": "SUCCESS",
+   "reason": "GOAL_REACHED_AND_HELD",
+   "arrived": 8,
+   "n_drones": 8,
+   "inter_drone_collision": 0,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 1.069788859560169,
+   "min_obstacle_distance_m": 1.1461600862147214,
+   "sim_duration_s": 8.78,
+   "arrival_time_s": 7.78,
+   "plan_codes": {
+    "ARRIVED_HOLD": 46,
+    "OK": 42,
+    "CORRIDOR_EMPTY_HOVER": 5
+   },
+   "inter_drone_filter": {
+    "enabled": true,
+    "threshold_m": 1.0,
+    "penalty": 0.0,
+    "filtered_candidates": 1465,
+    "penalized_candidates": 0,
+    "empty_fallbacks": 6,
+    "fallback": "CORRIDOR_EMPTY_HOVER"
+   },
+   "proto_brakes": null,
+   "label": "on"
+  },
+  {
+   "scene": "swap8",
+   "arm": "a1",
+   "seed": 6,
+   "proto_brake": false,
+   "extra": {
+    "upstream": {
+     "inter_drone_threshold_m": 1.0,
+     "empty_brake": true
+    }
+   },
+   "scene_card_hash": "88f9bd54f0444cbbec1b41100f462b7edec7cb004b023a474fa27d8a5015a2f1",
+   "outcome": "SUCCESS",
+   "reason": "GOAL_REACHED_AND_HELD",
+   "arrived": 8,
+   "n_drones": 8,
+   "inter_drone_collision": 0,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 1.0753964320179035,
+   "min_obstacle_distance_m": 1.4590570201141604,
+   "sim_duration_s": 8.86,
+   "arrival_time_s": 7.86,
+   "plan_codes": {
+    "ARRIVED_HOLD": 41,
+    "OK": 48,
+    "CORRIDOR_EMPTY_HOVER": 2
+   },
+   "inter_drone_filter": {
+    "enabled": true,
+    "threshold_m": 1.0,
+    "penalty": 0.0,
+    "filtered_candidates": 1676,
+    "penalized_candidates": 0,
+    "empty_fallbacks": 10,
+    "fallback": "CORRIDOR_EMPTY_HOVER"
+   },
+   "proto_brakes": null,
+   "label": "on"
+  },
+  {
+   "scene": "swap8",
+   "arm": "a1",
+   "seed": 7,
+   "proto_brake": false,
+   "extra": {
+    "upstream": {
+     "inter_drone_threshold_m": 1.0,
+     "empty_brake": true
+    }
+   },
+   "scene_card_hash": "88f9bd54f0444cbbec1b41100f462b7edec7cb004b023a474fa27d8a5015a2f1",
+   "outcome": "SUCCESS",
+   "reason": "GOAL_REACHED_AND_HELD",
+   "arrived": 8,
+   "n_drones": 8,
+   "inter_drone_collision": 0,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 1.0759536573460475,
+   "min_obstacle_distance_m": 1.4592430564685952,
+   "sim_duration_s": 8.86,
+   "arrival_time_s": 7.86,
+   "plan_codes": {
+    "ARRIVED_HOLD": 41,
+    "OK": 48,
+    "CORRIDOR_EMPTY_HOVER": 2
+   },
+   "inter_drone_filter": {
+    "enabled": true,
+    "threshold_m": 1.0,
+    "penalty": 0.0,
+    "filtered_candidates": 1677,
+    "penalized_candidates": 0,
+    "empty_fallbacks": 10,
+    "fallback": "CORRIDOR_EMPTY_HOVER"
+   },
+   "proto_brakes": null,
+   "label": "on"
+  },
+  {
+   "scene": "swap8",
+   "arm": "a1",
+   "seed": 8,
+   "proto_brake": false,
+   "extra": {
+    "upstream": {
+     "inter_drone_threshold_m": 1.0,
+     "empty_brake": true
+    }
+   },
+   "scene_card_hash": "88f9bd54f0444cbbec1b41100f462b7edec7cb004b023a474fa27d8a5015a2f1",
+   "outcome": "SUCCESS",
+   "reason": "GOAL_REACHED_AND_HELD",
+   "arrived": 8,
+   "n_drones": 8,
+   "inter_drone_collision": 0,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 1.0760481292064663,
+   "min_obstacle_distance_m": 1.459061787639204,
+   "sim_duration_s": 8.86,
+   "arrival_time_s": 7.86,
+   "plan_codes": {
+    "ARRIVED_HOLD": 41,
+    "OK": 48,
+    "CORRIDOR_EMPTY_HOVER": 2
+   },
+   "inter_drone_filter": {
+    "enabled": true,
+    "threshold_m": 1.0,
+    "penalty": 0.0,
+    "filtered_candidates": 1675,
+    "penalized_candidates": 0,
+    "empty_fallbacks": 10,
+    "fallback": "CORRIDOR_EMPTY_HOVER"
+   },
+   "proto_brakes": null,
+   "label": "on"
+  },
+  {
+   "scene": "swap8",
+   "arm": "a1",
+   "seed": 9,
+   "proto_brake": false,
+   "extra": {
+    "upstream": {
+     "inter_drone_threshold_m": 1.0,
+     "empty_brake": true
+    }
+   },
+   "scene_card_hash": "88f9bd54f0444cbbec1b41100f462b7edec7cb004b023a474fa27d8a5015a2f1",
+   "outcome": "SUCCESS",
+   "reason": "GOAL_REACHED_AND_HELD",
+   "arrived": 8,
+   "n_drones": 8,
+   "inter_drone_collision": 0,
+   "tree_collision": 0,
+   "timeout": 0,
+   "min_inter_drone_distance_m": 1.0691753895845215,
+   "min_obstacle_distance_m": 1.1460080051947057,
+   "sim_duration_s": 8.78,
+   "arrival_time_s": 7.78,
+   "plan_codes": {
+    "ARRIVED_HOLD": 46,
+    "OK": 42,
+    "CORRIDOR_EMPTY_HOVER": 5
+   },
+   "inter_drone_filter": {
+    "enabled": true,
+    "threshold_m": 1.0,
+    "penalty": 0.0,
+    "filtered_candidates": 1450,
+    "penalized_candidates": 0,
+    "empty_fallbacks": 6,
+    "fallback": "CORRIDOR_EMPTY_HOVER"
+   },
+   "proto_brakes": null,
+   "label": "on"
+  }
+ ],
+ "matches_e_b4_prototype": [
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true
+ ]
+}

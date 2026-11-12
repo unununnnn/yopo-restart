@@ -43,6 +43,20 @@ ACTION_PREVIOUS = "PREVIOUS"
 ACTION_BRAKE = "BRAKE"
 
 
+def brake_from_head(head, now: float, a_max: float):
+    """从 head = (p, v, a) 按 a_max 刹停的五次分支。D1 回退与 E-B4b 无解刹停共用。
+
+    已经静止（速度、加速度都不超过 1e-6）或找不到可行分支时返回 None，调用方原地保持。
+    """
+    from yopo_swarm_core.plan import brake_branch
+
+    _p, v, a = (np.asarray(row, dtype=float) for row in head)
+    if float(np.linalg.norm(v)) > 1e-6 or float(np.linalg.norm(a)) > 1e-6:
+        limits = KinematicLimits(v_max=_BRAKE_V_MAX, a_max=float(a_max), j_max=_BRAKE_J_MAX)
+        return brake_branch(float(now), head, limits)
+    return None
+
+
 def _a_max(card: dict) -> float:
     dyn = card.get("dynamics") or {}
     if dyn.get("a_max") is None:
@@ -456,13 +470,8 @@ class GeomSession:
         return self._overrides.get(drone_id)
 
     def _brake_from_head(self, head: np.ndarray, yaw: float, now: float) -> BrakeHover:
-        from yopo_swarm_core.plan import brake_branch
-
-        p, v, a = (np.asarray(row, dtype=float) for row in head)
-        limits = KinematicLimits(v_max=_BRAKE_V_MAX, a_max=self.a_max, j_max=_BRAKE_J_MAX)
-        traj = None
-        if float(np.linalg.norm(v)) > 1e-6 or float(np.linalg.norm(a)) > 1e-6:
-            traj = brake_branch(float(now), head, limits)
+        p = np.asarray(head[0], dtype=float)
+        traj = brake_from_head(head, now, self.a_max)
         return BrakeHover(traj, p, yaw, self.physics_dt, p)
 
     def review_goto(self, drone_id: str, proposed, now: float):

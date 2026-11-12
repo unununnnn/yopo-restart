@@ -128,6 +128,14 @@ def read_safe_radius(params: dict | None) -> float:
     return radius
 
 
+def read_empty_brake(params: dict | None) -> bool:
+    """E-B4b：`policy_params.upstream.empty_brake`。缺省 false。打开即偏离上游 SPEC（无解时原地悬停）。"""
+    raw = ((params or {}).get("upstream") or {}).get("empty_brake", False)
+    if raw is not True and raw is not False:
+        raise ValueError(f"empty_brake 必须是布尔值，收到 {raw!r}")
+    return raw
+
+
 def deviates_from_upstream(radius: float) -> bool:
     return abs(float(radius) - UPSTREAM_SAFE_RADIUS_M) > 1e-9
 
@@ -175,6 +183,8 @@ class UpstreamPolicy:
         from .inter_drone import inter_drone_config
 
         self._inter = inter_drone_config(ctx.params)
+        # E-B4b：默认关。关时无解分支仍是上游的原地悬停。
+        self._empty_brake = read_empty_brake(ctx.params)
         self._neighbors: dict[str, np.ndarray] = {}
         self._inter_filtered = 0
         self._inter_penalized = 0
@@ -227,7 +237,16 @@ class UpstreamPolicy:
         if brake:
             # SPEC：无准入候选时本帧悬停（停在当前位置），下帧照常重规划
             self.last_code = "CORRIDOR_EMPTY_HOVER"
-            traj = hold_traj(s.p, now, now + 1e-3)
+            traj = None
+            if self._empty_brake:
+                # E-B4b（偏离上游）：不把参考拽回当前位置，从参考头按 a_max 刹停（与 D1 回退同一个函数）。
+                from .geom_fallback import brake_from_head
+
+                traj = brake_from_head(head, now, float(self.ctx.a_max))
+                if traj is None:
+                    traj = hold_traj(head[0], now, now + 1e-3)
+            if traj is None:
+                traj = hold_traj(s.p, now, now + 1e-3)
         else:
             self.last_code = "OK"
             traj = minco_two_piece(now, head, tail_w[action], inner_w[action], durations[action])
