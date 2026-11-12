@@ -164,6 +164,7 @@ def test_committed_runs_match_tables_when_present():
     assert mod.render_summary(rows) in md
     assert mod.render_tree_counts(rows) in md
     assert mod.render_tree_details(rows) in md
+    assert mod.render_seeds(rows) in md
     for row in rows:
         assert row["scene"] in mod.SCENE_ORDER
         assert row["seed"] in range(10)
