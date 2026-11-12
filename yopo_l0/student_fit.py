@@ -28,6 +28,11 @@ class FitConfig:
     num_threads: int = 2
     loss_weights: tuple[float, float, float] = (1.0, 0.25, 0.05)
     log_every: int = 50
+    # D5b 训练改法，默认全关（关时与 D5 逐位相同）。
+    planar: bool = False  # 位置、速度损失只算水平 x/y，不学 z
+    near_weight: float = 1.0  # 深度图里最近有效深度 < near_depth_m 的窗口，损失乘这个倍数
+    near_depth_m: float = 1.2
+    shuffle_batches: int = 8  # 攒多少个 batch 再洗；D5 是 8
 
 
 _TORCH_THREADS_SET = False
@@ -66,7 +71,7 @@ def evaluate_paths(model: MultiHeadStudent, paths: list[Path], *, batch_size: in
     torch = _torch()
     net = model._module()
     net.eval()
-    sums = {"n": 0, "position_sse": 0.0, "velocity_sse": 0.0, "yaw_sse": 0.0, "loss_sum": 0.0}
+    sums = {"n": 0, "position_sse": 0.0, "velocity_sse": 0.0, "yaw_sse": 0.0, "loss_sum": 0.0, "position_xy_sse": 0.0}
     weights = (1.0, 0.25, 0.05)
     for _path, batch in iter_run_windows(paths):
         n = batch.n
@@ -89,6 +94,7 @@ def evaluate_paths(model: MultiHeadStudent, paths: list[Path], *, batch_size: in
                     weights=weights,
                 )
             k = int(batch.depth[sl].shape[0])
+            sums["position_xy_sse"] += float(((ph - torch.from_numpy(batch.position_body[sl]))[..., :2] ** 2).mean()) * k
             sums["n"] += k
             sums["position_sse"] += float(pos) * k
             sums["velocity_sse"] += float(vel) * k
@@ -104,7 +110,34 @@ def evaluate_paths(model: MultiHeadStudent, paths: list[Path], *, batch_size: in
         "velocity_mse": sums["velocity_sse"] / n if sums["n"] else None,
         "yaw_mse": sums["yaw_sse"] / n if sums["n"] else None,
         "position_rmse_m": float(np.sqrt(pos)) if sums["n"] else None,
+        "position_xy_mse": sums["position_xy_sse"] / n if sums["n"] else None,
+        "position_xy_rmse_m": float(np.sqrt(sums["position_xy_sse"] / n)) if sums["n"] else None,
     }
+
+
+def window_weights(batch, path_weight: float, cfg: FitConfig) -> np.ndarray:
+    """每个窗口的损失倍数：文件倍数 × 近障倍数。近障按深度图里最近的有效深度判断（米）。"""
+    w = np.full((batch.n,), float(path_weight), dtype=np.float32)
+    if cfg.near_weight != 1.0 and batch.n:
+        depth = batch.depth[:, 0] * float(batch.max_range_m)
+        valid = batch.depth[:, 1] > 0.5
+        nearest = np.where(valid, depth, np.inf).reshape(batch.n, -1).min(axis=1)
+        w = np.where(nearest < float(cfg.near_depth_m), w * float(cfg.near_weight), w).astype(np.float32)
+    return w
+
+
+def weighted_trajectory_loss(position, velocity, yaw, position_hat, velocity_hat, yaw_hat, sample_weight, *,
+                             weights=(1.0, 0.25, 0.05), planar: bool = False):
+    """逐窗口加权的轨迹损失。planar 时位置、速度只算 x/y。返回 (总损失, 未加权的位置 MSE)。"""
+    torch = _torch()
+    dims = slice(0, 2) if planar else slice(0, 3)
+    pos_e = ((position_hat - position)[..., dims] ** 2).mean(dim=(1, 2))
+    vel_e = ((velocity_hat - velocity)[..., dims] ** 2).mean(dim=(1, 2))
+    yaw_e = ((yaw_hat - yaw) ** 2).mean(dim=1)
+    per = float(weights[0]) * pos_e + float(weights[1]) * vel_e + float(weights[2]) * yaw_e
+    w = sample_weight.to(per.dtype)
+    total = (w * per).sum() / torch.clamp(w.sum(), min=1e-12)
+    return total, pos_e.mean()
 
 
 def train_from_paths(
@@ -114,9 +147,15 @@ def train_from_paths(
     *,
     cfg: FitConfig | None = None,
     resume: Path | None = None,
+    path_weights: dict | None = None,
 ) -> dict:
-    """按场次文件训练。每个 epoch 写检查点，中断后可从 last.pt 续跑。"""
+    """按场次文件训练。每个 epoch 写检查点，中断后可从 last.pt 续跑。
+
+    ``path_weights``：{窗口文件路径: 损失倍数}，缺省 1。D5b 用它给 DAgger / 扰动重标注窗口加权。
+    """
+    weights_by_path = {str(Path(k)): float(v) for k, v in (path_weights or {}).items()}
     cfg = cfg or FitConfig()
+    weighted = bool(cfg.planar or cfg.near_weight != 1.0) or any(v != 1.0 for v in weights_by_path.values())
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     ckpt_dir = out_dir / "checkpoints"
@@ -157,7 +196,7 @@ def train_from_paths(
         net.train()
         running = {"n": 0, "loss": 0.0, "position_mse": 0.0}
         steps = 0
-        pending = {k: [] for k in ("depth", "state", "position", "velocity", "yaw", "neighbor", "mask")}
+        pending = {k: [] for k in ("depth", "state", "position", "velocity", "yaw", "neighbor", "mask", "weight")}
 
         def _flush():
             nonlocal steps
@@ -171,6 +210,7 @@ def train_from_paths(
             yaw = np.concatenate(pending["yaw"], axis=0)
             neigh = np.concatenate(pending["neighbor"], axis=0)
             mask = np.concatenate(pending["mask"], axis=0)
+            wts = np.concatenate(pending["weight"], axis=0) if weighted else None
             for k in pending:
                 pending[k].clear()
             bs = int(cfg.batch_size)
@@ -185,15 +225,28 @@ def train_from_paths(
                     torch.from_numpy(neigh[sl]),
                     torch.from_numpy(mask[sl]),
                 )
-                total, pos_l, _, _ = trajectory_loss(
-                    torch.from_numpy(pos[sl]),
-                    torch.from_numpy(vel[sl]),
-                    torch.from_numpy(yaw[sl]),
-                    ph,
-                    vh,
-                    yh,
-                    weights=cfg.loss_weights,
-                )
+                if weighted:
+                    total, pos_l = weighted_trajectory_loss(
+                        torch.from_numpy(pos[sl]),
+                        torch.from_numpy(vel[sl]),
+                        torch.from_numpy(yaw[sl]),
+                        ph,
+                        vh,
+                        yh,
+                        torch.from_numpy(wts[sl]),
+                        weights=cfg.loss_weights,
+                        planar=bool(cfg.planar),
+                    )
+                else:
+                    total, pos_l, _, _ = trajectory_loss(
+                        torch.from_numpy(pos[sl]),
+                        torch.from_numpy(vel[sl]),
+                        torch.from_numpy(yaw[sl]),
+                        ph,
+                        vh,
+                        yh,
+                        weights=cfg.loss_weights,
+                    )
                 total.backward()
                 opt.step()
                 k = int(sl.size)
@@ -213,8 +266,12 @@ def train_from_paths(
             pending["yaw"].append(batch.yaw_rel)
             pending["neighbor"].append(batch.neighbor_rel)
             pending["mask"].append(batch.neighbor_mask)
-            # 攒到大约 8 个 batch 再洗一次，避免一场就把内存撑满。
-            if sum(x.shape[0] for x in pending["depth"]) >= int(cfg.batch_size) * 8:
+            if weighted:
+                pending["weight"].append(
+                    window_weights(batch, weights_by_path.get(str(Path(train_paths[int(j)])), 1.0), cfg)
+                )
+            # 攒到大约 shuffle_batches 个 batch 再洗一次，避免一场就把内存撑满。
+            if sum(x.shape[0] for x in pending["depth"]) >= int(cfg.batch_size) * int(cfg.shuffle_batches):
                 _flush()
         _flush()
 
@@ -241,7 +298,7 @@ def train_from_paths(
         last_pt, last_sha = save_checkpoint(model, ckpt_dir / "last.pt", meta)
         torch.save(opt.state_dict(), opt_path)
         epoch_pt, _ = save_checkpoint(model, ckpt_dir / f"epoch-{epoch + 1}.pt", meta)
-        hold_mse = hold.get("position_mse")
+        hold_mse = hold.get("position_xy_mse" if cfg.planar else "position_mse")
         if hold_mse is not None and (best_hold is None or hold_mse < best_hold):
             best_hold = hold_mse
             save_checkpoint(model, best_path, {**meta, "best_hold_position_mse": best_hold})
