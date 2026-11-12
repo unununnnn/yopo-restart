@@ -170,6 +170,7 @@ class UpstreamPolicy:
         self._backend = config_from_params(ctx.params, a_max=float(ctx.a_max))
         self.backend_log = [] if self._backend is not None else None
         self._obstacles = tuple(ctx.obstacles) if self._backend is not None else ()
+        self._swarm = self._backend is not None and self._backend.swarm_penalty
         # 默认关。关时 _inter 为 None，plan() 不读邻机、不改 select_action 的结果。
         from .inter_drone import inter_drone_config
 
@@ -238,13 +239,14 @@ class UpstreamPolicy:
     def _apply_backend(self, traj, goal):
         from .backend.bspline import refine_yopo
 
-        out, rec = refine_yopo(traj, self._backend, self._obstacles, goal)
+        neighbors = list(self._neighbors.values()) if self._swarm else None
+        out, rec = refine_yopo(traj, self._backend, self._obstacles, goal, neighbors=neighbors)
         self.backend_log.append(rec)
         return out
 
     def note_neighbor_samples(self, src: str, samples) -> None:
-        """总线上邻机已提交轨迹的采样。开关关闭时丢掉，不进状态。"""
-        if self._inter is None:
+        """总线上邻机已提交轨迹的采样。E-A1 和 E-B3 都关时丢掉，不进状态。"""
+        if self._inter is None and not self._swarm:
             return
         from .inter_drone import as_sample_array
 
