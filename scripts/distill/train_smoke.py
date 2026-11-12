@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""在一条成功的单机教师轨迹上过拟合几个窗口。CPU，几十到几百步。
+"""在一条成功的教师轨迹上过拟合几个窗口。CPU，几十到几百步。
 
 这是脚手架冒烟，不保存可供飞行使用的权重，也不进闭环。
 调用这个脚本就是一次显式训练。库函数 ``train_smoke`` 本身默认不训练。
+多机记录会把邻机特征一起喂进去。
 
     .venv/bin/python scripts/distill/train_smoke.py \\
         --run tests/fixtures/d3/d014-n1-headon-s0
 
-PR #49 合入后可以把 ``--run`` 换成 ``data/teacher/sample/`` 下某一条成功的单机记录。
+    .venv/bin/python scripts/distill/train_smoke.py \\
+        --run data/teacher/sample/d000-n3-headon-s0
+
 位置均方误差降不到阈值时退出码 1。
 """
 
@@ -22,7 +25,7 @@ from yopo_l0.student import train_smoke
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="单机学生冒烟：过拟合少量成功窗口")
+    parser = argparse.ArgumentParser(description="学生冒烟：过拟合少量成功窗口（含邻机特征）")
     parser.add_argument("--run", type=Path, required=True)
     parser.add_argument("--windows", type=int, default=4)
     parser.add_argument("--steps", type=int, default=200)
@@ -43,6 +46,8 @@ def main(argv: list[str] | None = None) -> int:
         batch.position_body,
         batch.velocity_body,
         batch.yaw_rel,
+        batch.neighbor_rel,
+        batch.neighbor_mask,
         enabled=True,
         steps=args.steps,
         seed=args.seed,
