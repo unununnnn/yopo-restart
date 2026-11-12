@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import time
 from collections import Counter
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -42,6 +43,10 @@ _CLEARANCE_TOL_M = 0.01
 _PLAN_V_MAX = 20.0
 _PLAN_J_MAX = 20000.0
 _SAMPLE_DT_S = 0.02
+# 与 core check_derivative_bound 的 DEFAULT_TOL 相同：证出 SAFE 要严格低于 limit - tol。
+_KIN_TOL = 1e-9
+# 净空的宽相半径。小于这个半径的障碍先算；若最小距离仍压着半径，再扩一圈。
+_CULL_CLEARANCE_M = 2.0
 
 # p(u) = [1, u, u^2, u^3] @ _M @ [Q_i, Q_{i+1}, Q_{i+2}, Q_{i+3}]
 _M = np.array(
@@ -53,6 +58,11 @@ _M = np.array(
     ],
     dtype=float,
 ) / 6.0
+
+_U_DYN = (0.0, 0.25, 0.5, 0.75)
+_U_POS_LAST = (0.0, 0.25, 0.5, 0.75, 1.0)
+
+_LAYOUT_CACHE: dict[int, tuple[np.ndarray, np.ndarray]] = {}
 
 
 def summarize_log(rows: list[dict]) -> dict:
@@ -175,7 +185,8 @@ def _refine(traj, cfg: BackendConfig, obstacles, t0: float):
 
     d_safe = float(cfg.clearance_m) + _CLEARANCE_BUFFER_M
     idx, wts = _sample_layout(n_span)
-    clr_before = min_signed_distance(traj, obstacles)
+    packed = _pack_obstacles(obstacles)
+    clr_before = min_signed_distance(traj, obstacles, packed=packed)
 
     def cost_grad(q):
         return _cost_grad(
@@ -189,6 +200,7 @@ def _refine(traj, cfg: BackendConfig, obstacles, t0: float):
             float(cfg.a_max),
             idx,
             wts,
+            packed=packed,
         )
 
     x0 = q_fit[free].reshape(-1).copy()
@@ -209,7 +221,7 @@ def _refine(traj, cfg: BackendConfig, obstacles, t0: float):
         if not _kin_ok(built, float(cfg.a_max)):
             kin_fail += 1
             continue
-        clr = min_signed_distance(built, obstacles)
+        clr = min_signed_distance(built, obstacles, packed=packed)
         if clr + _CLEARANCE_TOL_M < clr_before:
             clear_fail += 1
             continue
@@ -273,10 +285,16 @@ def _second_basis(u: float) -> np.ndarray:
     return np.array([0.0, 0.0, 2.0, 6.0 * u], dtype=float) @ _M
 
 
+_BP_DYN = np.stack([_deriv_basis(u) for u in _U_DYN])
+_BPP_DYN = np.stack([_second_basis(u) for u in _U_DYN])
+_B_POS = np.stack([_basis(u) for u in _U_DYN])
+_B_POS_LAST = np.stack([_basis(u) for u in _U_POS_LAST])
+
+
 def _dyn_samples(n_span: int):
     cached = []
     for span in range(n_span):
-        for u in (0.0, 0.25, 0.5, 0.75):
+        for u in _U_DYN:
             cached.append((span, u, _deriv_basis(u), _second_basis(u)))
     return cached
 
@@ -294,14 +312,19 @@ def _add_limit_grad(grad, span: int, vec: np.ndarray, limit: float, basis: np.nd
 
 
 def _sample_layout(n_span: int) -> tuple[np.ndarray, np.ndarray]:
+    hit = _LAYOUT_CACHE.get(n_span)
+    if hit is not None:
+        return hit
     idx = []
     wts = []
     for span in range(n_span):
-        us = (0.0, 0.25, 0.5, 0.75) if span < n_span - 1 else (0.0, 0.25, 0.5, 0.75, 1.0)
-        for u in us:
+        basis = _B_POS if span < n_span - 1 else _B_POS_LAST
+        for b in basis:
             idx.append((span, span + 1, span + 2, span + 3))
-            wts.append(_basis(u))
-    return np.asarray(idx, dtype=int), np.asarray(wts, dtype=float)
+            wts.append(b)
+    out = (np.asarray(idx, dtype=int), np.asarray(wts, dtype=float))
+    _LAYOUT_CACHE[n_span] = out
+    return out
 
 
 def _fit_free(traj, q_fixed: np.ndarray, free: np.ndarray, n_span: int, dt: float):
@@ -312,21 +335,28 @@ def _fit_free(traj, q_fixed: np.ndarray, free: np.ndarray, n_span: int, dt: floa
     targets = []
     fixed_offset = []
     free_of = {int(i): k for k, i in enumerate(free)}
+    times = []
+    us = (0.25, 0.5, 0.75)
     for span in range(n_span):
-        for u in (0.25, 0.5, 0.75):
-            t = min(t0 + (span + u) * dt, t1)
+        for u in us:
+            times.append(min(t0 + (span + u) * dt, t1))
+    pts = _eval_positions(traj, np.asarray(times, dtype=float))
+    k = 0
+    for span in range(n_span):
+        for u in us:
             b = _basis(u)
             row = np.zeros(len(free), dtype=float)
             offset = np.zeros(3, dtype=float)
-            for k in range(4):
-                index = span + k
+            for j in range(4):
+                index = span + j
                 if index in free_of:
-                    row[free_of[index]] = b[k]
+                    row[free_of[index]] = b[j]
                 else:
-                    offset += b[k] * q_fixed[index]
+                    offset += b[j] * q_fixed[index]
             rows.append(row)
-            targets.append(np.asarray(traj.evaluate(float(t)), dtype=float))
+            targets.append(pts[k])
             fixed_offset.append(offset)
+            k += 1
     design = np.asarray(rows, dtype=float)
     rhs = np.asarray(targets, dtype=float) - np.asarray(fixed_offset, dtype=float)
     solved, _, _, _ = np.linalg.lstsq(design, rhs, rcond=None)
@@ -345,36 +375,57 @@ def _curve_points(q: np.ndarray, idx: np.ndarray, wts: np.ndarray) -> np.ndarray
     return pts
 
 
-def _cost_grad(q, q_fit, free, dt, obstacles, d_safe, v_max, a_max, idx, wts):
+def _control_windows(q: np.ndarray) -> np.ndarray:
+    """(n_span, 4, 3) 滑窗，每段四个控制点。"""
+    return np.lib.stride_tricks.sliding_window_view(q, (4, 3))[:, 0, :, :]
+
+
+def _hinge_limit(grad: np.ndarray, vecs: np.ndarray, limit: float, basis: np.ndarray, scale: float) -> float:
+    """vecs (n_span, 4, 3)，basis (4, 4) 是各 u 的基。"""
+    nrm = np.linalg.norm(vecs, axis=2)
+    excess = nrm - float(limit)
+    active = (excess > 0.0) & (nrm > 1e-12)
+    if not np.any(active):
+        return 0.0
+    cost = _LAMBDA_D * float(np.sum(excess[active] ** 2))
+    dvec = np.zeros_like(vecs)
+    dvec[active] = (_LAMBDA_D * 2.0 * excess[active] / nrm[active])[:, None] * vecs[active]
+    contrib = scale * np.einsum("ub,suc->sbc", basis, dvec)
+    n_span = vecs.shape[0]
+    for k in range(4):
+        grad[k : k + n_span] += contrib[:, k, :]
+    return cost
+
+
+def _cost_grad(q, q_fit, free, dt, obstacles, d_safe, v_max, a_max, idx, wts, packed=None):
     n = q.shape[0]
+    n_span = n - 3
     grad = np.zeros_like(q)
     cost = 0.0
 
-    for i in range(n - 3):
-        diff = q[i + 3] - 3.0 * q[i + 2] + 3.0 * q[i + 1] - q[i]
-        cost += _LAMBDA_S * float(diff @ diff)
-        chain = _LAMBDA_S * 2.0 * diff
-        grad[i] -= chain
-        grad[i + 1] += 3.0 * chain
-        grad[i + 2] -= 3.0 * chain
-        grad[i + 3] += chain
+    q0, q1, q2, q3 = q[:-3], q[1:-2], q[2:-1], q[3:]
+    diff = q3 - 3.0 * q2 + 3.0 * q1 - q0
+    cost += _LAMBDA_S * float(np.sum(diff * diff))
+    chain = _LAMBDA_S * 2.0 * diff
+    grad[:-3] -= chain
+    grad[1:-2] += 3.0 * chain
+    grad[2:-1] -= 3.0 * chain
+    grad[3:] += chain
 
     # 罚的是曲线上的速度和加速度，不是控制点差分。差分是凸包上界，弯一下就被判爆。
-    for span, _u, bp, bpp in _dyn_samples(n - 3):
-        seg = q[span : span + 4]
-        vel = (bp @ seg) / dt
-        acc = (bpp @ seg) / (dt * dt)
-        cost += _add_limit_grad(grad, span, vel, v_max, bp, 1.0 / dt)
-        cost += _add_limit_grad(grad, span, acc, a_max, bpp, 1.0 / (dt * dt))
+    windows = _control_windows(q)
+    vel = np.einsum("ub,sbc->suc", _BP_DYN, windows) / dt
+    acc = np.einsum("ub,sbc->suc", _BPP_DYN, windows) / (dt * dt)
+    cost += _hinge_limit(grad, vel, v_max, _BP_DYN, 1.0 / dt)
+    cost += _hinge_limit(grad, acc, a_max, _BPP_DYN, 1.0 / (dt * dt))
 
-    for index in free:
-        delta = q[index] - q_fit[index]
-        cost += _LAMBDA_ANCHOR * float(delta @ delta)
-        grad[index] += _LAMBDA_ANCHOR * 2.0 * delta
+    delta = q[free] - q_fit[free]
+    cost += _LAMBDA_ANCHOR * float(np.sum(delta * delta))
+    grad[free] += _LAMBDA_ANCHOR * 2.0 * delta
 
     if obstacles:
         pts = _curve_points(q, idx, wts)
-        sd, sd_grad = _nearest(pts, obstacles)
+        sd, sd_grad = _nearest(pts, obstacles, packed=packed, active_limit=float(d_safe))
         viol = d_safe - sd
         active = viol > 0.0
         if np.any(active):
@@ -388,7 +439,10 @@ def _cost_grad(q, q_fit, free, dt, obstacles, d_safe, v_max, a_max, idx, wts):
 
 
 def _minimize(x0, q_fit, free, cost_grad, cfg: BackendConfig, t0: float):
-    from scipy.optimize import minimize
+    # 走底层 fmin_l_bfgs_b，不走 minimize 包装。同一套 factr / pgtol / maxls / maxcor，
+    # 8 次迭代的解与 minimize(..., method="L-BFGS-B") 逐位相同，但包装本身能吃掉十几毫秒，
+    # 几乎就是整份 0.02 s 预算。
+    from scipy.optimize import fmin_l_bfgs_b
 
     state = {
         "best_x": np.array(x0, dtype=float, copy=True),
@@ -415,20 +469,18 @@ def _minimize(x0, q_fit, free, cost_grad, cfg: BackendConfig, t0: float):
             return float(cost), g
         return 1e12, np.zeros_like(x)
 
-    res = minimize(
+    # minimize 的 ftol=1e-12 对应 factr * machine_eps。
+    factr = 1e-12 / np.finfo(float).eps
+    _x, _f, info = fmin_l_bfgs_b(
         fun,
         np.array(x0, dtype=float, copy=True),
-        method="L-BFGS-B",
-        jac=True,
-        options={
-            "maxiter": int(cfg.max_iterations),
-            "ftol": 1e-12,
-            "gtol": 1e-6,
-            "maxls": 16,
-            "maxcor": 8,
-        },
+        maxiter=int(cfg.max_iterations),
+        factr=factr,
+        pgtol=1e-6,
+        maxls=16,
+        m=8,
     )
-    iterations = int(getattr(res, "nit", 0) or 0)
+    iterations = int(info.get("nit", 0) or 0)
     return state["best_x"], iterations, bool(state["cut"])
 
 
@@ -461,33 +513,469 @@ def _ends_match(traj, start, end) -> bool:
 
 
 def _kin_ok(traj, a_max: float) -> bool:
+    """三次段用解析上界；证不出或不三次时退回 core 的 Bernstein 检查。"""
+    segs = getattr(traj, "segments", ())
+    if segs and all(int(s.coeffs.shape[1]) - 1 <= 3 for s in segs):
+        proved = _cubic_kin_ok(traj, float(a_max))
+        if proved is not None:
+            return proved
     from yopo_swarm_core.collision import Verdict, check_derivative_bound
 
     limits = ((1, _PLAN_V_MAX), (2, float(a_max)), (3, _PLAN_J_MAX))
     return all(check_derivative_bound(traj, order, lim).verdict is Verdict.SAFE for order, lim in limits)
 
 
-def min_signed_distance(traj, obstacles, step: float = _SAMPLE_DT_S) -> float:
+def _cubic_kin_ok(traj, a_max: float) -> bool | None:
+    """三次多项式段上速度、加速度、急动度范数的解析判定。
+
+    返回 True / False 表示已经证出 SAFE 或已经可以拒绝；None 表示交给 core。
+    加速度在段上是直线，范数在端点取到最大。急动度是常向量。速度是二次，
+    驻点来自 v·a = 0（三次方程）。判定口径与 check_derivative_bound 一致：
+    只有严格低于 limit - tol 才算 SAFE。
+    """
+    a_lim = float(a_max) - _KIN_TOL
+    v_lim = _PLAN_V_MAX - _KIN_TOL
+    j_lim = _PLAN_J_MAX - _KIN_TOL
+    if a_lim <= 0.0 or v_lim <= 0.0 or j_lim <= 0.0:
+        return False
+    for seg in traj.segments:
+        c = np.zeros((3, 4), dtype=float)
+        src = np.asarray(seg.coeffs, dtype=float)
+        c[:, : src.shape[1]] = src
+        duration = float(seg.duration)
+        c1, c2, c3 = c[:, 1], c[:, 2], c[:, 3]
+        jerk = 6.0 * c3
+        if float(np.dot(jerk, jerk)) >= j_lim * j_lim:
+            return False
+        a0 = 2.0 * c2
+        a_end = a0 + 6.0 * c3 * duration
+        if float(np.dot(a0, a0)) >= a_lim * a_lim or float(np.dot(a_end, a_end)) >= a_lim * a_lim:
+            return False
+        v0 = c1
+        v_end = c1 + 2.0 * c2 * duration + 3.0 * c3 * duration * duration
+        if float(np.dot(v0, v0)) >= v_lim * v_lim or float(np.dot(v_end, v_end)) >= v_lim * v_lim:
+            return False
+        # (c1 + 2 c2 t + 3 c3 t^2) · (2 c2 + 6 c3 t) = 0
+        A = 18.0 * float(np.dot(c3, c3))
+        B = 18.0 * float(np.dot(c2, c3))
+        C = 6.0 * float(np.dot(c1, c3)) + 4.0 * float(np.dot(c2, c2))
+        D = 2.0 * float(np.dot(c1, c2))
+        if abs(A) + abs(B) + abs(C) + abs(D) == 0.0:
+            continue
+        try:
+            roots = np.roots((A, B, C, D))
+        except np.linalg.LinAlgError:
+            return None
+        for root in roots:
+            if abs(float(np.imag(root))) > 1e-12:
+                continue
+            t = float(np.real(root))
+            if t <= 0.0 or t >= duration:
+                continue
+            vel = c1 + 2.0 * c2 * t + 3.0 * c3 * t * t
+            if float(np.dot(vel, vel)) >= v_lim * v_lim:
+                return False
+    return True
+
+
+def min_signed_distance(traj, obstacles, step: float = _SAMPLE_DT_S, packed=None) -> float:
     """轨迹上到障碍表面的最小有符号距离。没有障碍时是正无穷。穿进表面为负。"""
     if not obstacles:
         return float("inf")
     span = float(traj.t_end - traj.t_start)
     n = max(2, int(np.ceil(span / step)) + 1)
     times = np.linspace(float(traj.t_start), float(traj.t_end), n)
-    pts = np.stack([np.asarray(traj.evaluate(float(t)), dtype=float) for t in times], axis=0)
-    sd, _grad = _nearest(pts, obstacles)
+    pts = _eval_positions(traj, times)
+    sd, _grad = _nearest(pts, obstacles, packed=packed)
     return float(np.min(sd))
 
 
-def _nearest(points: np.ndarray, obstacles):
-    best = np.full(len(points), np.inf, dtype=float)
-    grad = np.zeros_like(points)
-    for ob in obstacles:
-        sd, g = _sdf_obstacle(points, ob)
-        take = sd < best
-        best = np.where(take, sd, best)
-        grad = np.where(take[:, None], g, grad)
+def _horner(coeffs: np.ndarray, tau: np.ndarray) -> np.ndarray:
+    """coeffs (3, deg+1)，tau (N,)，返回 (N, 3)。"""
+    val = np.broadcast_to(np.asarray(coeffs[:, -1], dtype=float), (tau.shape[0], 3)).copy()
+    for k in range(coeffs.shape[1] - 2, -1, -1):
+        val = val * tau[:, None] + coeffs[:, k]
+    return val
+
+
+def _eval_positions(traj, times: np.ndarray) -> np.ndarray:
+    """按 locate 的规则批量求位置：段边界归入后一段，最后边界归入最后一段。"""
+    times = np.asarray(times, dtype=float)
+    pts = np.empty((len(times), 3), dtype=float)
+    segs = traj.segments
+    last = len(segs) - 1
+    bounds = traj._bounds
+    assigned = np.zeros(len(times), dtype=bool)
+    for i, seg in enumerate(segs):
+        start, end = bounds[i], bounds[i + 1]
+        if i == last:
+            mask = (times >= start) & (times <= end)
+        else:
+            mask = (times >= start) & (times < end)
+        if not np.any(mask):
+            continue
+        tau = np.clip(times[mask] - start, 0.0, seg.duration)
+        pts[mask] = _horner(np.asarray(seg.coeffs, dtype=float), tau)
+        assigned[mask] = True
+    if not np.all(assigned):
+        for k in np.flatnonzero(~assigned):
+            pts[k] = np.asarray(traj.evaluate(float(times[k])), dtype=float)
+    return pts
+
+
+@dataclass
+class _PackedObstacles:
+    n: int
+    up_i: np.ndarray
+    up_xy: np.ndarray
+    up_r: np.ndarray
+    up_zmid: np.ndarray
+    up_half: np.ndarray
+    cyl_i: np.ndarray
+    cyl_c: np.ndarray
+    cyl_ax: np.ndarray
+    cyl_h: np.ndarray
+    cyl_r: np.ndarray
+    deg_i: np.ndarray
+    deg_a: np.ndarray
+    deg_r: np.ndarray
+    box_i: np.ndarray
+    box_c: np.ndarray
+    box_h: np.ndarray
+    grd_i: np.ndarray
+    grd_z: np.ndarray
+    other: tuple
+
+
+def _pack_obstacles(obstacles) -> _PackedObstacles | None:
+    if not obstacles:
+        return None
+    up_i, up_xy, up_r, up_zmid, up_half = [], [], [], [], []
+    cyl_i, cyl_c, cyl_ax, cyl_h, cyl_r = [], [], [], [], []
+    deg_i, deg_a, deg_r = [], [], []
+    box_i, box_c, box_h = [], [], []
+    grd_i, grd_z = [], []
+    other = []
+    for i, ob in enumerate(obstacles):
+        if isinstance(ob, Cylinder):
+            a, b = ob.axis_ends()
+            ab = b - a
+            length = float(np.linalg.norm(ab))
+            radius = float(ob.radius)
+            if length < 1e-9:
+                deg_i.append(i)
+                deg_a.append(a)
+                deg_r.append(radius)
+            elif ob.upright():
+                up_i.append(i)
+                up_xy.append((float(ob.center_xy[0]), float(ob.center_xy[1])))
+                up_r.append(radius)
+                z_lo, z_hi = float(ob.z_lo), float(ob.z_hi)
+                up_zmid.append(0.5 * (z_lo + z_hi))
+                up_half.append(0.5 * (z_hi - z_lo))
+            else:
+                cyl_i.append(i)
+                cyl_c.append(0.5 * (a + b))
+                cyl_ax.append(ab / length)
+                cyl_h.append(0.5 * length)
+                cyl_r.append(radius)
+        elif isinstance(ob, Box):
+            lo = np.asarray(ob.lo, dtype=float)
+            hi = np.asarray(ob.hi, dtype=float)
+            box_i.append(i)
+            box_c.append(0.5 * (lo + hi))
+            box_h.append(0.5 * (hi - lo))
+        elif isinstance(ob, Ground):
+            grd_i.append(i)
+            grd_z.append(float(ob.z))
+        else:
+            other.append((i, ob))
+    empty = np.zeros((0, 3), dtype=float)
+    return _PackedObstacles(
+        n=len(obstacles),
+        up_i=np.asarray(up_i, dtype=int),
+        up_xy=np.asarray(up_xy, dtype=float).reshape(-1, 2) if up_xy else np.zeros((0, 2)),
+        up_r=np.asarray(up_r, dtype=float),
+        up_zmid=np.asarray(up_zmid, dtype=float),
+        up_half=np.asarray(up_half, dtype=float),
+        cyl_i=np.asarray(cyl_i, dtype=int),
+        cyl_c=np.asarray(cyl_c, dtype=float).reshape(-1, 3) if cyl_c else empty.copy(),
+        cyl_ax=np.asarray(cyl_ax, dtype=float).reshape(-1, 3) if cyl_ax else empty.copy(),
+        cyl_h=np.asarray(cyl_h, dtype=float),
+        cyl_r=np.asarray(cyl_r, dtype=float),
+        deg_i=np.asarray(deg_i, dtype=int),
+        deg_a=np.asarray(deg_a, dtype=float).reshape(-1, 3) if deg_a else empty.copy(),
+        deg_r=np.asarray(deg_r, dtype=float),
+        box_i=np.asarray(box_i, dtype=int),
+        box_c=np.asarray(box_c, dtype=float).reshape(-1, 3) if box_c else empty.copy(),
+        box_h=np.asarray(box_h, dtype=float).reshape(-1, 3) if box_h else empty.copy(),
+        grd_i=np.asarray(grd_i, dtype=int),
+        grd_z=np.asarray(grd_z, dtype=float),
+        other=tuple(other),
+    )
+
+
+def _aabb_cyl_lb(lo, hi, xy, radius, zmid, half) -> np.ndarray:
+    dx = np.maximum(np.maximum(lo[0] - xy[:, 0], 0.0), xy[:, 0] - hi[0])
+    dy = np.maximum(np.maximum(lo[1] - xy[:, 1], 0.0), xy[:, 1] - hi[1])
+    dz = np.maximum(np.maximum(lo[2] - (zmid + half), 0.0), (zmid - half) - hi[2])
+    return np.sqrt(dx * dx + dy * dy + dz * dz) - radius
+
+
+def _aabb_box_lb(lo, hi, center, half) -> np.ndarray:
+    blo = center - half
+    bhi = center + half
+    dx = np.maximum(np.maximum(lo[0] - bhi[:, 0], 0.0), blo[:, 0] - hi[0])
+    dy = np.maximum(np.maximum(lo[1] - bhi[:, 1], 0.0), blo[:, 1] - hi[1])
+    dz = np.maximum(np.maximum(lo[2] - bhi[:, 2], 0.0), blo[:, 2] - hi[2])
+    return np.sqrt(dx * dx + dy * dy + dz * dz)
+
+
+def _aabb_seg_cyl_lb(lo, hi, center, axis, half, radius) -> np.ndarray:
+    """直立公式推广：把点 AABB 到有限段的下界再减半径。略松，但不漏。"""
+    a = center - axis * half[:, None]
+    b = center + axis * half[:, None]
+    # 段两端点张成的包围盒再膨胀 0，再减半径，作为下界会偏松（斜柱）。
+    slo = np.minimum(a, b)
+    shi = np.maximum(a, b)
+    dx = np.maximum(np.maximum(lo[0] - shi[:, 0], 0.0), slo[:, 0] - hi[0])
+    dy = np.maximum(np.maximum(lo[1] - shi[:, 1], 0.0), slo[:, 1] - hi[1])
+    dz = np.maximum(np.maximum(lo[2] - shi[:, 2], 0.0), slo[:, 2] - hi[2])
+    return np.sqrt(dx * dx + dy * dy + dz * dz) - radius
+
+
+def _keep_mask(lb: np.ndarray, radius: float) -> np.ndarray:
+    if lb.size == 0:
+        return np.zeros(0, dtype=bool)
+    return lb < radius
+
+
+def _scatter_min(best, grad, sd, g, keep_i, take_radius: float | None):
+    """把一批障碍的有符号距离并进当前最近场。保持原顺序下「先写入者赢平手」。"""
+    if sd.size == 0 or keep_i.size == 0:
+        return best, grad
+    if take_radius is not None:
+        # 只需关心可能低于门槛的障碍；最近若全在门槛外，铰链本来就不亮。
+        pass
+    idx = np.argmin(sd, axis=1)
+    rows = np.arange(sd.shape[0])
+    val = sd[rows, idx]
+    take = val < best
+    best = np.where(take, val, best)
+    grad = np.where(take[:, None], g[rows, idx], grad)
     return best, grad
+
+
+def _upright_sd_grad(points, xy, radius, zmid, half):
+    if len(xy) == 0:
+        return np.zeros((len(points), 0)), np.zeros((len(points), 0, 3))
+    dx = points[:, 0:1] - xy[None, :, 0]
+    dy = points[:, 1:2] - xy[None, :, 1]
+    axial = points[:, 2:3] - zmid[None, :]
+    radial = np.hypot(dx, dy)
+    d_rad = radial - radius
+    d_ax = np.abs(axial) - half
+    outside_len = np.hypot(np.maximum(d_rad, 0.0), np.maximum(d_ax, 0.0))
+    inside = np.minimum(np.maximum(d_rad, d_ax), 0.0)
+    sd = outside_len + inside
+    # 只给每个点的最近柱子算梯度。
+    n = len(points)
+    win = np.argmin(sd, axis=1)
+    rows = np.arange(n)
+    rad = radial[rows, win]
+    drv = d_rad[rows, win]
+    daxv = d_ax[rows, win]
+    axv = axial[rows, win]
+    olen = np.maximum(outside_len[rows, win], 1e-12)
+    hat = np.zeros((n, 3), dtype=float)
+    nz = rad > 1e-9
+    if np.any(nz):
+        hat[nz, 0] = dx[rows, win][nz] / rad[nz]
+        hat[nz, 1] = dy[rows, win][nz] / rad[nz]
+    if np.any(~nz):
+        hat[~nz, 0] = 1.0
+    sign_ax = np.where(axv >= 0.0, 1.0, -1.0)
+    g_rad = np.zeros(n, dtype=float)
+    g_ax = np.zeros(n, dtype=float)
+    corner = (drv > 0.0) & (daxv > 0.0)
+    side = (drv > 0.0) & (daxv <= 0.0)
+    cap = (drv <= 0.0) & (daxv > 0.0)
+    inner = (drv <= 0.0) & (daxv <= 0.0)
+    g_rad[corner] = drv[corner] / olen[corner]
+    g_ax[corner] = sign_ax[corner] * daxv[corner] / olen[corner]
+    g_rad[side] = 1.0
+    g_ax[cap] = sign_ax[cap]
+    inner_side = inner & (drv >= daxv)
+    g_rad[inner_side] = 1.0
+    g_ax[inner & ~inner_side] = sign_ax[inner & ~inner_side]
+    grad = g_rad[:, None] * hat
+    grad[:, 2] += g_ax
+    # 仍返回全表 sd，给 argmin 平手规则用；梯度只在胜出列有值，其它列不会被选中。
+    g_all = np.zeros((n, len(xy), 3), dtype=float)
+    g_all[rows, win] = grad
+    return sd, g_all
+
+
+def _general_cyl_sd_grad(points, centers, axes, halfs, radii):
+    if len(centers) == 0:
+        return np.zeros((len(points), 0)), np.zeros((len(points), 0, 3))
+    rel = points[:, None, :] - centers[None, :, :]
+    axial = np.einsum("nci,ci->nc", rel, axes)
+    radial_vec = rel - axial[:, :, None] * axes[None, :, :]
+    radial = np.linalg.norm(radial_vec, axis=2)
+    d_rad = radial - radii
+    d_ax = np.abs(axial) - halfs
+    outside_len = np.hypot(np.maximum(d_rad, 0.0), np.maximum(d_ax, 0.0))
+    inside = np.minimum(np.maximum(d_rad, d_ax), 0.0)
+    sd = outside_len + inside
+    n, c = sd.shape
+    win = np.argmin(sd, axis=1) if c else np.zeros(n, dtype=int)
+    rows = np.arange(n)
+    hat = np.zeros((n, 3), dtype=float)
+    if c:
+        rad = radial[rows, win]
+        rvec = radial_vec[rows, win]
+        nz = rad > 1e-9
+        hat[nz] = rvec[nz] / rad[nz, None]
+        if np.any(~nz):
+            ax = axes[win[~nz]]
+            aux = np.zeros_like(ax)
+            aux[:, 0] = 1.0
+            flip = np.abs(ax[:, 0]) >= 0.9
+            aux[flip] = (0.0, 1.0, 0.0)
+            perp = np.cross(ax, aux)
+            perp /= np.linalg.norm(perp, axis=1, keepdims=True)
+            hat[~nz] = perp
+        drv = d_rad[rows, win]
+        daxv = d_ax[rows, win]
+        axv = axial[rows, win]
+        olen = np.maximum(outside_len[rows, win], 1e-12)
+        sign_ax = np.where(axv >= 0.0, 1.0, -1.0)
+        g_rad = np.zeros(n, dtype=float)
+        g_ax = np.zeros(n, dtype=float)
+        corner = (drv > 0.0) & (daxv > 0.0)
+        side = (drv > 0.0) & (daxv <= 0.0)
+        cap = (drv <= 0.0) & (daxv > 0.0)
+        inner = (drv <= 0.0) & (daxv <= 0.0)
+        g_rad[corner] = drv[corner] / olen[corner]
+        g_ax[corner] = sign_ax[corner] * daxv[corner] / olen[corner]
+        g_rad[side] = 1.0
+        g_ax[cap] = sign_ax[cap]
+        inner_side = inner & (drv >= daxv)
+        g_rad[inner_side] = 1.0
+        g_ax[inner & ~inner_side] = sign_ax[inner & ~inner_side]
+        grad = g_rad[:, None] * hat + g_ax[:, None] * axes[win]
+    else:
+        grad = hat
+    g_all = np.zeros((n, c, 3), dtype=float)
+    if c:
+        g_all[rows, win] = grad
+    return sd, g_all
+
+
+def _box_sd_grad(points, centers, halfs):
+    if len(centers) == 0:
+        return np.zeros((len(points), 0)), np.zeros((len(points), 0, 3))
+    rel = points[:, None, :] - centers[None, :, :]
+    q = np.abs(rel) - halfs
+    outside_vec = np.maximum(q, 0.0)
+    outside_len = np.linalg.norm(outside_vec, axis=2)
+    inside = np.minimum(np.max(q, axis=2), 0.0)
+    sd = outside_len + inside
+    n, b = sd.shape
+    win = np.argmin(sd, axis=1) if b else np.zeros(n, dtype=int)
+    rows = np.arange(n)
+    sign = np.sign(rel)
+    sign = np.where(sign == 0.0, 1.0, sign)
+    grad = np.zeros((n, 3), dtype=float)
+    if b:
+        olen = outside_len[rows, win]
+        out = olen > 1e-12
+        if np.any(out):
+            grad[out] = (outside_vec[rows, win][out] / olen[out, None]) * sign[rows, win][out]
+        inn = ~out
+        if np.any(inn):
+            axis = np.argmax(q[rows, win][inn], axis=1)
+            grad[np.flatnonzero(inn), axis] = sign[rows, win][inn, axis]
+    g_all = np.zeros((n, b, 3), dtype=float)
+    if b:
+        g_all[rows, win] = grad
+    return sd, g_all
+
+
+def _nearest_packed(points: np.ndarray, packed: _PackedObstacles, active_limit: float | None):
+    n = len(points)
+    best = np.full(n, np.inf, dtype=float)
+    grad = np.zeros_like(points)
+    if packed.n == 0 and not packed.other:
+        return best, grad
+    lo = points.min(axis=0)
+    hi = points.max(axis=0)
+    # 铰链只需门槛内的障碍。求全局最小距离时先用 2 m 宽相，不够再扩。
+    if active_limit is not None and np.isfinite(active_limit):
+        radii = [float(active_limit)]
+    else:
+        radii = [_CULL_CLEARANCE_M, np.inf]
+
+    def merge(radius: float):
+        b = np.full(n, np.inf, dtype=float)
+        g = np.zeros_like(points)
+        if packed.up_i.size:
+            lb = _aabb_cyl_lb(lo, hi, packed.up_xy, packed.up_r, packed.up_zmid, packed.up_half)
+            keep = _keep_mask(lb, radius)
+            if np.any(keep):
+                sd, gg = _upright_sd_grad(
+                    points, packed.up_xy[keep], packed.up_r[keep], packed.up_zmid[keep], packed.up_half[keep]
+                )
+                b, g = _scatter_min(b, g, sd, gg, packed.up_i[keep], radius)
+        if packed.cyl_i.size:
+            lb = _aabb_seg_cyl_lb(lo, hi, packed.cyl_c, packed.cyl_ax, packed.cyl_h, packed.cyl_r)
+            keep = _keep_mask(lb, radius)
+            if np.any(keep):
+                sd, gg = _general_cyl_sd_grad(
+                    points, packed.cyl_c[keep], packed.cyl_ax[keep], packed.cyl_h[keep], packed.cyl_r[keep]
+                )
+                b, g = _scatter_min(b, g, sd, gg, packed.cyl_i[keep], radius)
+        if packed.deg_i.size:
+            rel = points[:, None, :] - packed.deg_a[None, :, :]
+            dist = np.linalg.norm(rel, axis=2)
+            sd = dist - packed.deg_r
+            hat = rel / np.maximum(dist, 1e-12)[:, :, None]
+            b, g = _scatter_min(b, g, sd, hat, packed.deg_i, radius)
+        if packed.box_i.size:
+            lb = _aabb_box_lb(lo, hi, packed.box_c, packed.box_h)
+            keep = _keep_mask(lb, radius)
+            if np.any(keep):
+                sd, gg = _box_sd_grad(points, packed.box_c[keep], packed.box_h[keep])
+                b, g = _scatter_min(b, g, sd, gg, packed.box_i[keep], radius)
+        if packed.grd_i.size:
+            sd = points[:, 2:3] - packed.grd_z[None, :]
+            gg = np.zeros((n, packed.grd_z.shape[0], 3), dtype=float)
+            gg[:, :, 2] = 1.0
+            b, g = _scatter_min(b, g, sd, gg, packed.grd_i, radius)
+        for _i, ob in packed.other:
+            sd = np.array([float(ob.distance(p)) for p in points], dtype=float)[:, None]
+            gg = np.zeros((n, 1, 3), dtype=float)
+            b, g = _scatter_min(b, g, sd, gg, np.array([_i], dtype=int), radius)
+        return b, g
+
+    for radius in radii:
+        best, grad = merge(radius)
+        # 每个点都要有一个半径内的见证，才能保证该点的最近障碍没被宽相丢掉。
+        # 只要全局最小小于半径，只能保证 min(sd) 本身，不够给每个点用。
+        if np.all(np.isfinite(best) & (best < radius)):
+            return best, grad
+    return best, grad
+
+
+def _nearest(points: np.ndarray, obstacles, packed=None, active_limit: float | None = None):
+    if not obstacles:
+        return np.full(len(points), np.inf, dtype=float), np.zeros_like(points)
+    if packed is None:
+        packed = _pack_obstacles(obstacles)
+    if packed is None:
+        return np.full(len(points), np.inf, dtype=float), np.zeros_like(points)
+    return _nearest_packed(points, packed, active_limit)
 
 
 def _sdf_obstacle(points: np.ndarray, ob):

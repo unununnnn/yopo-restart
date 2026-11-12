@@ -236,3 +236,110 @@ def test_backend_off_is_bitwise_for_existing_cards(path, monkeypatch):
     # 与批跑的确定性比较同一套剔除：整回路墙钟、规划墙钟，以及几何回退自己的检查耗时。
     assert _strip(first.result) == _strip(second.result)
     assert first.ticks == second.ticks
+"""E-B2p：打包 SDF、批量求值和三次运动学与原判定一致。"""
+
+import numpy as np
+import pytest
+from yopo_swarm_core.collision import Verdict, check_derivative_bound
+from yopo_swarm_core.plan import quintic
+from yopo_swarm_core.trajectory import PiecewisePolynomial, PolySegment
+
+from yopo_l0.backend.bspline import (
+    _PLAN_J_MAX,
+    _PLAN_V_MAX,
+    _eval_positions,
+    _kin_ok,
+    _nearest,
+    _pack_obstacles,
+    _sdf_obstacle,
+    min_signed_distance,
+)
+from yopo_l0.scene import load_card
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SCENES = ROOT / "scenes"
+
+
+def _points(seed: int, n: int = 60):
+    rng = np.random.default_rng(seed)
+    return rng.normal(size=(n, 3)) * np.array([8.0, 8.0, 1.5]) + np.array([0.0, 0.0, 1.5])
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "ego-density-042-solo.json",
+        "crossing-forest-dense-bspline.json",
+        "crossing-6-forest-sparse.json",
+        "g2-pillar-bspline.json",
+    ],
+)
+def test_packed_nearest_matches_per_obstacle(name):
+    obs = load_card(SCENES / name).obstacles
+    pts = _points(0, 50)
+    packed = _pack_obstacles(obs)
+    sd, grad = _nearest(pts, obs, packed=packed)
+    # 逐个障碍取最小，平手留给先出现的那个，和打包路径相同。
+    best = np.full(len(pts), np.inf)
+    gref = np.zeros_like(pts)
+    for ob in obs:
+        s, g = _sdf_obstacle(pts, ob)
+        take = s < best
+        best = np.where(take, s, best)
+        gref = np.where(take[:, None], g, gref)
+    np.testing.assert_allclose(sd, best, atol=1e-12, rtol=0.0)
+    np.testing.assert_allclose(grad, gref, atol=1e-12, rtol=0.0)
+
+
+def test_eval_positions_matches_evaluate():
+    p0 = np.array([-2.0, 0.0, 1.5])
+    mid = np.array([0.0, 0.2, 1.6])
+    p1 = np.array([2.0, 0.0, 1.5])
+    v = np.array([2.0, 0.0, 0.0])
+    z = np.zeros(3)
+    traj = PiecewisePolynomial(
+        0.0,
+        [
+            quintic(np.array([p0, v, z]), np.array([mid, v, z]), 1.0),
+            quintic(np.array([mid, v, z]), np.array([p1, v, z]), 1.1),
+        ],
+    )
+    times = np.linspace(traj.t_start, traj.t_end, 80)
+    # 段边界必须对上 locate 的规则。
+    times = np.unique(np.concatenate([times, np.asarray(traj.boundaries(), dtype=float)]))
+    times = times[(times >= traj.t_start) & (times <= traj.t_end)]
+    pts = _eval_positions(traj, times)
+    ref = np.stack([np.asarray(traj.evaluate(float(t)), dtype=float) for t in times])
+    np.testing.assert_allclose(pts, ref, atol=0.0, rtol=0.0)
+
+
+def test_cubic_kinematics_matches_official():
+    rng = np.random.default_rng(3)
+    for _ in range(80):
+        coeffs = rng.normal(size=(3, 4)) * np.array([1.0, 2.0, 3.0, 2.0])
+        duration = float(rng.uniform(0.12, 0.4))
+        traj = PiecewisePolynomial(0.0, [PolySegment(coeffs, duration)])
+        official = all(
+            check_derivative_bound(traj, order, lim).verdict is Verdict.SAFE
+            for order, lim in ((1, _PLAN_V_MAX), (2, 6.0), (3, _PLAN_J_MAX))
+        )
+        assert _kin_ok(traj, 6.0) is official
+
+
+def test_min_signed_distance_uses_same_samples():
+    from yopo_l0.backend.bspline import _SAMPLE_DT_S
+
+    p0 = np.array([-3.0, 0.1, 1.5])
+    p1 = np.array([1.0, -0.2, 1.5])
+    duration = 1.6
+    v = (p1 - p0) / duration
+    z = np.zeros(3)
+    traj = PiecewisePolynomial(0.0, [quintic(np.array([p0, v, z]), np.array([p1, v, z]), duration)])
+    obs = load_card(SCENES / "ego-density-014-solo.json").obstacles
+    got = min_signed_distance(traj, obs)
+    n = max(2, int(np.ceil(duration / _SAMPLE_DT_S)) + 1)
+    times = np.linspace(0.0, duration, n)
+    pts = np.stack([np.asarray(traj.evaluate(float(t)), dtype=float) for t in times])
+    sd, _g = _nearest(pts, obs)
+    assert got == pytest.approx(float(np.min(sd)), abs=0.0, rel=0.0)
