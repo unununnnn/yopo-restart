@@ -1,0 +1,438 @@
+{
+ "d5-fixed": {
+  "weights": "/workspace/yopo-teacher-data/d5/student.pt",
+  "variant": "b",
+  "student_params": null,
+  "rows": [
+   {
+    "scene": "g2-pillar",
+    "label": "g2 柱子",
+    "seeds": 10,
+    "arrived": 1,
+    "denom": 10,
+    "obstacle": 9,
+    "inter": 0,
+    "timeout": 0,
+    "min_clearance_m": -0.017850663220181473,
+    "min_inter_m": null,
+    "final_goal_err_median_m": 4.002955388504164
+   },
+   {
+    "scene": "swap-3-open",
+    "label": "开阔三机对向",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 30,
+    "obstacle": 0,
+    "inter": 0,
+    "timeout": 10,
+    "min_clearance_m": 0.2102644514218588,
+    "min_inter_m": 12.252414932484179,
+    "final_goal_err_median_m": 17.0868749427893
+   },
+   {
+    "scene": "open-3drone",
+    "label": "开阔三机平行",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 30,
+    "obstacle": 0,
+    "inter": 0,
+    "timeout": 10,
+    "min_clearance_m": 1.15,
+    "min_inter_m": 4.00121887783658,
+    "final_goal_err_median_m": 4.761694970770701
+   },
+   {
+    "scene": "ego-density-014-solo",
+    "label": "密度 0.14 单机",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 10,
+    "obstacle": 10,
+    "inter": 0,
+    "timeout": 0,
+    "min_clearance_m": -0.0057567058631421975,
+    "min_inter_m": null,
+    "final_goal_err_median_m": 19.400459952358453
+   }
+  ]
+ },
+ "r0": {
+  "weights": "/workspace/yopo-teacher-data/d5b/r0/student.pt",
+  "variant": "b",
+  "student_params": null,
+  "rows": [
+   {
+    "scene": "g2-pillar",
+    "label": "g2 柱子",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 10,
+    "obstacle": 10,
+    "inter": 0,
+    "timeout": 0,
+    "min_clearance_m": -0.007682885816705676,
+    "min_inter_m": null,
+    "final_goal_err_median_m": 2.6730737080908096
+   },
+   {
+    "scene": "swap-3-open",
+    "label": "开阔三机对向",
+    "seeds": 10,
+    "arrived": 29,
+    "denom": 30,
+    "obstacle": 0,
+    "inter": 0,
+    "timeout": 1,
+    "min_clearance_m": 1.1291159267174398,
+    "min_inter_m": 0.7325601483017907,
+    "final_goal_err_median_m": 0.024506028963047433
+   },
+   {
+    "scene": "open-3drone",
+    "label": "开阔三机平行",
+    "seeds": 10,
+    "arrived": 20,
+    "denom": 30,
+    "obstacle": 0,
+    "inter": 0,
+    "timeout": 10,
+    "min_clearance_m": 1.1418833335778364,
+    "min_inter_m": 3.6029502506530284,
+    "final_goal_err_median_m": 2.201209743986854
+   },
+   {
+    "scene": "ego-density-014-solo",
+    "label": "密度 0.14 单机",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 10,
+    "obstacle": 10,
+    "inter": 0,
+    "timeout": 0,
+    "min_clearance_m": -0.008512042274820775,
+    "min_inter_m": null,
+    "final_goal_err_median_m": 19.164065401686592
+   }
+  ]
+ },
+ "r1": {
+  "weights": "/workspace/yopo-teacher-data/d5b/r1/student.pt",
+  "variant": "b",
+  "student_params": null,
+  "rows": [
+   {
+    "scene": "g2-pillar",
+    "label": "g2 柱子",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 10,
+    "obstacle": 10,
+    "inter": 0,
+    "timeout": 0,
+    "min_clearance_m": -0.008644967881195786,
+    "min_inter_m": null,
+    "final_goal_err_median_m": 3.540144841967245
+   },
+   {
+    "scene": "swap-3-open",
+    "label": "开阔三机对向",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 30,
+    "obstacle": 10,
+    "inter": 0,
+    "timeout": 0,
+    "min_clearance_m": -0.009300308224048148,
+    "min_inter_m": 10.780854082316834,
+    "final_goal_err_median_m": 16.710103040144702
+   },
+   {
+    "scene": "open-3drone",
+    "label": "开阔三机平行",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 30,
+    "obstacle": 10,
+    "inter": 0,
+    "timeout": 0,
+    "min_clearance_m": -0.019773850828727013,
+    "min_inter_m": 4.784272851443852,
+    "final_goal_err_median_m": 4.413287245550983
+   },
+   {
+    "scene": "ego-density-014-solo",
+    "label": "密度 0.14 单机",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 10,
+    "obstacle": 10,
+    "inter": 0,
+    "timeout": 0,
+    "min_clearance_m": -0.018453600638930534,
+    "min_inter_m": null,
+    "final_goal_err_median_m": 28.094853669491194
+   }
+  ]
+ },
+ "r2": {
+  "weights": "/workspace/yopo-teacher-data/d5b/r2/student.pt",
+  "variant": "b",
+  "student_params": null,
+  "rows": [
+   {
+    "scene": "g2-pillar",
+    "label": "g2 柱子",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 10,
+    "obstacle": 10,
+    "inter": 0,
+    "timeout": 0,
+    "min_clearance_m": -0.00046057441300140223,
+    "min_inter_m": null,
+    "final_goal_err_median_m": 3.8983832936379548
+   },
+   {
+    "scene": "swap-3-open",
+    "label": "开阔三机对向",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 30,
+    "obstacle": 10,
+    "inter": 0,
+    "timeout": 0,
+    "min_clearance_m": -0.004614278662935067,
+    "min_inter_m": 5.557583971196427,
+    "final_goal_err_median_m": 16.875064823004784
+   },
+   {
+    "scene": "open-3drone",
+    "label": "开阔三机平行",
+    "seeds": 10,
+    "arrived": 10,
+    "denom": 30,
+    "obstacle": 0,
+    "inter": 0,
+    "timeout": 10,
+    "min_clearance_m": 1.140110696296139,
+    "min_inter_m": 2.6293130119687427,
+    "final_goal_err_median_m": 5.183807195462728
+   },
+   {
+    "scene": "ego-density-014-solo",
+    "label": "密度 0.14 单机",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 10,
+    "obstacle": 10,
+    "inter": 0,
+    "timeout": 0,
+    "min_clearance_m": -0.0017938199172765068,
+    "min_inter_m": null,
+    "final_goal_err_median_m": 19.32986428080968
+   }
+  ]
+ },
+ "r3": {
+  "weights": "/workspace/yopo-teacher-data/d5b/r3/student.pt",
+  "variant": "b",
+  "student_params": null,
+  "rows": [
+   {
+    "scene": "g2-pillar",
+    "label": "g2 柱子",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 10,
+    "obstacle": 10,
+    "inter": 0,
+    "timeout": 0,
+    "min_clearance_m": -0.013742930244623364,
+    "min_inter_m": null,
+    "final_goal_err_median_m": 6.138634227546686
+   },
+   {
+    "scene": "swap-3-open",
+    "label": "开阔三机对向",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 30,
+    "obstacle": 10,
+    "inter": 0,
+    "timeout": 0,
+    "min_clearance_m": -0.015379177973845304,
+    "min_inter_m": 9.476768161609954,
+    "final_goal_err_median_m": 18.65403727055389
+   },
+   {
+    "scene": "open-3drone",
+    "label": "开阔三机平行",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 30,
+    "obstacle": 10,
+    "inter": 0,
+    "timeout": 0,
+    "min_clearance_m": -0.026720672084139252,
+    "min_inter_m": 4.993065983550973,
+    "final_goal_err_median_m": 5.813964508148862
+   },
+   {
+    "scene": "ego-density-014-solo",
+    "label": "密度 0.14 单机",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 10,
+    "obstacle": 10,
+    "inter": 0,
+    "timeout": 0,
+    "min_clearance_m": -0.012217977434637428,
+    "min_inter_m": null,
+    "final_goal_err_median_m": 19.082403900027913
+   }
+  ]
+ },
+ "r3-planar": {
+  "weights": "/workspace/yopo-teacher-data/d5b/r3/student.pt",
+  "variant": "repo",
+  "student_params": {
+   "knots": "position",
+   "yaw_source": "ego_lookahead",
+   "accel_source": "reference",
+   "vertical": "hold_goal_z"
+  },
+  "rows": [
+   {
+    "scene": "g2-pillar",
+    "label": "g2 柱子",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 10,
+    "obstacle": 10,
+    "inter": 0,
+    "timeout": 0,
+    "min_clearance_m": -0.00932957087732722,
+    "min_inter_m": null,
+    "final_goal_err_median_m": 4.18162269447273
+   },
+   {
+    "scene": "swap-3-open",
+    "label": "开阔三机对向",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 30,
+    "obstacle": 0,
+    "inter": 10,
+    "timeout": 0,
+    "min_clearance_m": 1.15,
+    "min_inter_m": 0.6916477730643453,
+    "final_goal_err_median_m": 10.508017674267093
+   },
+   {
+    "scene": "open-3drone",
+    "label": "开阔三机平行",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 30,
+    "obstacle": 0,
+    "inter": 0,
+    "timeout": 10,
+    "min_clearance_m": 1.15,
+    "min_inter_m": 3.2931657463462782,
+    "final_goal_err_median_m": 6.065531171799618
+   },
+   {
+    "scene": "ego-density-014-solo",
+    "label": "密度 0.14 单机",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 10,
+    "obstacle": 10,
+    "inter": 0,
+    "timeout": 0,
+    "min_clearance_m": -0.009238754483353262,
+    "min_inter_m": null,
+    "final_goal_err_median_m": 19.52036529076537
+   }
+  ]
+ },
+ "r4-planar": {
+  "weights": "/workspace/yopo-teacher-data/d5b/r4/student.pt",
+  "variant": "repo",
+  "student_params": {
+   "knots": "position",
+   "yaw_source": "ego_lookahead",
+   "accel_source": "reference",
+   "vertical": "hold_goal_z"
+  },
+  "rows": [
+   {
+    "scene": "g2-pillar",
+    "label": "g2 柱子",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 10,
+    "obstacle": 10,
+    "inter": 0,
+    "timeout": 0,
+    "min_clearance_m": -0.005092883094816147,
+    "min_inter_m": null,
+    "final_goal_err_median_m": 2.6471613730373984
+   },
+   {
+    "scene": "swap-3-open",
+    "label": "开阔三机对向",
+    "seeds": 10,
+    "arrived": 20,
+    "denom": 30,
+    "obstacle": 0,
+    "inter": 0,
+    "timeout": 10,
+    "min_clearance_m": 1.15,
+    "min_inter_m": 2.0941288764890933,
+    "final_goal_err_median_m": 30.72334932104605
+   },
+   {
+    "scene": "open-3drone",
+    "label": "开阔三机平行",
+    "seeds": 10,
+    "arrived": 30,
+    "denom": 30,
+    "obstacle": 0,
+    "inter": 0,
+    "timeout": 0,
+    "min_clearance_m": 1.15,
+    "min_inter_m": 4.885425141552657,
+    "final_goal_err_median_m": 0.023617256140105635
+   },
+   {
+    "scene": "ego-density-014-solo",
+    "label": "密度 0.14 单机",
+    "seeds": 10,
+    "arrived": 0,
+    "denom": 10,
+    "obstacle": 10,
+    "inter": 0,
+    "timeout": 0,
+    "min_clearance_m": -0.006174089358525869,
+    "min_inter_m": null,
+    "final_goal_err_median_m": 15.619871274186075
+   }
+  ]
+ },
+ "_weights_sha256": {
+  "r0": "285abe237a08dc4b2b89ac5d3bb5bc2ef04b72c4209c2884de5e8aca4f657481",
+  "r1": "a9c4750b71fb1c5c404993a820a13f38e8f4c1c31d755272b10890755b9468c0",
+  "r2": "88369ecb764bbd10c795d88633e7d8f24ce1bdb26a0992189a0f0d9875473d39",
+  "r3": "0ce0aa6042f1d29794a277971a528a8b3933c70d70551f5fe4cf1c071c26437d",
+  "r4": "37dc5d18f4152b1a0716ca7c1a941896081cf3ca15841e1d222833bf42e489fe"
+ },
+ "_dagger_manifest_sha256": {
+  "r1": "a42649c789746e66da5352ec27bec0132782d2b24d91060302bf0ba9e6700788",
+  "r2": "42a91f324c56b0d1484d233e68ca0991c27273d8144f4e2dd0a0a666f1dcc3a8",
+  "r3": "f684ff79fd08df6472550b0d8116f46775c9f23cc9ddb6d08ace39556b4f46b0",
+  "dart": "cd95706d0ac23b113f1a3ff6978b8e42c1583a188884d669457c28a7dc40fc2d"
+ }
+}
