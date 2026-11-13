@@ -3,12 +3,27 @@
 # 用法：scripts/regress.sh [额外场景卡...]
 set -euo pipefail
 cd "$(dirname "$0")/.."
+if [[ -v YOPO_PYTEST_WORKERS ]]; then
+  PYTEST_WORKERS=$YOPO_PYTEST_WORKERS
+  if [[ ! $PYTEST_WORKERS =~ ^[0-9]+$ ]]; then
+    echo "YOPO_PYTEST_WORKERS 必须是非负整数（收到：${PYTEST_WORKERS:-<空>}）" >&2
+    exit 2
+  fi
+else
+  PYTEST_WORKERS=$(( $(nproc) / 2 ))
+  if (( PYTEST_WORKERS > 4 )); then PYTEST_WORKERS=4; fi
+fi
 if ! .venv/bin/python -c 'import torch, yopo_swarm_core, yopo_l0, yopo_l1, matplotlib' 2>/dev/null; then
   make venv
 fi
 PY=.venv/bin/python
 OUT=out/regress/$(date +%Y%m%dT%H%M%S)
 mkdir -p "$OUT"
+
+L0_PYTEST=("$PY" -m pytest -q -m "not slow" tests)
+if (( PYTEST_WORKERS > 0 )); then
+  L0_PYTEST=("$PY" -m pytest -q -n "$PYTEST_WORKERS" -m "not slow" tests)
+fi
 TOTAL_START=${EPOCHREALTIME/./}
 duration_s() {
   local us=$(( $2 - $1 ))
@@ -16,10 +31,11 @@ duration_s() {
 }
 
 echo "## pytest（L0）"
+echo "L0 pytest workers=$PYTEST_WORKERS$([ "$PYTEST_WORKERS" -eq 0 ] && echo '（单进程）' || echo "（-n $PYTEST_WORKERS）")"
 set +e
 PYTEST_START=${EPOCHREALTIME/./}
 (
-  $PY -m pytest -q -m "not slow" tests 2>&1 | tee "$OUT/pytest-l0.log" >/dev/null
+  "${L0_PYTEST[@]}" 2>&1 | tee "$OUT/pytest-l0.log" >/dev/null
   exit "${PIPESTATUS[0]}"
 ) &
 P1_PID=$!

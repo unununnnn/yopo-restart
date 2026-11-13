@@ -7,6 +7,7 @@ rclpy 导入不了时，带 ROS 的用例跳过（原因里写了 scripts/setup_
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -33,7 +34,10 @@ from conftest import ROOT
 
 OPEN = ROOT / "scenes/open-3drone.json"
 PILLAR = ROOT / "scenes/g2-pillar.json"
-_COMPARE = ROOT / "out" / "ros2-compare.md"
+_XDIST_WORKER = os.environ.get("PYTEST_XDIST_WORKER")
+_COMPARE = ROOT / "out" / (
+    f"ros2-compare-{_XDIST_WORKER}.md" if _XDIST_WORKER else "ros2-compare.md"
+)
 _DROP = set(WALL_FIELDS) | {"form"}
 _CONCLUSION = (
     "outcome", "reason", "arrived", "arrival_time_s", "n_drones",
