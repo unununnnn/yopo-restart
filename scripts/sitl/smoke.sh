@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
 # 票 S1：headless 单机 PX4 SITL 冒烟（report-only，不进 scenes/suite.txt）。
 # 票 S2：--n 3 让三架各自起飞到 1.5 m 悬停点再降落，按机记录估计/真值误差。
-#   scripts/sitl/smoke.sh [--positioning default|rtk] [--n 1|2|3]          前台
-#   scripts/sitl/smoke.sh [--positioning default|rtk] [--n 1|2|3] --bg     后台
+# 票 S3：--mission hover|goto|swap。默认 hover，因此 --n 1 仍是 S1、--n 3 仍是 S2 悬停。
+#   scripts/sitl/smoke.sh [--positioning default|rtk] [--n 1|2|3] [--mission hover|goto|swap]
+#   scripts/sitl/smoke.sh [--positioning default|rtk] [--n 1|2|3] [--mission hover|goto|swap] --bg
 # --n 默认 1，走 S1：起飞到 2.5 m → 悬停 10 s → 飞到悬停点 +(5, 3, 0) m → NAV_LAND。
-# --n 2|3：若 up.sh --n 已经拉起同一趟仿真，就在那个容器里补跑任务；否则一次性起仿真并飞完。
+# --n 2|3 且 --mission hover：若 up.sh --n 已经拉起同一趟仿真，就在那个容器里补跑任务；否则一次性起仿真并飞完。
+# --mission goto：每机在 1.5 m 上飞向悬停点 +(6, 0, 0)。--mission swap：三机错高 1.5/2.2/2.9 m 对飞换位。
 # 判据未冻结。ok 只表示每机都落地并上锁，不表示误差达标。
 set -euo pipefail
-# shellcheck source=common.sh
+# shellcheck disable=SC1091 source=common.sh
 . "$(dirname "$0")/common.sh"
 mkdir -p "$SITL_STATE/runs"
 PIDF="$SITL_STATE/smoke.pid"
 BG=0
 N=1
 POSITIONING="${YOPO_POSITIONING:-default}"
+MISSION_MODE="${YOPO_SITL_MISSION_MODE:-hover}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --bg) BG=1; shift ;;
@@ -21,23 +24,30 @@ while [[ $# -gt 0 ]]; do
     --n=*) N="${1#*=}"; shift ;;
     --positioning) POSITIONING="${2:-}"; shift 2 ;;
     --positioning=*) POSITIONING="${1#*=}"; shift ;;
-    -h|--help) echo "用法：$0 [--positioning default|rtk] [--n 1|2|3] [--bg]"; exit 0 ;;
-    *) echo "用法：$0 [--positioning default|rtk] [--n 1|2|3] [--bg]" >&2; exit 2 ;;
+    --mission) MISSION_MODE="${2:-}"; shift 2 ;;
+    --mission=*) MISSION_MODE="${1#*=}"; shift ;;
+    -h|--help) echo "用法：$0 [--positioning default|rtk] [--n 1|2|3] [--mission hover|goto|swap] [--bg]"; exit 0 ;;
+    *) echo "用法：$0 [--positioning default|rtk] [--n 1|2|3] [--mission hover|goto|swap] [--bg]" >&2; exit 2 ;;
   esac
 done
 if [[ "$POSITIONING" != "default" && "$POSITIONING" != "rtk" ]]; then
   echo "未知 --positioning=$POSITIONING（只要 default 或 rtk）" >&2
   exit 2
 fi
-python3 "$SITL_DIR/fleet.py" --n "$N" --format json >/dev/null
+case "$MISSION_MODE" in
+  hover|goto|swap) ;;
+  *) echo "未知 --mission=$MISSION_MODE（只要 hover、goto 或 swap）" >&2; exit 2 ;;
+esac
+python3 "$SITL_DIR/fleet.py" layout --n "$N" --mission "$MISSION_MODE" --format json >/dev/null
 export YOPO_POSITIONING="$POSITIONING"
+export YOPO_SITL_MISSION_MODE="$MISSION_MODE"
 
 if [[ "$BG" == 1 ]]; then
   if pid_alive "$PIDF"; then echo "running pid=$(cat "$PIDF")"; exit 0; fi
-  LOG="$SITL_STATE/runs/smoke-$(date +%Y%m%dT%H%M%S)-${POSITIONING}-n${N}.log"
-  setsid nohup "$0" --positioning "$POSITIONING" --n "$N" >"$LOG" 2>&1 < /dev/null &
+  LOG="$SITL_STATE/runs/smoke-$(date +%Y%m%dT%H%M%S)-${POSITIONING}-n${N}-${MISSION_MODE}.log"
+  setsid nohup "$0" --positioning "$POSITIONING" --n "$N" --mission "$MISSION_MODE" >"$LOG" 2>&1 < /dev/null &
   echo $! > "$PIDF"
-  echo "started pid=$! pidfile=$PIDF log=$LOG positioning=$POSITIONING n=$N"
+  echo "started pid=$! pidfile=$PIDF log=$LOG positioning=$POSITIONING n=$N mission=$MISSION_MODE"
   exit 0
 fi
 
@@ -77,9 +87,15 @@ if [[ "$N" == "1" ]]; then
   # 不改这个参数，ROS 侧跟着用 0。容器走自己的 bridge 网络命名空间，不和宿主 ROS 混。
   t0=$(date +%s.%N)
   set +e
+  # n=1 且默认 hover 不把 YOPO_SITL_MISSION_MODE 送进容器，单机脚本保持 S1。
+  mission_env=()
+  if [[ "$MISSION_MODE" != "hover" ]]; then
+    mission_env=(-e "YOPO_SITL_MISSION_MODE=$MISSION_MODE")
+  fi
   "${DOCKER[@]}" run --rm --name "$NAME" \
     -e ROS_DOMAIN_ID=0 -e YOPO_SITL_WALL_TIMEOUT="${YOPO_SITL_WALL_TIMEOUT:-900}" \
     -e YOPO_POSITIONING="${YOPO_POSITIONING:-default}" \
+    "${mission_env[@]}" \
     -v "$REPO_ROOT:/repo:ro" -v "$RUN:/out" --shm-size 1g \
     "$SITL_IMAGE" nice -n "$SITL_NICE" bash /repo/scripts/sitl/in_container.sh 2>&1 | tee "$RUN/console.log"
   rc=${PIPESTATUS[0]}
@@ -120,6 +136,7 @@ if "${DOCKER[@]}" ps -q -f "name=^${NAME}$" | grep -q .; then
   set +e
   "${DOCKER[@]}" exec \
     -e YOPO_SITL_N="$N" -e YOPO_POSITIONING="$POSITIONING" \
+    -e YOPO_SITL_MISSION_MODE="$MISSION_MODE" \
     -e YOPO_SITL_WALL_TIMEOUT="${YOPO_SITL_WALL_TIMEOUT:-900}" \
     "$NAME" nice -n "$SITL_NICE" bash /repo/scripts/sitl/exec_mission.sh 2>&1 | tee -a "$RUN/console.log"
   rc=${PIPESTATUS[0]}
@@ -136,6 +153,7 @@ t0=$(date +%s.%N)
 set +e
 "${DOCKER[@]}" run --rm --name "$NAME" \
   -e ROS_DOMAIN_ID=0 -e YOPO_SITL_N="$N" -e YOPO_SITL_MISSION=1 \
+  -e YOPO_SITL_MISSION_MODE="$MISSION_MODE" \
   -e YOPO_SITL_WALL_TIMEOUT="${YOPO_SITL_WALL_TIMEOUT:-900}" \
   -e YOPO_POSITIONING="${YOPO_POSITIONING:-default}" \
   -v "$REPO_ROOT:/repo:ro" -v "$RUN:/out" --shm-size 2g \
