@@ -669,7 +669,8 @@ def _rng(values: list[float], nd: int = 3) -> str:
     lo, hi = min(values), max(values)
     if abs(lo - hi) < 5 * 10 ** (-(nd + 1)):
         return f"{lo:.{nd}f}"
-    return f"{lo:.{nd}f}–{hi:.{nd}f}"
+    sep = " 至 " if lo < 0.0 or hi < 0.0 else "–"
+    return f"{lo:.{nd}f}{sep}{hi:.{nd}f}"
 
 
 def _mean(values: list[float]) -> float | None:
@@ -761,24 +762,34 @@ def render_seeds(rows: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def _path_note(rows: list[dict], scene: str) -> str:
-    groups = []
-    for arm in ("base", "geom", "geom_multi"):
-        have = sorted(_group(rows, scene, arm), key=lambda r: int(r["seed"]))
-        groups.append(tuple(r.get("positions_sha256") for r in have))
-    if not groups or not groups[0] or any(len(g) != len(groups[0]) for g in groups):
-        return ""
-    if len(set(groups)) == 1:
-        return (
-            f"{SCENE_LABEL[scene]} 的 base、geom、geom_multi 五个种子位置哈希相同。"
-            "穿林规划器只读 E-A1，这三档的 E-A1 都是阈值 1.0 m、惩罚 0，所以轨迹相同。"
-            "empty_brake 和 track_clearance 写在进程内卡上，CrossingFleet 不读。"
-            "plan_wall 仍是各次前向的墙钟，不要求逐毫秒相同。"
-        )
-    return (
-        f"{SCENE_LABEL[scene]} 的 base、geom、geom_multi 位置哈希不完全相同。"
-        "穿林规划器的代码路径只读 E-A1；若哈希不同，以表里的数为准。"
-    )
+def _hashes(rows: list[dict], scene: str, arm: str) -> dict[int, str]:
+    group = sorted(_group(rows, scene, arm), key=lambda r: int(r["seed"]))
+    return {int(r["seed"]): str(r.get("positions_sha256")) for r in group}
+
+
+def _hash_notes(rows: list[dict]) -> list[str]:
+    notes = []
+    for scene in SCENE_ORDER:
+        maps = {arm: _hashes(rows, scene, arm) for arm in ARMS}
+        if any(len(maps[arm]) != len(SEEDS) for arm in ARMS):
+            continue
+        label = SCENE_LABEL[scene]
+        off, base, geom, multi = (maps[arm] for arm in ARMS)
+        changed = [s for s in SEEDS if base.get(s) != off.get(s)]
+        if base == geom == multi:
+            if not changed:
+                notes.append(f"{label}四档五个种子的位置哈希都相同。")
+            else:
+                seeds = "、".join(str(s) for s in changed)
+                notes.append(
+                    f"{label}的 base、geom、geom_multi 五个种子位置哈希相同。"
+                    f"相对全关，只有 seed {seeds} 的轨迹不同。"
+                )
+        elif geom == multi:
+            notes.append(f"{label}的 geom 与 geom_multi 五个种子位置哈希相同，并且与全关、base 都不同。")
+        else:
+            notes.append(f"{label}四档的位置哈希不完全相同，以表里的数为准。")
+    return notes
 
 
 def _runner_deviation_sentence(rows: list[dict]) -> str:
@@ -857,7 +868,11 @@ def render_markdown(payload: dict) -> str:
         "所以运行器的 `upstream_deviation` 在四档都保持 false（半径仍是 0.05 m）。"
         "014 六机对向是 goto，base / geom / geom_multi 的运行器标记为 true。臂上的「偏离上游」看开关有没有打开，不看这个运行器标记。",
         "",
-        _path_note(rows, "crossing-6"),
+        "穿林三档偏离臂的 E-A1 都是阈值 1.0 m、惩罚 0。"
+        "`empty_brake` 和 `track_clearance` 写在进程内卡上，CrossingFleet 不读。"
+        "`plan_wall_ms` 仍是各次前向的墙钟，不要求逐毫秒相同。",
+        "",
+        *(_hash_notes(rows)),
         "",
         render_summary(rows),
         "",
