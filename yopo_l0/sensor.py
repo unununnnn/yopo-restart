@@ -1,7 +1,16 @@
-"""光线投射深度相机。相机系：x 右、y 下、z 前；世界系 ENU。深度为 z 深度（米），无回波为 NaN。"""
+"""光线投射深度相机。相机系：x 右、y 下、z 前；世界系 ENU。深度为 z 深度（米），无回波为 NaN。
+
+``YOPO_SENSOR_ACCEL`` 默认 ``"0"``（关）。只有 ``"1"`` 打开批量求交。
+关掉时仍是逐障碍求交，深度与原来逐位相同。射线网格按 ``CameraConfig`` 缓存，
+数组只读，两边共用；噪声仍是每帧一次 ``rng.normal``，抽取次数与几何无关。
+"""
 
 from __future__ import annotations
 
+import functools
+import math
+import os
+import threading
 from dataclasses import dataclass
 
 import numpy as np
@@ -44,10 +53,22 @@ class DepthFrame:
     K: tuple[float, float, float, float]  # fx, fy, cx, cy
 
 
+def sensor_accel_enabled() -> bool:
+    """批量求交开关。缺省和环境变量 ``"0"`` 都是关，只有 ``"1"`` 为开。"""
+    return os.environ.get("YOPO_SENSOR_ACCEL", "0").strip() == "1"
+
+
+@functools.lru_cache(maxsize=32)
 def _ray_dirs_cam(cfg: CameraConfig) -> np.ndarray:
+    """相机系射线，z 分量 = 1。``CameraConfig`` 可哈希，缓存只读数组。
+
+    ``lru_cache`` 本身有锁。调用方不得写入返回值；世界系方向另做矩阵乘。
+    """
     fx, fy, cx, cy = cfg.intrinsics
     u, v = np.meshgrid(np.arange(cfg.width) + 0.5, np.arange(cfg.height) + 0.5)
-    return np.stack([(u - cx) / fx, (v - cy) / fy, np.ones_like(u)], axis=-1)  # z 分量 = 1
+    dirs = np.stack([(u - cx) / fx, (v - cy) / fy, np.ones_like(u)], axis=-1)
+    dirs.setflags(write=False)
+    return dirs
 
 
 def _hit_box(o, d, b: Box):
@@ -130,21 +151,253 @@ def _hit_ground(o, d, g: Ground):
     return np.where(t > 0, t, np.inf)
 
 
+# 窗口占整幅达到这个比例就并进一次全图批量，不再按小窗切。
+_LARGE_WINDOW = 0.35
+_CLUSTER_SLACK = 1.6
+_CLUSTER_MAX = 6
+_CLUSTER_UNION = 0.25
+_WIN_MARGIN_M = 1e-3
+_WIN_PAD_PX = 3
+_LOCAL = threading.local()
+
+
+def _slab_buffers(n: int, h: int, w: int):
+    """线程本地的盒子 slab 缓冲。形状变了才重新分配。"""
+    key = (n, h, w)
+    slot = getattr(_LOCAL, "slab", None)
+    if slot is None or slot[0] != key:
+        slot = (key, *(np.empty((n, h, w)) for _ in range(6)))
+        _LOCAL.slab = slot
+    return slot[1:]
+
+
+def _hit_boxes_batch(
+    origin: np.ndarray, dirs: np.ndarray, lo: np.ndarray, hi: np.ndarray,
+) -> np.ndarray:
+    """多个盒子一次 slab。三个轴分开归约，和逐盒 ``_hit_box`` 逐位相同。"""
+    n = int(lo.shape[0])
+    h, w = dirs.shape[:2]
+    if n == 0:
+        return np.full((h, w), np.inf)
+    mn, mx, ta, tb, tmin, tmax = _slab_buffers(n, h, w)
+    tmin.fill(-np.inf)
+    tmax.fill(np.inf)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        for axis in range(3):
+            comp = dirs[..., axis]
+            np.divide((lo[:, axis] - origin[axis])[:, None, None], comp, out=mn)
+            np.divide((hi[:, axis] - origin[axis])[:, None, None], comp, out=mx)
+            np.minimum(mn, mx, out=ta)
+            np.maximum(mn, mx, out=tb)
+            np.copyto(ta, -np.inf, where=np.isnan(ta))
+            np.copyto(tb, np.inf, where=np.isnan(tb))
+            np.maximum(tmin, ta, out=tmin)
+            np.minimum(tmax, tb, out=tmax)
+    hit = (tmax >= tmin) & (tmin > 0)
+    np.copyto(tmin, np.inf, where=~hit)
+    return np.min(tmin, axis=0)
+
+
+def _hit_upright_cylinders_batch(
+    origin: np.ndarray,
+    dirs: np.ndarray,
+    center: np.ndarray,
+    r2: np.ndarray,
+    z_lo: np.ndarray,
+    z_hi: np.ndarray,
+) -> np.ndarray:
+    """多个竖直圆柱一次求交。公式与 ``_hit_cylinder`` 的竖直分支相同。"""
+    n = int(center.shape[0])
+    h, w = dirs.shape[:2]
+    if n == 0:
+        return np.full((h, w), np.inf)
+    dx, dy, dz = dirs[..., 0], dirs[..., 1], dirs[..., 2]
+    a = dx * dx + dy * dy
+    ox = origin[0] - center[:, 0]
+    oy = origin[1] - center[:, 1]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        b = 2 * (ox[:, None, None] * dx + oy[:, None, None] * dy)
+        cc = ox * ox + oy * oy - r2
+        disc = b * b - 4 * a * cc[:, None, None]
+        sq = np.sqrt(np.maximum(disc, 0.0))
+        t = np.where((disc >= 0) & (a > 0), (-b - sq) / (2 * a), np.inf)
+        t = np.where(t > 0, t, np.inf)
+        z_side = origin[2] + t * dz
+        t = np.where((z_side >= z_lo[:, None, None]) & (z_side <= z_hi[:, None, None]), t, np.inf)
+        for zc in (z_lo, z_hi):
+            tc = (zc[:, None, None] - origin[2]) / dz
+            px = ox[:, None, None] + tc * dx
+            py = oy[:, None, None] + tc * dy
+            ok = (tc > 0) & (px * px + py * py <= r2[:, None, None])
+            t = np.minimum(t, np.where(ok, tc, np.inf))
+    return np.min(t, axis=0)
+
+
+def _aabb_window(
+    cfg: CameraConfig, origin: np.ndarray, R: np.ndarray, lo: np.ndarray, hi: np.ndarray,
+):
+    """包围盒在图像上的保守像素窗 ``(v0, v1, u0, u1)``。
+
+    完全在相机后方则返回 None。有角点贴着近平面或落到后面时用整幅，
+    避免投影爆掉漏像素。窗内再按原公式求交，多算的像素结果仍是 inf。
+    """
+    xs = (float(lo[0]), float(hi[0]))
+    ys = (float(lo[1]), float(hi[1]))
+    zs = (float(lo[2]), float(hi[2]))
+    corners = np.array([(x, y, z) for x in xs for y in ys for z in zs], dtype=np.float64)
+    cam = (corners - origin) @ np.asarray(R, dtype=np.float64)
+    z = cam[:, 2]
+    if bool(np.all(z <= 0.0)):
+        return None
+    if bool(np.any(z <= _WIN_MARGIN_M)):
+        return (0, cfg.height, 0, cfg.width)
+    fx, fy, cx, cy = cfg.intrinsics
+    with np.errstate(divide="ignore", invalid="ignore"):
+        u = cx + fx * (cam[:, 0] / z)
+        v = cy + fy * (cam[:, 1] / z)
+    if not (np.isfinite(u).all() and np.isfinite(v).all()):
+        return (0, cfg.height, 0, cfg.width)
+    u0 = max(0, math.floor(float(np.min(u))) - _WIN_PAD_PX)
+    u1 = min(cfg.width, math.ceil(float(np.max(u))) + _WIN_PAD_PX)
+    v0 = max(0, math.floor(float(np.min(v))) - _WIN_PAD_PX)
+    v1 = min(cfg.height, math.ceil(float(np.max(v))) + _WIN_PAD_PX)
+    if u0 >= u1 or v0 >= v1:
+        return None
+    return (v0, v1, u0, u1)
+
+
+def _window_union(items):
+    v0 = min(window[0] for _, window in items)
+    v1 = max(window[1] for _, window in items)
+    u0 = min(window[2] for _, window in items)
+    u1 = max(window[3] for _, window in items)
+    return v0, v1, u0, u1, (v1 - v0) * (u1 - u0)
+
+
+def _clusters(small: list[tuple[int, tuple[int, int, int, int]]], image_area: int):
+    """把小窗并成若干批。并集必须盖住每个成员的窗，所以不会少算像素。"""
+    cur: list[tuple[int, tuple[int, int, int, int]]] = []
+    area_sum = 0
+    union_limit = _CLUSTER_UNION * image_area
+    for item in small:
+        _, window = item
+        area = (window[1] - window[0]) * (window[3] - window[2])
+        if not cur:
+            cur = [item]
+            area_sum = area
+            continue
+        union = _window_union(cur + [item])[4]
+        fits = len(cur) < _CLUSTER_MAX and union <= union_limit
+        if fits and union <= _CLUSTER_SLACK * (area_sum + area):
+            cur.append(item)
+            area_sum += area
+            continue
+        yield cur
+        cur = [item]
+        area_sum = area
+    if cur:
+        yield cur
+
+
+def _paint_batch(best, origin, dirs, indexed, batch):
+    """``indexed`` 是 ``(下标, 窗口或 None)``。大窗合成一次全图批量，小窗按簇批量。"""
+    height, width = dirs.shape[:2]
+    limit = _LARGE_WINDOW * height * width
+    large: list[int] = []
+    small: list[tuple[int, tuple[int, int, int, int]]] = []
+    for index, window in indexed:
+        if window is None:
+            continue
+        v0, v1, u0, u1 = window
+        if (v1 - v0) * (u1 - u0) >= limit:
+            large.append(index)
+        else:
+            small.append((index, window))
+    if large:
+        best = np.minimum(best, batch(origin, dirs, large))
+    small.sort(key=lambda item: (item[1][2], item[1][0]))
+    for cluster in _clusters(small, height * width):
+        v0, v1, u0, u1, _ = _window_union(cluster)
+        hit = batch(origin, dirs[v0:v1, u0:u1], [index for index, _ in cluster])
+        best[v0:v1, u0:u1] = np.minimum(best[v0:v1, u0:u1], hit)
+    return best
+
+
+def _best_hit_accel(
+    obstacles: tuple[Obstacle, ...], cfg: CameraConfig, origin, dirs, R,
+) -> np.ndarray:
+    """竖直圆柱和盒子走批量；斜柱和地面仍走原来的函数。"""
+    origin = np.asarray(origin, dtype=np.float64).reshape(3)
+    best = np.full(dirs.shape[:2], np.inf)
+    boxes = [ob for ob in obstacles if isinstance(ob, Box)]
+    upright = [ob for ob in obstacles if isinstance(ob, Cylinder) and ob.upright()]
+    rest = [
+        ob
+        for ob in obstacles
+        if not (isinstance(ob, Box) or (isinstance(ob, Cylinder) and ob.upright()))
+    ]
+    if boxes:
+        lo = np.asarray([b.lo for b in boxes], dtype=np.float64)
+        hi = np.asarray([b.hi for b in boxes], dtype=np.float64)
+
+        def batch_boxes(o, d, indexes):
+            sel = np.asarray(indexes, dtype=int)
+            return _hit_boxes_batch(o, d, lo[sel], hi[sel])
+
+        indexed = [(i, _aabb_window(cfg, origin, R, lo[i], hi[i])) for i in range(len(boxes))]
+        best = _paint_batch(best, origin, dirs, indexed, batch_boxes)
+    if upright:
+        center = np.asarray([c.center_xy for c in upright], dtype=np.float64)
+        r2 = np.asarray([c.radius ** 2 for c in upright], dtype=np.float64)
+        z_lo = np.asarray([c.z_lo for c in upright], dtype=np.float64)
+        z_hi = np.asarray([c.z_hi for c in upright], dtype=np.float64)
+
+        def batch_cyls(o, d, indexes):
+            sel = np.asarray(indexes, dtype=int)
+            return _hit_upright_cylinders_batch(o, d, center[sel], r2[sel], z_lo[sel], z_hi[sel])
+
+        indexed = []
+        for i, cyl in enumerate(upright):
+            x, y = float(center[i, 0]), float(center[i, 1])
+            radius = float(cyl.radius)
+            indexed.append((
+                i,
+                _aabb_window(
+                    cfg,
+                    origin,
+                    R,
+                    np.array([x - radius, y - radius, float(z_lo[i])]),
+                    np.array([x + radius, y + radius, float(z_hi[i])]),
+                ),
+            ))
+        best = _paint_batch(best, origin, dirs, indexed, batch_cyls)
+    for ob in rest:
+        if isinstance(ob, Cylinder):
+            hit = _hit_cylinder(origin, dirs, ob)
+        else:
+            hit = _hit_ground(origin, dirs, ob)
+        best = np.minimum(best, hit)
+    return best
+
+
 def render(
     obstacles: tuple[Obstacle, ...], cfg: CameraConfig, cam_pos: np.ndarray, R_world_cam: np.ndarray,
     rng: np.random.Generator, stamp: float,
 ) -> DepthFrame:
     d = _ray_dirs_cam(cfg) @ R_world_cam.T  # 世界系方向，参数 t 即相机 z 深度
-    best = np.full(d.shape[:2], np.inf)
-    for ob in obstacles:
-        if isinstance(ob, Box):
-            t = _hit_box(cam_pos, d, ob)
-        elif isinstance(ob, Cylinder):
-            t = _hit_cylinder(cam_pos, d, ob)
-        else:
-            t = _hit_ground(cam_pos, d, ob)
-        best = np.minimum(best, t)
-    # 噪声每帧整幅抽取，抽取次数与几何无关，保证同 seed 同序列
+    if sensor_accel_enabled():
+        best = _best_hit_accel(obstacles, cfg, cam_pos, d, R_world_cam)
+    else:
+        best = np.full(d.shape[:2], np.inf)
+        for ob in obstacles:
+            if isinstance(ob, Box):
+                t = _hit_box(cam_pos, d, ob)
+            elif isinstance(ob, Cylinder):
+                t = _hit_cylinder(cam_pos, d, ob)
+            else:
+                t = _hit_ground(cam_pos, d, ob)
+            best = np.minimum(best, t)
+    # 噪声每帧整幅抽取，抽取次数与几何无关，保证同 seed 同序列。加速路径不碰 rng。
     noise = rng.normal(0.0, cfg.noise_std_m, best.shape) if cfg.noise_std_m > 0 else 0.0
     depth = best + noise
     depth[~np.isfinite(best) | (best > cfg.max_range_m) | (best < cfg.min_range_m)] = np.nan
