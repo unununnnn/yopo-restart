@@ -416,6 +416,32 @@ def test_resume_reads_partial_and_markdown_json_shape(tmp_path, monkeypatch):
     assert "VFOV" in md
     assert "z_min" in md
     assert "| 028 单机 | 默认全关 | 否 |" in md
+    assert "028 单机 geom_multi 与 base 逐粒相同" in md
     blob = json.dumps(payload, ensure_ascii=False)
     assert '"report_only": true' in blob
     assert '"frozen": false' in blob
+
+
+def test_saved_report_covers_the_full_grid():
+    payload = json.loads((ROOT / "docs/research/e-c5c-blindspot-dense-runs.json").read_text(encoding="utf-8"))
+    md = (ROOT / "docs/research/e-c5c-blindspot-dense.md").read_text(encoding="utf-8")
+    assert payload["schema"] == "e-c5c/1"
+    assert payload["report_only"] is True
+    assert payload["frozen"] is False
+    assert "偏离上游" in payload["disclaimer"]
+    assert len(payload["rows"]) == 100
+    assert len(payload["diagnosis"]) == 4
+    assert {(row["scene"], row["arm"]) for row in payload["rows"]} == {
+        (scene, arm)
+        for scene in ("d028-swap3", "d028-solo")
+        for arm in ("off", "base", "pred", "geom", "geom_multi")
+    }
+    causes = payload["answer"]["causes"]
+    assert causes["attitude_pitch_insufficient"] is False
+    assert causes["vfov_misses_body_nadir"] is True
+    assert causes["geom_checks_ground"] is True
+    assert causes["geom_ignores_ground"] is False
+    assert causes["separate_z_min"] is False
+    assert causes["depth_flag_targets_cylinder_not_image"] is True
+    for needle in ("只报数", "report-only", "偏离上游", "不是俯仰不够", "VFOV", "z_min", "CORRIDOR_EMPTY_HOVER 刹停", "Ground"):
+        assert needle in md

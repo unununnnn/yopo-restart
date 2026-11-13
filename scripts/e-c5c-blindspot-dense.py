@@ -1179,6 +1179,82 @@ def render_diagnosis_tables(cases: list[dict]) -> str:
     return "\n".join(summary) + "\n\n" + "\n\n".join(blocks)
 
 
+def _arm_stats(rows: list[dict], scene: str, arm: str) -> dict | None:
+    group = _group(rows, scene, arm)
+    if not group:
+        return None
+    return {
+        "drones": sum(int(row["n_drones"]) for row in group),
+        "arrived": sum(int(row["arrived"]) for row in group),
+        "pillar": sum(int(row.get("pillar_collision") or 0) for row in group),
+        "ground": sum(int(row.get("ground_collision") or 0) for row in group),
+        "inter": sum(int(row.get("inter_drone_collision") or 0) for row in group),
+        "timeout": sum(int(row.get("timeout") or 0) for row in group),
+        "brake": sum(int(row.get("brake_plans") or 0) for row in group),
+    }
+
+
+def _same_runs(rows: list[dict], scene: str, left: str, right: str) -> bool:
+    keys = (
+        "outcome", "reason", "arrived", "brake_plans", "min_clearance_m",
+        "min_cylinder_clearance_m", "sim_duration_s", "arrival_time_s",
+        "pillar_collision", "ground_collision", "inter_drone_collision",
+    )
+    a = {int(row["seed"]): row for row in _group(rows, scene, left)}
+    b = {int(row["seed"]): row for row in _group(rows, scene, right)}
+    if not a or set(a) != set(b):
+        return False
+    for seed, row in a.items():
+        other = b[seed]
+        if any(row.get(key) != other.get(key) for key in keys):
+            return False
+    return True
+
+
+def render_dense_notes(rows: list[dict]) -> str:
+    """从汇总数字写几句对照，不另作推断。"""
+    if not any(row.get("scene") in DENSE_ORDER for row in rows):
+        return "这次没有密度对照。"
+    lines = []
+    swap = {arm: _arm_stats(rows, "d028-swap3", arm) for arm in ARMS}
+    solo = {arm: _arm_stats(rows, "d028-solo", arm) for arm in ARMS}
+    if swap["off"] and swap["base"] and swap["pred"]:
+        lines.append(
+            f"028 对向全关 {swap['off']['arrived']}/{swap['off']['drones']}，"
+            f"撞柱 {swap['off']['pillar']}，撞地 {swap['off']['ground']}。"
+            f"base {swap['base']['arrived']}/{swap['base']['drones']}，"
+            f"pred {swap['pred']['arrived']}/{swap['pred']['drones']}。"
+            "这三档都没有把三机送到终点。"
+        )
+    if swap["geom"] and swap["geom_multi"]:
+        lines.append(
+            f"028 对向 geom {swap['geom']['arrived']}/{swap['geom']['drones']}，"
+            f"撞柱 {swap['geom']['pillar']}，撞地 {swap['geom']['ground']}，"
+            f"机间 {swap['geom']['inter']}，超时 {swap['geom']['timeout']}，"
+            f"刹停 {swap['geom']['brake']}。"
+            f"geom_multi {swap['geom_multi']['arrived']}/{swap['geom_multi']['drones']}，"
+            f"撞柱 {swap['geom_multi']['pillar']}，撞地 {swap['geom_multi']['ground']}，"
+            f"机间 {swap['geom_multi']['inter']}，超时 {swap['geom_multi']['timeout']}，"
+            f"刹停 {swap['geom_multi']['brake']}。"
+            + (
+                "两档逐粒相同。"
+                if _same_runs(rows, "d028-swap3", "geom", "geom_multi")
+                else "两档在这张密卡上不是同一条轨迹。geom_multi 只在本帧有邻机时做几何门，第 0 拍不做。"
+            )
+        )
+    if solo["geom"]:
+        lines.append(
+            f"028 单机 geom {solo['geom']['arrived']}/{solo['geom']['drones']}，"
+            f"撞柱 {solo['geom']['pillar']}，撞地 {solo['geom']['ground']}，"
+            f"超时 {solo['geom']['timeout']}。"
+        )
+    if solo["base"] and solo["geom_multi"] and _same_runs(rows, "d028-solo", "base", "geom_multi"):
+        lines.append(
+            "028 单机 geom_multi 与 base 逐粒相同。没有邻机，几何门不开，轨迹跟 base 一样。"
+        )
+    return "\n\n".join(lines) if lines else "密度对照还没有可汇总的行。"
+
+
 def render_markdown(payload: dict) -> str:
     rows = payload.get("rows") or []
     cases = payload.get("diagnosis") or []
@@ -1220,6 +1296,8 @@ def render_markdown(payload: dict) -> str:
         "最小净空是 `min_obstacle_distance_m`，含地面。最小圆柱净空不含地面。单机没有机间距离。",
         "",
         render_summary(rows),
+        "",
+        render_dense_notes(rows),
         "",
         "## 分种子",
         "",
