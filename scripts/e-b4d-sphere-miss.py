@@ -28,8 +28,15 @@ import hashlib
 import inspect
 import json
 import math
+import os
 import sys
 from pathlib import Path
+
+# 与 E-B4c 对照脚本相同：后段预算是墙钟，多线程会让两次调用对不上。
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
 import numpy as np
 
@@ -47,7 +54,6 @@ RADIUS_M = 0.85
 WEIGHT = 8.0
 WINDOW_S = 1.0
 END_SHIFT_EPS = 1e-6
-PINNED_GRAD_EPS = 1e-8
 PR_NUMBER = 94
 PR_BRANCH = "yopo-restart-bot/e-b4c-sphere-avoid"
 JSON_PATH = ROOT / "docs/research/e-b4d-sphere-miss-runs.json"
@@ -540,15 +546,16 @@ def summarize_hinge(refines) -> dict:
         r for r in measured
         if r["hinge"].get("min_dist_m") is not None and float(r["hinge"]["min_dist_m"]) < BALL_M
     ]
+    # 邻近跨的基函数会在钉死控制点上留下很小的梯度。那不是「推不动」。
+    # 只有球内最近点落在铰链不看的最后一跨，或钉死点上的梯度明显大于自由集位移，才算末端挡住。
     blocked = False
     if inside and all(bool(r["hinge"].get("end_pinned")) for r in inside):
         shifts = [float(r["hinge"].get("end_shift_m") or 0.0) for r in inside]
+        free_move = max((float(r["hinge"].get("free_shift_m") or 0.0) for r in inside), default=0.0)
+        pinned_push = max((float(r["hinge"].get("pinned_grad_norm") or 0.0) for r in inside), default=0.0)
         if max(shifts) <= END_SHIFT_EPS:
-            blocked = any(
-                bool(r["hinge"].get("closest_on_excluded_last_span"))
-                or float(r["hinge"].get("pinned_grad_norm") or 0.0) > PINNED_GRAD_EPS
-                for r in inside
-            )
+            on_last = any(bool(r["hinge"].get("closest_on_excluded_last_span")) for r in inside)
+            blocked = on_last or (pinned_push > 0.05 and free_move <= END_SHIFT_EPS)
     block = {
         "measured_calls": len(measured),
         "activated": bool(active),
@@ -580,7 +587,7 @@ def summarize_hinge(refines) -> dict:
         elif block["end_pinned"] is False:
             text += "末端控制点不在钉死集里。"
         if block["pinned_end_blocks_push"]:
-            text += "球内的最近点落在钉死末端或被排除的最后一跨上，末端没有位移。"
+            text += "球内最近点落在铰链不看的最后一跨，末端钉死，这一跨没有位移。"
         elif block["closest_on_excluded_last_span_calls"]:
             text += f"有 {block['closest_on_excluded_last_span_calls']} 次最近点在被排除的最后一跨。"
     block["reading"] = text
@@ -951,7 +958,7 @@ def run_one(arm: str, seed: int) -> dict:
     finally:
         restore.restore()
     empty = bool(out.result.get("empty_brake", False))
-    return {
+    row = {
         "arm": arm,
         "seed": int(seed),
         "role": "miss" if int(seed) == 1 else "success_reference",
@@ -965,6 +972,14 @@ def run_one(arm: str, seed: int) -> dict:
         "empty_brake": empty,
         "answers": answers_for(log, out.ticks, empty_brake=empty),
     }
+    gap = row["min_inter_drone_distance_m"]
+    gap_s = "—" if gap is None else f"{float(gap):.3f}"
+    print(
+        f"{arm} seed={seed} {row['outcome']} {row['reason']} gap={gap_s}",
+        file=sys.stderr,
+        flush=True,
+    )
+    return row
 
 
 def diagnose_flight(support: dict | None = None) -> dict:
@@ -997,7 +1012,7 @@ def build_flight_report(support: dict | None = None) -> dict:
 
 def _cited_lines() -> list[str]:
     lines = [
-        "数字引自 PR #94 的 `docs/research/e-b4c-sphere-avoid.md`，本分支没有重测。",
+        "下面这张表是 PR #94 的原数字，不是这次重测。这次的四问和对照在后面。",
         "",
         "| 臂 | seed | 结果 | 最小机间 m | 到达时间 s |",
         "|---|---|---|---|---|",
@@ -1072,7 +1087,7 @@ def render_markdown(report: dict) -> str:
             "开关已经能用。`--partial` 仍不飞，只确认探测和进程内卡片。去掉 `--partial` 才跑 seed 0 与 seed 1。",
             "",
         ]
-    lines += ["## 引自 E-B4c，本分支未重测", ""]
+    lines += ["## 引自 E-B4c 的原表", ""]
     lines += _cited_lines()
     lines += ["", "seed 1 两臂都是 `uav1-uav2` 相撞，最小距 0.694 m，贴着 0.70 m 碰撞球。叠 `geom_multi` 没有解开。", ""]
     lines += _question_section(report)
@@ -1109,7 +1124,7 @@ def render_markdown(report: dict) -> str:
         "- 每次 `plan` 记下当时 `_neighbors` 是否为空。第 0 拍应为空：本 tick 的广播要等全部 `plan` 返回后才 `bus.poll`。",
         "- 每次 `refine_yopo` 记下传入的邻机份数。撞前 1.0 s（没撞则是最近时刻前 1.0 s）里有没有非空采样。",
         "- 铰链用后段自己的 `_peer_sphere_cost_grad` 量。记三维距、代价、自由控制点位移、末端三控制点位移。"
-        "末端钉死且球内最近点落在被排除的最后一跨（或梯度打在钉死的控制点上）时，标末端推不动。",
+        "末端钉死、末端没有位移，并且球内最近点落在铰链不看的最后一跨时，才标这一跨推不到。邻近跨漏到钉死点上的小梯度不算。",
         "- 碰撞时刻相对当时轨迹：头 / 中 / 尾。`CORRIDOR_EMPTY_HOVER` 且轨迹短于 0.05 s 标 `hover_hold`。"
         "本票的两臂都不开 `empty_brake`。",
         "- `geom_multi` 只看参考轨迹对障碍表面的净空，不看机间距离。记下几何门打开时放行的参考多项式与邻机的同时刻最小距，看它是不是已经 < 0.70 m。",

@@ -41,20 +41,18 @@ def _hinge(**kwargs):
     return base
 
 
-def test_main_has_no_peer_sphere():
+def test_detection_sees_the_merged_switch():
     mod = _script()
     support = mod.detect_support()
-    assert support["supported"] is False
-    assert support["config_has_peer_sphere_enabled"] is False
-    assert support["config_from_params_honors_flag"] is False
-    assert support["refine_yopo_reads_peer_sphere"] is False
-    assert support["peer_sphere_cost_grad"] is False
-    src = (ROOT / "yopo_l0/backend/bspline.py").read_text()
-    assert "peer_sphere_enabled" not in src
+    assert support["supported"] is True
+    assert support["config_has_peer_sphere_enabled"] is True
+    assert support["config_from_params_honors_flag"] is True
+    assert support["refine_yopo_reads_peer_sphere"] is True
+    assert support["peer_sphere_cost_grad"] is True
     assert "def _peer_sphere_cost_grad" not in (ROOT / "scripts/e-b4d-sphere-miss.py").read_text()
 
 
-def test_partial_skips_flight_and_marks_missing(monkeypatch):
+def test_partial_skips_flight_even_when_the_switch_exists(monkeypatch):
     mod = _script()
 
     def boom(*_a, **_k):
@@ -63,11 +61,11 @@ def test_partial_skips_flight_and_marks_missing(monkeypatch):
     monkeypatch.setattr(runner, "run", boom)
     report = mod.build_partial_report()
     assert report["report_only"] is True
-    assert report["status"] == "missing_feature"
+    assert report["status"] == "partial_smoke"
     assert report["flight"] == "skipped"
     assert report["cases"] == []
     assert report["comparison"] is None
-    assert report["blocked_on"]["pr"] == 94
+    assert report["blocked_on"] is None
     assert [q["status"] for q in report["questions"]] == ["deferred"] * 4
     assert all(q["answer"] is None for q in report["questions"])
     smoke = report["partial_smoke"]
@@ -92,6 +90,18 @@ def test_partial_skips_flight_and_marks_missing(monkeypatch):
     assert cited["sphere"]["seed1"]["reason"] == "uav1-uav2:INTER_DRONE"
 
 
+def test_partial_marks_missing_when_switch_is_absent(monkeypatch):
+    mod = _script()
+    monkeypatch.setattr(runner, "run", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("flew")))
+    dead = dict(mod.detect_support())
+    dead["supported"] = False
+    report = mod.build_partial_report(dead)
+    assert report["status"] == "missing_feature"
+    assert report["flight"] == "skipped"
+    assert report["blocked_on"]["pr"] == 94
+    assert report["questions"][0]["status"] == "deferred"
+
+
 def test_partial_still_skips_when_support_flag_is_forced(monkeypatch):
     mod = _script()
     monkeypatch.setattr(runner, "run", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("flew")))
@@ -104,15 +114,14 @@ def test_partial_still_skips_when_support_flag_is_forced(monkeypatch):
     assert report["questions"][0]["status"] == "deferred"
 
 
-def test_flight_refuses_without_the_switch(monkeypatch):
+def test_flight_refuses_when_detection_says_missing(monkeypatch):
     mod = _script()
     monkeypatch.setattr(runner, "run", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("flew")))
+    dead = dict(mod.detect_support())
+    dead["supported"] = False
+    monkeypatch.setattr(mod, "detect_support", lambda: dead)
     with pytest.raises(mod.MissingFeature):
         mod.diagnose_flight()
-    fake = dict(mod.detect_support())
-    fake["supported"] = True
-    with pytest.raises(mod.MissingFeature):
-        mod.diagnose_flight(fake)
 
 
 def test_cards_do_not_touch_scene_files():
@@ -254,7 +263,16 @@ def test_hinge_summary_flags_pinned_tail_and_a_real_push():
     assert blocked["max_cost"] == pytest.approx(3.5)
     assert blocked["end_pinned"] is True
     assert blocked["pinned_end_blocks_push"] is True
-    assert "钉死" in blocked["reading"]
+    assert "最后一跨" in blocked["reading"]
+
+    leaked = mod.summarize_hinge([{
+        "hinge": _hinge(
+            activated=True, cost=6.9, min_dist_m=0.24, free_shift_m=0.87,
+            end_shift_m=0.0, closest_on_excluded_last_span=False, pinned_grad_norm=1e-4,
+        ),
+    }])
+    assert leaked["end_pinned"] is True
+    assert leaked["pinned_end_blocks_push"] is False
 
     pushed = mod.summarize_hinge([{
         "hinge": _hinge(
@@ -352,17 +370,34 @@ def test_answers_for_uses_the_collision_window():
     assert answers["4"]["gated_reference_already_below_ball"] is True
 
 
-def test_committed_report_is_the_partial_smoke():
+def test_committed_report_is_the_diagnosed_run():
     mod = _script()
     path = ROOT / "docs/research/e-b4d-sphere-miss-runs.json"
     md_path = ROOT / "docs/research/e-b4d-sphere-miss.md"
-    assert path.is_file() and md_path.is_file()
-    report = mod.build_partial_report()
-    assert json.loads(path.read_text()) == json.loads(json.dumps(report))
+    data = json.loads(path.read_text())
+    assert data["report_only"] is True
+    assert data["status"] == "diagnosed"
+    assert data["flight"] == "ran"
+    assert data["feature"]["supported"] is True
+    assert data["partial_smoke"] is None
+    assert [q["status"] for q in data["questions"]] == ["answered"] * 4
+    assert len(data["cases"]) == 4
+    by = {(c["arm"], c["seed"]): c for c in data["cases"]}
+    miss = by[("sphere", 1)]
+    ref = by[("sphere", 0)]
+    geom = by[("sphere+track_geom_multi", 1)]
+    assert miss["outcome"] == "COLLISION"
+    assert miss["reason"] == "uav1-uav2:INTER_DRONE"
+    assert miss["answers"]["3"]["collided"] is True
+    assert ref["role"] == "success_reference"
+    assert geom["outcome"] == "COLLISION"
+    assert geom["reason"] == "uav1-uav2:INTER_DRONE"
+    for key in ("1", "2", "3", "4"):
+        assert miss["answers"][key]["reading"]
     text = md_path.read_text()
-    assert text == mod.render_markdown(report)
+    assert text == mod.render_markdown(data)
     assert text.startswith("# 票 E-B4d")
-    for phrase in ("report-only", "只报数", "missing_feature", "#94", "uav1-uav2", "0.694", "peer_sphere_enabled"):
+    for phrase in ("report-only", "只报数", "uav1-uav2", "0.694", "peer_sphere_enabled"):
         assert phrase in text
     assert "Co-authored-by" not in text
 

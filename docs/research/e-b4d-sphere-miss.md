@@ -4,17 +4,11 @@ report-only。只报数。不改 `yopo_l0/`、`core/`、`scenes/`，不冻结，
 
 report-only。只报数。不改 yopo_l0 后段、不冻结、不进 scenes/suite.txt，不设 gates。本票不拷贝 PR #94 的欧氏球实现。main 尚未带 peer_sphere_enabled 时跳过实飞，标 missing_feature。开关合入后再用同一脚本逐 tick 回答 014-swap3 seed 1（对照 seed 0）。
 
-状态：`missing_feature`。实飞：`skipped`。
+状态：`diagnosed`。实飞：`ran`。
 
-## 为什么这次没有逐 tick 的数
+## 引自 E-B4c 的原表
 
-本分支从 main 拉出。`yopo_l0.backend.config.BackendConfig` 没有 `peer_sphere_enabled`，`refine_yopo` 也不读这个字段，`config_from_params` 不会把它打开。按票面跳过 `ego-density-014-swap3` 的实飞，JSON 标 `missing_feature`。不把 PR [#94](https://github.com/unununnnn/yopo-restart/pull/94)（`yopo-restart-bot/e-b4c-sphere-avoid`）的后段源码拷进本 PR。
-
-待该 PR 合入 main 之后，在合入后的树上去掉 `--partial` 重跑，才会记下 seed 1 和 seed 0 的逐 tick。
-
-## 引自 E-B4c，本分支未重测
-
-数字引自 PR #94 的 `docs/research/e-b4c-sphere-avoid.md`，本分支没有重测。
+下面这张表是 PR #94 的原数字，不是这次重测。这次的四问和对照在后面。
 
 | 臂 | seed | 结果 | 最小机间 m | 到达时间 s |
 |---|---|---|---|---|
@@ -29,26 +23,38 @@ seed 1 两臂都是 `uav1-uav2` 相撞，最小距 0.694 m，贴着 0.70 m 碰�
 
 1. 撞前 1.0 s 内后段是否收到邻机采样；第 0 个规划拍是否缺邻机
 
-状态：`deferred`。main 的 BackendConfig / refine_yopo 还没有可用的 peer_sphere_enabled。实飞诊断待 PR #94 合入后再跑（不要 --partial）。
+- sphere seed 1：第 0 个规划拍没有邻机。事件前 1.0 s 内后段收到邻机的调用 30/30。 第一次 plan 之前没有邻机采样。
+- sphere seed 0：第 0 个规划拍没有邻机。事件前 1.0 s 内后段收到邻机的调用 30/30。 第一次 plan 之前没有邻机采样。
+- geom_multi seed 1：第 0 个规划拍没有邻机。事件前 1.0 s 内后段收到邻机的调用 30/30。 第一次 plan 之前没有邻机采样。
+- geom_multi seed 0：第 0 个规划拍没有邻机。事件前 1.0 s 内后段收到邻机的调用 26/26。 第一次 plan 之前没有邻机采样。
 
 2. 铰链是否激活；激活时的三维距、代价、控制点位移、末端是否因钉死无法上推
 
-状态：`deferred`。main 的 BackendConfig / refine_yopo 还没有可用的 peer_sphere_enabled。实飞诊断待 PR #94 合入后再跑（不要 --partial）。
+- sphere seed 1：铰链激活 20 次，激活时最小三维距 0.242 m，最大代价 6.798，自由控制点最大位移 0.874 m。末端三个控制点钉死，末端位移最大 0.000 m。
+- sphere seed 0：铰链激活 29 次，激活时最小三维距 0.304 m，最大代价 5.946，自由控制点最大位移 0.649 m。末端三个控制点钉死，末端位移最大 0.000 m。
+- geom_multi seed 1：铰链激活 20 次，激活时最小三维距 0.242 m，最大代价 6.798，自由控制点最大位移 0.874 m。末端三个控制点钉死，末端位移最大 0.000 m。
+- geom_multi seed 0：铰链激活 20 次，激活时最小三维距 0.304 m，最大代价 5.946，自由控制点最大位移 0.641 m。末端三个控制点钉死，末端位移最大 0.000 m。有 1 次最近点在被排除的最后一跨。
 
 3. 碰撞在轨迹头/中/尾；是否一侧 CORRIDOR_EMPTY_HOVER / empty_brake、另一侧还在飞
 
-状态：`deferred`。main 的 BackendConfig / refine_yopo 还没有可用的 peer_sphere_enabled。实飞诊断待 PR #94 合入后再跑（不要 --partial）。
+- sphere seed 1：碰撞 t=2.64 s，距离 0.694 m。轨迹位置 uav1=head，uav2=head。规划码 uav1=OK，uav2=OK。不是一侧悬停、另一侧飞过来。empty_brake 关着。
+- sphere seed 0：最近接近 t=2.67 s，距离 0.952 m。轨迹位置 uav1=head，uav2=head。规划码 uav1=OK，uav2=OK。不是一侧悬停、另一侧飞过来。empty_brake 关着。
+- geom_multi seed 1：碰撞 t=2.64 s，距离 0.694 m。轨迹位置 uav1=head，uav2=head。规划码 uav1=OK，uav2=OK。不是一侧悬停、另一侧飞过来。empty_brake 关着。
+- geom_multi seed 0：最近接近 t=2.67 s，距离 0.943 m。轨迹位置 uav1=head，uav2=head。规划码 uav1=OK，uav2=OK。不是一侧悬停、另一侧飞过来。empty_brake 关着。
 
 4. 几何门放行的参考轨迹自身是否已经 < 0.70 m
 
-状态：`deferred`。main 的 BackendConfig / refine_yopo 还没有可用的 peer_sphere_enabled。实飞诊断待 PR #94 合入后再跑（不要 --partial）。
+- sphere seed 1：几何门在这次运行里没有打开过（geom_multi 要等邻机采样；第 0 拍没有）。 不论门开没开，参考轨迹自身最小 0.174 m，已经 < 0.70 m。
+- sphere seed 0：几何门在这次运行里没有打开过（geom_multi 要等邻机采样；第 0 拍没有）。 不论门开没开，参考轨迹自身最小 0.146 m，已经 < 0.70 m。
+- geom_multi seed 1：几何门放行的参考轨迹有 37 次同时刻距离已经 < 0.70 m，最小 0.174 m。 不论门开没开，参考轨迹自身最小 0.174 m，已经 < 0.70 m。
+- geom_multi seed 0：几何门放行的参考轨迹有 27 次同时刻距离已经 < 0.70 m，最小 0.146 m。 不论门开没开，参考轨迹自身最小 0.146 m，已经 < 0.70 m。
 
-## 本次冒烟
+## 对照
 
-- 场景卡能读，飞机是 uav0、uav1、uav2，机体半径 0.35 m，碰撞线 0.70 m。
-- 场景文件未改（sha256 `a46380a0e72437d64281c1aa7e0f4686a50ce2af6a802e784638628f4ffd005a`）。
-- 运行器源码里，`plan` 在 `bus.poll` 之前。这是静态检查，不是 seed 1 的逐 tick 记录。
-- 进程内卡片写了 `peer_sphere_enabled`，半径 0.85 m、权重 8。当前 `config_from_params` 不认这个字段时，不会拿它去飞。
+| 臂 | seed 1 结果 | seed 1 最小机间 m | seed 0 结果 | seed 0 最小机间 m |
+|---|---|---|---|---|
+| sphere | COLLISION | 0.694 | SUCCESS | 0.842 |
+| sphere+track_geom_multi | COLLISION | 0.694 | SUCCESS | 0.943 |
 
 ## 开关可用时脚本记什么
 
@@ -56,7 +62,7 @@ seed 1 两臂都是 `uav1-uav2` 相撞，最小距 0.694 m，贴着 0.70 m 碰�
 
 - 每次 `plan` 记下当时 `_neighbors` 是否为空。第 0 拍应为空：本 tick 的广播要等全部 `plan` 返回后才 `bus.poll`。
 - 每次 `refine_yopo` 记下传入的邻机份数。撞前 1.0 s（没撞则是最近时刻前 1.0 s）里有没有非空采样。
-- 铰链用后段自己的 `_peer_sphere_cost_grad` 量。记三维距、代价、自由控制点位移、末端三控制点位移。末端钉死且球内最近点落在被排除的最后一跨（或梯度打在钉死的控制点上）时，标末端推不动。
+- 铰链用后段自己的 `_peer_sphere_cost_grad` 量。记三维距、代价、自由控制点位移、末端三控制点位移。末端钉死、末端没有位移，并且球内最近点落在铰链不看的最后一跨时，才标这一跨推不到。邻近跨漏到钉死点上的小梯度不算。
 - 碰撞时刻相对当时轨迹：头 / 中 / 尾。`CORRIDOR_EMPTY_HOVER` 且轨迹短于 0.05 s 标 `hover_hold`。本票的两臂都不开 `empty_brake`。
 - `geom_multi` 只看参考轨迹对障碍表面的净空，不看机间距离。记下几何门打开时放行的参考多项式与邻机的同时刻最小距，看它是不是已经 < 0.70 m。
 
