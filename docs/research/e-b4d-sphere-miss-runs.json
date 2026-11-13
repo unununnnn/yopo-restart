@@ -1,0 +1,713 @@
+{
+  "ticket": "E-B4d",
+  "report_only": true,
+  "disclaimer": "report-only。只报数。不改 yopo_l0 后段、不冻结、不进 scenes/suite.txt，不设 gates。本票不拷贝 PR #94 的欧氏球实现。main 尚未带 peer_sphere_enabled 时跳过实飞，标 missing_feature。开关合入后再用同一脚本逐 tick 回答 014-swap3 seed 1（对照 seed 0）。",
+  "status": "diagnosed",
+  "flight": "ran",
+  "feature": {
+    "supported": true,
+    "config_has_peer_sphere_enabled": true,
+    "config_from_params_honors_flag": true,
+    "refine_yopo_reads_peer_sphere": true,
+    "peer_sphere_cost_grad": true
+  },
+  "blocked_on": null,
+  "target": {
+    "scene": "ego-density-014-swap3",
+    "scene_path": "scenes/ego-density-014-swap3.json",
+    "miss_seed": 1,
+    "reference_seed": 0,
+    "pair": [
+      "uav1",
+      "uav2"
+    ],
+    "collision_ball_m": 0.7,
+    "sphere_radius_m": 0.85,
+    "sphere_weight": 8.0,
+    "window_s": 1.0,
+    "arms": [
+      "sphere",
+      "sphere+track_geom_multi"
+    ]
+  },
+  "cited_e_b4c": {
+    "source": "PR #94 docs/research/e-b4c-sphere-avoid.md",
+    "remeasured_here": false,
+    "scene": "ego-density-014-swap3",
+    "sphere": {
+      "seed0": {
+        "outcome": "SUCCESS",
+        "min_inter_m": "0.946",
+        "arrival_time_s": "14.76"
+      },
+      "seed1": {
+        "outcome": "COLLISION",
+        "reason": "uav1-uav2:INTER_DRONE",
+        "min_inter_m": "0.694"
+      }
+    },
+    "sphere_track_geom_multi": {
+      "seed0": {
+        "outcome": "SUCCESS",
+        "min_inter_m": "0.943",
+        "arrival_time_s": "8.60"
+      },
+      "seed1": {
+        "outcome": "COLLISION",
+        "reason": "uav1-uav2:INTER_DRONE",
+        "min_inter_m": "0.694"
+      }
+    }
+  },
+  "questions": [
+    {
+      "id": 1,
+      "key": "neighbor_samples",
+      "prompt": "撞前 1.0 s 内后段是否收到邻机采样；第 0 个规划拍是否缺邻机",
+      "status": "answered",
+      "reason": null,
+      "answer": {
+        "sphere_seed1": {
+          "first_plan_count": 3,
+          "first_plan_t": 0.0,
+          "first_plan_missing_neighbors": true,
+          "notes_before_any_plan": 0,
+          "window_s": 1.0,
+          "window_plan_count": 30,
+          "window_plans_missing_neighbors": 0,
+          "window_refine_calls": 30,
+          "window_refine_with_neighbors": 30,
+          "backend_received_neighbors": true,
+          "reading": "第 0 个规划拍没有邻机。事件前 1.0 s 内后段收到邻机的调用 30/30。 第一次 plan 之前没有邻机采样。"
+        },
+        "sphere_seed0": {
+          "first_plan_count": 3,
+          "first_plan_t": 0.0,
+          "first_plan_missing_neighbors": true,
+          "notes_before_any_plan": 0,
+          "window_s": 1.0,
+          "window_plan_count": 30,
+          "window_plans_missing_neighbors": 0,
+          "window_refine_calls": 30,
+          "window_refine_with_neighbors": 30,
+          "backend_received_neighbors": true,
+          "reading": "第 0 个规划拍没有邻机。事件前 1.0 s 内后段收到邻机的调用 30/30。 第一次 plan 之前没有邻机采样。"
+        },
+        "geom_multi_seed1": {
+          "first_plan_count": 3,
+          "first_plan_t": 0.0,
+          "first_plan_missing_neighbors": true,
+          "notes_before_any_plan": 0,
+          "window_s": 1.0,
+          "window_plan_count": 30,
+          "window_plans_missing_neighbors": 0,
+          "window_refine_calls": 30,
+          "window_refine_with_neighbors": 30,
+          "backend_received_neighbors": true,
+          "reading": "第 0 个规划拍没有邻机。事件前 1.0 s 内后段收到邻机的调用 30/30。 第一次 plan 之前没有邻机采样。"
+        },
+        "geom_multi_seed0": {
+          "first_plan_count": 3,
+          "first_plan_t": 0.0,
+          "first_plan_missing_neighbors": true,
+          "notes_before_any_plan": 0,
+          "window_s": 1.0,
+          "window_plan_count": 30,
+          "window_plans_missing_neighbors": 0,
+          "window_refine_calls": 26,
+          "window_refine_with_neighbors": 26,
+          "backend_received_neighbors": true,
+          "reading": "第 0 个规划拍没有邻机。事件前 1.0 s 内后段收到邻机的调用 26/26。 第一次 plan 之前没有邻机采样。"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "key": "hinge",
+      "prompt": "铰链是否激活；激活时的三维距、代价、控制点位移、末端是否因钉死无法上推",
+      "status": "answered",
+      "reason": null,
+      "answer": {
+        "sphere_seed1": {
+          "measured_calls": 30,
+          "activated": true,
+          "activated_calls": 20,
+          "min_dist_when_active_m": 0.24154222736116726,
+          "min_dist_all_m": 0.24154222736116726,
+          "max_cost": 6.798069561564257,
+          "max_free_shift_m": 0.8740177269683768,
+          "max_end_shift_m": 4.694550195664332e-15,
+          "end_pinned": true,
+          "closest_on_excluded_last_span_calls": 0,
+          "max_pinned_grad_norm": 0.00010309581615539847,
+          "pinned_end_blocks_push": false,
+          "reading": "铰链激活 20 次，激活时最小三维距 0.242 m，最大代价 6.798，自由控制点最大位移 0.874 m。末端三个控制点钉死，末端位移最大 0.000 m。"
+        },
+        "sphere_seed0": {
+          "measured_calls": 30,
+          "activated": true,
+          "activated_calls": 29,
+          "min_dist_when_active_m": 0.3043031677870618,
+          "min_dist_all_m": 0.3043031677870618,
+          "max_cost": 5.9459276182184375,
+          "max_free_shift_m": 0.6491329942548093,
+          "max_end_shift_m": 3.4967619351230766e-15,
+          "end_pinned": true,
+          "closest_on_excluded_last_span_calls": 0,
+          "max_pinned_grad_norm": 0.0015022624704784607,
+          "pinned_end_blocks_push": false,
+          "reading": "铰链激活 29 次，激活时最小三维距 0.304 m，最大代价 5.946，自由控制点最大位移 0.649 m。末端三个控制点钉死，末端位移最大 0.000 m。"
+        },
+        "geom_multi_seed1": {
+          "measured_calls": 30,
+          "activated": true,
+          "activated_calls": 20,
+          "min_dist_when_active_m": 0.24154222736116726,
+          "min_dist_all_m": 0.24154222736116726,
+          "max_cost": 6.798069561564257,
+          "max_free_shift_m": 0.8740177269683768,
+          "max_end_shift_m": 4.9511621569222e-15,
+          "end_pinned": true,
+          "closest_on_excluded_last_span_calls": 0,
+          "max_pinned_grad_norm": 0.00010309581615539847,
+          "pinned_end_blocks_push": false,
+          "reading": "铰链激活 20 次，激活时最小三维距 0.242 m，最大代价 6.798，自由控制点最大位移 0.874 m。末端三个控制点钉死，末端位移最大 0.000 m。"
+        },
+        "geom_multi_seed0": {
+          "measured_calls": 26,
+          "activated": true,
+          "activated_calls": 20,
+          "min_dist_when_active_m": 0.3043031677870618,
+          "min_dist_all_m": 0.3043031677870618,
+          "max_cost": 5.9459276182184375,
+          "max_free_shift_m": 0.6413800627589884,
+          "max_end_shift_m": 3.3232593448441795e-15,
+          "end_pinned": true,
+          "closest_on_excluded_last_span_calls": 1,
+          "max_pinned_grad_norm": 5.2805049643177264e-05,
+          "pinned_end_blocks_push": false,
+          "reading": "铰链激活 20 次，激活时最小三维距 0.304 m，最大代价 5.946，自由控制点最大位移 0.641 m。末端三个控制点钉死，末端位移最大 0.000 m。有 1 次最近点在被排除的最后一跨。"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "key": "locus",
+      "prompt": "碰撞在轨迹头/中/尾；是否一侧 CORRIDOR_EMPTY_HOVER / empty_brake、另一侧还在飞",
+      "status": "answered",
+      "reason": null,
+      "answer": {
+        "sphere_seed1": {
+          "collided": true,
+          "t": 2.64,
+          "dist_m": 0.6935315461717854,
+          "pair": [
+            "uav1",
+            "uav2"
+          ],
+          "locus": {
+            "uav1": "head",
+            "uav2": "head"
+          },
+          "plan_code": {
+            "uav1": "OK",
+            "uav2": "OK"
+          },
+          "empty_brake_enabled": false,
+          "one_side_hover_other_flying": false,
+          "hover_uav": null,
+          "flying_uav": null,
+          "reading": "碰撞 t=2.64 s，距离 0.694 m。轨迹位置 uav1=head，uav2=head。规划码 uav1=OK，uav2=OK。不是一侧悬停、另一侧飞过来。empty_brake 关着。"
+        },
+        "sphere_seed0": {
+          "collided": false,
+          "t": 2.67,
+          "dist_m": 0.9523603585382485,
+          "pair": [
+            "uav1",
+            "uav2"
+          ],
+          "locus": {
+            "uav1": "head",
+            "uav2": "head"
+          },
+          "plan_code": {
+            "uav1": "OK",
+            "uav2": "OK"
+          },
+          "empty_brake_enabled": false,
+          "one_side_hover_other_flying": false,
+          "hover_uav": null,
+          "flying_uav": null,
+          "reading": "最近接近 t=2.67 s，距离 0.952 m。轨迹位置 uav1=head，uav2=head。规划码 uav1=OK，uav2=OK。不是一侧悬停、另一侧飞过来。empty_brake 关着。"
+        },
+        "geom_multi_seed1": {
+          "collided": true,
+          "t": 2.64,
+          "dist_m": 0.6935315461717854,
+          "pair": [
+            "uav1",
+            "uav2"
+          ],
+          "locus": {
+            "uav1": "head",
+            "uav2": "head"
+          },
+          "plan_code": {
+            "uav1": "OK",
+            "uav2": "OK"
+          },
+          "empty_brake_enabled": false,
+          "one_side_hover_other_flying": false,
+          "hover_uav": null,
+          "flying_uav": null,
+          "reading": "碰撞 t=2.64 s，距离 0.694 m。轨迹位置 uav1=head，uav2=head。规划码 uav1=OK，uav2=OK。不是一侧悬停、另一侧飞过来。empty_brake 关着。"
+        },
+        "geom_multi_seed0": {
+          "collided": false,
+          "t": 2.67,
+          "dist_m": 0.9431641089006664,
+          "pair": [
+            "uav1",
+            "uav2"
+          ],
+          "locus": {
+            "uav1": "head",
+            "uav2": "head"
+          },
+          "plan_code": {
+            "uav1": "OK",
+            "uav2": "OK"
+          },
+          "empty_brake_enabled": false,
+          "one_side_hover_other_flying": false,
+          "hover_uav": null,
+          "flying_uav": null,
+          "reading": "最近接近 t=2.67 s，距离 0.943 m。轨迹位置 uav1=head，uav2=head。规划码 uav1=OK，uav2=OK。不是一侧悬停、另一侧飞过来。empty_brake 关着。"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "key": "geom_multi",
+      "prompt": "几何门放行的参考轨迹自身是否已经 < 0.70 m",
+      "status": "answered",
+      "reason": null,
+      "answer": {
+        "sphere_seed1": {
+          "gated_samples": 0,
+          "gated_min_reference_m": null,
+          "gated_n_below_ball": 0,
+          "gated_reference_already_below_ball": false,
+          "window_gated_samples": 0,
+          "window_gated_min_reference_m": null,
+          "window_gated_reference_already_below_ball": false,
+          "any_samples": 78,
+          "any_reference_min_m": 0.17435019044966224,
+          "any_n_below_ball": 37,
+          "any_reference_below_ball": true,
+          "reading": "几何门在这次运行里没有打开过（geom_multi 要等邻机采样；第 0 拍没有）。 不论门开没开，参考轨迹自身最小 0.174 m，已经 < 0.70 m。"
+        },
+        "sphere_seed0": {
+          "gated_samples": 0,
+          "gated_min_reference_m": null,
+          "gated_n_below_ball": 0,
+          "gated_reference_already_below_ball": false,
+          "window_gated_samples": 0,
+          "window_gated_min_reference_m": null,
+          "window_gated_reference_already_below_ball": false,
+          "any_samples": 145,
+          "any_reference_min_m": 0.14605503905688405,
+          "any_n_below_ball": 29,
+          "any_reference_below_ball": true,
+          "reading": "几何门在这次运行里没有打开过（geom_multi 要等邻机采样；第 0 拍没有）。 不论门开没开，参考轨迹自身最小 0.146 m，已经 < 0.70 m。"
+        },
+        "geom_multi_seed1": {
+          "gated_samples": 78,
+          "gated_min_reference_m": 0.17435019044966224,
+          "gated_n_below_ball": 37,
+          "gated_reference_already_below_ball": true,
+          "window_gated_samples": 30,
+          "window_gated_min_reference_m": 0.2576856895404747,
+          "window_gated_reference_already_below_ball": true,
+          "any_samples": 78,
+          "any_reference_min_m": 0.17435019044966224,
+          "any_n_below_ball": 37,
+          "any_reference_below_ball": true,
+          "reading": "几何门放行的参考轨迹有 37 次同时刻距离已经 < 0.70 m，最小 0.174 m。 不论门开没开，参考轨迹自身最小 0.174 m，已经 < 0.70 m。"
+        },
+        "geom_multi_seed0": {
+          "gated_samples": 154,
+          "gated_min_reference_m": 0.14605503905688405,
+          "gated_n_below_ball": 27,
+          "gated_reference_already_below_ball": true,
+          "window_gated_samples": 26,
+          "window_gated_min_reference_m": 0.2851094785344104,
+          "window_gated_reference_already_below_ball": true,
+          "any_samples": 154,
+          "any_reference_min_m": 0.14605503905688405,
+          "any_n_below_ball": 27,
+          "any_reference_below_ball": true,
+          "reading": "几何门放行的参考轨迹有 27 次同时刻距离已经 < 0.70 m，最小 0.146 m。 不论门开没开，参考轨迹自身最小 0.146 m，已经 < 0.70 m。"
+        }
+      }
+    }
+  ],
+  "comparison": {
+    "sphere": {
+      "seed1_outcome": "COLLISION",
+      "seed1_reason": "uav1-uav2:INTER_DRONE",
+      "seed1_min_inter_m": 0.6935315461717854,
+      "seed0_outcome": "SUCCESS",
+      "seed0_min_inter_m": 0.8419054870177959,
+      "seed1_collided": true,
+      "seed0_collided": false,
+      "both_first_plan_missing_neighbors": true,
+      "seed1_backend_received_neighbors": true,
+      "seed0_backend_received_neighbors": true,
+      "seed1_hinge_activated": true,
+      "seed0_hinge_activated": true,
+      "seed1_pinned_end_blocks_push": false,
+      "seed1_one_side_hover": false,
+      "seed1_geom_reference_below_ball": false,
+      "seed1_any_reference_below_ball": true
+    },
+    "sphere+track_geom_multi": {
+      "seed1_outcome": "COLLISION",
+      "seed1_reason": "uav1-uav2:INTER_DRONE",
+      "seed1_min_inter_m": 0.6935315461717854,
+      "seed0_outcome": "SUCCESS",
+      "seed0_min_inter_m": 0.9431641089006664,
+      "seed1_collided": true,
+      "seed0_collided": false,
+      "both_first_plan_missing_neighbors": true,
+      "seed1_backend_received_neighbors": true,
+      "seed0_backend_received_neighbors": true,
+      "seed1_hinge_activated": true,
+      "seed0_hinge_activated": true,
+      "seed1_pinned_end_blocks_push": false,
+      "seed1_one_side_hover": false,
+      "seed1_geom_reference_below_ball": true,
+      "seed1_any_reference_below_ball": true
+    }
+  },
+  "cases": [
+    {
+      "arm": "sphere",
+      "seed": 0,
+      "role": "success_reference",
+      "outcome": "SUCCESS",
+      "reason": "GOAL_REACHED_AND_HELD",
+      "arrived": 3,
+      "n_drones": 3,
+      "min_inter_drone_distance_m": 0.8419054870177959,
+      "sim_duration_s": 8.63,
+      "arrival_time_s": 7.63,
+      "empty_brake": false,
+      "answers": {
+        "1": {
+          "first_plan_count": 3,
+          "first_plan_t": 0.0,
+          "first_plan_missing_neighbors": true,
+          "notes_before_any_plan": 0,
+          "window_s": 1.0,
+          "window_plan_count": 30,
+          "window_plans_missing_neighbors": 0,
+          "window_refine_calls": 30,
+          "window_refine_with_neighbors": 30,
+          "backend_received_neighbors": true,
+          "reading": "第 0 个规划拍没有邻机。事件前 1.0 s 内后段收到邻机的调用 30/30。 第一次 plan 之前没有邻机采样。"
+        },
+        "2": {
+          "measured_calls": 30,
+          "activated": true,
+          "activated_calls": 29,
+          "min_dist_when_active_m": 0.3043031677870618,
+          "min_dist_all_m": 0.3043031677870618,
+          "max_cost": 5.9459276182184375,
+          "max_free_shift_m": 0.6491329942548093,
+          "max_end_shift_m": 3.4967619351230766e-15,
+          "end_pinned": true,
+          "closest_on_excluded_last_span_calls": 0,
+          "max_pinned_grad_norm": 0.0015022624704784607,
+          "pinned_end_blocks_push": false,
+          "reading": "铰链激活 29 次，激活时最小三维距 0.304 m，最大代价 5.946，自由控制点最大位移 0.649 m。末端三个控制点钉死，末端位移最大 0.000 m。"
+        },
+        "3": {
+          "collided": false,
+          "t": 2.67,
+          "dist_m": 0.9523603585382485,
+          "pair": [
+            "uav1",
+            "uav2"
+          ],
+          "locus": {
+            "uav1": "head",
+            "uav2": "head"
+          },
+          "plan_code": {
+            "uav1": "OK",
+            "uav2": "OK"
+          },
+          "empty_brake_enabled": false,
+          "one_side_hover_other_flying": false,
+          "hover_uav": null,
+          "flying_uav": null,
+          "reading": "最近接近 t=2.67 s，距离 0.952 m。轨迹位置 uav1=head，uav2=head。规划码 uav1=OK，uav2=OK。不是一侧悬停、另一侧飞过来。empty_brake 关着。"
+        },
+        "4": {
+          "gated_samples": 0,
+          "gated_min_reference_m": null,
+          "gated_n_below_ball": 0,
+          "gated_reference_already_below_ball": false,
+          "window_gated_samples": 0,
+          "window_gated_min_reference_m": null,
+          "window_gated_reference_already_below_ball": false,
+          "any_samples": 145,
+          "any_reference_min_m": 0.14605503905688405,
+          "any_n_below_ball": 29,
+          "any_reference_below_ball": true,
+          "reading": "几何门在这次运行里没有打开过（geom_multi 要等邻机采样；第 0 拍没有）。 不论门开没开，参考轨迹自身最小 0.146 m，已经 < 0.70 m。"
+        }
+      }
+    },
+    {
+      "arm": "sphere",
+      "seed": 1,
+      "role": "miss",
+      "outcome": "COLLISION",
+      "reason": "uav1-uav2:INTER_DRONE",
+      "arrived": 0,
+      "n_drones": 3,
+      "min_inter_drone_distance_m": 0.6935315461717854,
+      "sim_duration_s": 2.64,
+      "arrival_time_s": null,
+      "empty_brake": false,
+      "answers": {
+        "1": {
+          "first_plan_count": 3,
+          "first_plan_t": 0.0,
+          "first_plan_missing_neighbors": true,
+          "notes_before_any_plan": 0,
+          "window_s": 1.0,
+          "window_plan_count": 30,
+          "window_plans_missing_neighbors": 0,
+          "window_refine_calls": 30,
+          "window_refine_with_neighbors": 30,
+          "backend_received_neighbors": true,
+          "reading": "第 0 个规划拍没有邻机。事件前 1.0 s 内后段收到邻机的调用 30/30。 第一次 plan 之前没有邻机采样。"
+        },
+        "2": {
+          "measured_calls": 30,
+          "activated": true,
+          "activated_calls": 20,
+          "min_dist_when_active_m": 0.24154222736116726,
+          "min_dist_all_m": 0.24154222736116726,
+          "max_cost": 6.798069561564257,
+          "max_free_shift_m": 0.8740177269683768,
+          "max_end_shift_m": 4.694550195664332e-15,
+          "end_pinned": true,
+          "closest_on_excluded_last_span_calls": 0,
+          "max_pinned_grad_norm": 0.00010309581615539847,
+          "pinned_end_blocks_push": false,
+          "reading": "铰链激活 20 次，激活时最小三维距 0.242 m，最大代价 6.798，自由控制点最大位移 0.874 m。末端三个控制点钉死，末端位移最大 0.000 m。"
+        },
+        "3": {
+          "collided": true,
+          "t": 2.64,
+          "dist_m": 0.6935315461717854,
+          "pair": [
+            "uav1",
+            "uav2"
+          ],
+          "locus": {
+            "uav1": "head",
+            "uav2": "head"
+          },
+          "plan_code": {
+            "uav1": "OK",
+            "uav2": "OK"
+          },
+          "empty_brake_enabled": false,
+          "one_side_hover_other_flying": false,
+          "hover_uav": null,
+          "flying_uav": null,
+          "reading": "碰撞 t=2.64 s，距离 0.694 m。轨迹位置 uav1=head，uav2=head。规划码 uav1=OK，uav2=OK。不是一侧悬停、另一侧飞过来。empty_brake 关着。"
+        },
+        "4": {
+          "gated_samples": 0,
+          "gated_min_reference_m": null,
+          "gated_n_below_ball": 0,
+          "gated_reference_already_below_ball": false,
+          "window_gated_samples": 0,
+          "window_gated_min_reference_m": null,
+          "window_gated_reference_already_below_ball": false,
+          "any_samples": 78,
+          "any_reference_min_m": 0.17435019044966224,
+          "any_n_below_ball": 37,
+          "any_reference_below_ball": true,
+          "reading": "几何门在这次运行里没有打开过（geom_multi 要等邻机采样；第 0 拍没有）。 不论门开没开，参考轨迹自身最小 0.174 m，已经 < 0.70 m。"
+        }
+      }
+    },
+    {
+      "arm": "sphere+track_geom_multi",
+      "seed": 0,
+      "role": "success_reference",
+      "outcome": "SUCCESS",
+      "reason": "GOAL_REACHED_AND_HELD",
+      "arrived": 3,
+      "n_drones": 3,
+      "min_inter_drone_distance_m": 0.9431641089006664,
+      "sim_duration_s": 9.62,
+      "arrival_time_s": 8.62,
+      "empty_brake": false,
+      "answers": {
+        "1": {
+          "first_plan_count": 3,
+          "first_plan_t": 0.0,
+          "first_plan_missing_neighbors": true,
+          "notes_before_any_plan": 0,
+          "window_s": 1.0,
+          "window_plan_count": 30,
+          "window_plans_missing_neighbors": 0,
+          "window_refine_calls": 26,
+          "window_refine_with_neighbors": 26,
+          "backend_received_neighbors": true,
+          "reading": "第 0 个规划拍没有邻机。事件前 1.0 s 内后段收到邻机的调用 26/26。 第一次 plan 之前没有邻机采样。"
+        },
+        "2": {
+          "measured_calls": 26,
+          "activated": true,
+          "activated_calls": 20,
+          "min_dist_when_active_m": 0.3043031677870618,
+          "min_dist_all_m": 0.3043031677870618,
+          "max_cost": 5.9459276182184375,
+          "max_free_shift_m": 0.6413800627589884,
+          "max_end_shift_m": 3.3232593448441795e-15,
+          "end_pinned": true,
+          "closest_on_excluded_last_span_calls": 1,
+          "max_pinned_grad_norm": 5.2805049643177264e-05,
+          "pinned_end_blocks_push": false,
+          "reading": "铰链激活 20 次，激活时最小三维距 0.304 m，最大代价 5.946，自由控制点最大位移 0.641 m。末端三个控制点钉死，末端位移最大 0.000 m。有 1 次最近点在被排除的最后一跨。"
+        },
+        "3": {
+          "collided": false,
+          "t": 2.67,
+          "dist_m": 0.9431641089006664,
+          "pair": [
+            "uav1",
+            "uav2"
+          ],
+          "locus": {
+            "uav1": "head",
+            "uav2": "head"
+          },
+          "plan_code": {
+            "uav1": "OK",
+            "uav2": "OK"
+          },
+          "empty_brake_enabled": false,
+          "one_side_hover_other_flying": false,
+          "hover_uav": null,
+          "flying_uav": null,
+          "reading": "最近接近 t=2.67 s，距离 0.943 m。轨迹位置 uav1=head，uav2=head。规划码 uav1=OK，uav2=OK。不是一侧悬停、另一侧飞过来。empty_brake 关着。"
+        },
+        "4": {
+          "gated_samples": 154,
+          "gated_min_reference_m": 0.14605503905688405,
+          "gated_n_below_ball": 27,
+          "gated_reference_already_below_ball": true,
+          "window_gated_samples": 26,
+          "window_gated_min_reference_m": 0.2851094785344104,
+          "window_gated_reference_already_below_ball": true,
+          "any_samples": 154,
+          "any_reference_min_m": 0.14605503905688405,
+          "any_n_below_ball": 27,
+          "any_reference_below_ball": true,
+          "reading": "几何门放行的参考轨迹有 27 次同时刻距离已经 < 0.70 m，最小 0.146 m。 不论门开没开，参考轨迹自身最小 0.146 m，已经 < 0.70 m。"
+        }
+      }
+    },
+    {
+      "arm": "sphere+track_geom_multi",
+      "seed": 1,
+      "role": "miss",
+      "outcome": "COLLISION",
+      "reason": "uav1-uav2:INTER_DRONE",
+      "arrived": 0,
+      "n_drones": 3,
+      "min_inter_drone_distance_m": 0.6935315461717854,
+      "sim_duration_s": 2.64,
+      "arrival_time_s": null,
+      "empty_brake": false,
+      "answers": {
+        "1": {
+          "first_plan_count": 3,
+          "first_plan_t": 0.0,
+          "first_plan_missing_neighbors": true,
+          "notes_before_any_plan": 0,
+          "window_s": 1.0,
+          "window_plan_count": 30,
+          "window_plans_missing_neighbors": 0,
+          "window_refine_calls": 30,
+          "window_refine_with_neighbors": 30,
+          "backend_received_neighbors": true,
+          "reading": "第 0 个规划拍没有邻机。事件前 1.0 s 内后段收到邻机的调用 30/30。 第一次 plan 之前没有邻机采样。"
+        },
+        "2": {
+          "measured_calls": 30,
+          "activated": true,
+          "activated_calls": 20,
+          "min_dist_when_active_m": 0.24154222736116726,
+          "min_dist_all_m": 0.24154222736116726,
+          "max_cost": 6.798069561564257,
+          "max_free_shift_m": 0.8740177269683768,
+          "max_end_shift_m": 4.9511621569222e-15,
+          "end_pinned": true,
+          "closest_on_excluded_last_span_calls": 0,
+          "max_pinned_grad_norm": 0.00010309581615539847,
+          "pinned_end_blocks_push": false,
+          "reading": "铰链激活 20 次，激活时最小三维距 0.242 m，最大代价 6.798，自由控制点最大位移 0.874 m。末端三个控制点钉死，末端位移最大 0.000 m。"
+        },
+        "3": {
+          "collided": true,
+          "t": 2.64,
+          "dist_m": 0.6935315461717854,
+          "pair": [
+            "uav1",
+            "uav2"
+          ],
+          "locus": {
+            "uav1": "head",
+            "uav2": "head"
+          },
+          "plan_code": {
+            "uav1": "OK",
+            "uav2": "OK"
+          },
+          "empty_brake_enabled": false,
+          "one_side_hover_other_flying": false,
+          "hover_uav": null,
+          "flying_uav": null,
+          "reading": "碰撞 t=2.64 s，距离 0.694 m。轨迹位置 uav1=head，uav2=head。规划码 uav1=OK，uav2=OK。不是一侧悬停、另一侧飞过来。empty_brake 关着。"
+        },
+        "4": {
+          "gated_samples": 78,
+          "gated_min_reference_m": 0.17435019044966224,
+          "gated_n_below_ball": 37,
+          "gated_reference_already_below_ball": true,
+          "window_gated_samples": 30,
+          "window_gated_min_reference_m": 0.2576856895404747,
+          "window_gated_reference_already_below_ball": true,
+          "any_samples": 78,
+          "any_reference_min_m": 0.17435019044966224,
+          "any_n_below_ball": 37,
+          "any_reference_below_ball": true,
+          "reading": "几何门放行的参考轨迹有 37 次同时刻距离已经 < 0.70 m，最小 0.174 m。 不论门开没开，参考轨迹自身最小 0.174 m，已经 < 0.70 m。"
+        }
+      }
+    }
+  ],
+  "partial_smoke": null
+}
