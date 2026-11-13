@@ -59,7 +59,24 @@ case "$MISSION_MODE" in
   hover|goto|swap) ;;
   *) echo "未知 YOPO_SITL_MISSION_MODE=$MISSION_MODE（只要 hover、goto 或 swap）" >&2; exit 2 ;;
 esac
+PLANNER="${YOPO_SITL_PLANNER:-offboard}"
+case "$PLANNER" in
+  offboard|yopo-l0) ;;
+  *) echo "未知 YOPO_SITL_PLANNER=$PLANNER（只要 offboard 或 yopo-l0）" >&2; exit 2 ;;
+esac
 python3 /repo/scripts/sitl/fleet.py layout --n "$N" --mission "$MISSION_MODE" --format json >/dev/null
+
+run_yopo_l0() {
+  # 只把场景、机数、种子和定位模式传给规划桥。定位白名单仍由上面的 YOPO_POSITIONING 分支注入。
+  PYTHONPATH="/repo:/repo/core/src${PYTHONPATH:+:$PYTHONPATH}" \
+    python3 /repo/scripts/sitl/yopo_l0_live.py \
+      --out "$OUT/result.json" \
+      --scene "${YOPO_L0_SCENE:-scenes/g2-pillar.json}" \
+      --n "$N" \
+      --seed "${YOPO_L0_SEED:-0}" \
+      --wall-timeout "${YOPO_SITL_WALL_TIMEOUT:-900}" \
+      --positioning "$POSITIONING"
+}
 
 wait_px4() {
   local log=$1 pid=$2
@@ -113,7 +130,10 @@ if [[ "$N" -eq 1 ]]; then
     exit 0
   fi
   set +e
-  if [[ "$MISSION_MODE" == "hover" ]]; then
+  if [[ "$PLANNER" == "yopo-l0" ]]; then
+    run_yopo_l0
+    rc=$?
+  elif [[ "$MISSION_MODE" == "hover" ]]; then
     # 与票 S1 相同的参数：不传 --mission。清掉模式变量，避免容器环境里的 hover 把单机改成 1.5 m 降落。
     env -u YOPO_SITL_MISSION_MODE python3 /repo/scripts/sitl/offboard_mission.py --out "$OUT/result.json" --wall-timeout "${YOPO_SITL_WALL_TIMEOUT:-900}"
     rc=$?
@@ -196,8 +216,13 @@ if [[ "$MISSION" == 0 ]]; then
   exit 0
 fi
 set +e
-python3 /repo/scripts/sitl/fleet.py run --out "$OUT/result.json" --n "$N" \
-  --mission "$MISSION_MODE" --wall-timeout "${YOPO_SITL_WALL_TIMEOUT:-900}"
-rc=$?
+if [[ "$PLANNER" == "yopo-l0" ]]; then
+  run_yopo_l0
+  rc=$?
+else
+  python3 /repo/scripts/sitl/fleet.py run --out "$OUT/result.json" --n "$N" \
+    --mission "$MISSION_MODE" --wall-timeout "${YOPO_SITL_WALL_TIMEOUT:-900}"
+  rc=$?
+fi
 set -e
 finish_mission_rc "$rc"
