@@ -58,6 +58,7 @@ S3 合入后，ROS 循环仍留在那个脚本（或它的后继）里，不进 
 | schema | `yopo-restart/s4-sitl-bridge/1` |
 | report_only / criteria_frozen | true / false |
 | 场景卡 | `g2-pillar`，哈希 `9d385f4cfce543922961865d06ceeedd44afdddb52c706bf6e3da9929431d8ae` |
+| 跑数提交 | `88b776d1e505894897e8bdee1a296af2c699eeb0`（`result.json` 的 `commit` 即此 sha；补上这行出处的后一次提交不改桥接代码） |
 | 结果 | `SUCCESS` / `GOAL_REACHED_AND_HELD` |
 | 到达 | 1/1，到达率 1.0，到达时刻 4.28 s，仿真停在 5.28 s（含 1 s 保持） |
 | 碰撞 | 0 |
