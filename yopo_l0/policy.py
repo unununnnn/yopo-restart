@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -136,6 +137,141 @@ def read_empty_brake(params: dict | None) -> bool:
     return raw
 
 
+# E-C5b：走廊跟踪误差补偿。默认关。0.08 m 盖的是 E-C5 已观测的 0.058–0.073 m 跟踪差，是假设。
+# 机体半径与场景 criteria.body_radius_m、geom_fallback 的表面净空同一口径（中心到表面）。
+TRACK_CLEARANCE_MODES = ("pred", "geom", "geom_multi")
+TRACK_MARGIN_DEFAULT_M = 0.08
+TRACK_BODY_RADIUS_M = 0.35
+# 与 geom_fallback.SAMPLE_DT_S 相同。参考只在这些采样点上量表面净空，不取连续最小值。
+TRACK_SAMPLE_DT_S = 0.02
+
+
+def _upstream_block(params: dict | None) -> dict:
+    raw = (params or {}).get("upstream") or {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"policy_params.upstream 必须是对象，收到 {raw!r}")
+    return raw
+
+
+def read_track_clearance(params: dict | None) -> bool:
+    """E-C5b：`policy_params.upstream.track_clearance`。缺省 false。非 JSON 布尔（含缺省以外的字符串）报错。"""
+    raw = _upstream_block(params).get("track_clearance", False)
+    if raw is not True and raw is not False:
+        raise ValueError(f"track_clearance 必须是布尔值，收到 {raw!r}")
+    return raw
+
+
+def read_track_clearance_mode(params: dict | None) -> str:
+    """`"pred" | "geom" | "geom_multi"`，缺省 `geom_multi`。调用方只在开关打开时读它。"""
+    raw = _upstream_block(params).get("track_clearance_mode", "geom_multi")
+    if raw not in TRACK_CLEARANCE_MODES:
+        raise ValueError(f"track_clearance_mode 必须是 {TRACK_CLEARANCE_MODES} 之一，收到 {raw!r}")
+    return str(raw)
+
+
+def read_track_margin_m(params: dict | None) -> float:
+    """非负。缺省 0.08 m。负数、非有限值、布尔值报错。"""
+    raw = _upstream_block(params).get("track_margin_m", TRACK_MARGIN_DEFAULT_M)
+    if isinstance(raw, bool) or raw is None:
+        raise ValueError(f"track_margin_m 必须为非负实数，收到 {raw!r}")
+    value = float(raw)
+    if not math.isfinite(value) or value < 0.0:
+        raise ValueError(f"track_margin_m 必须为非负，收到 {raw!r}")
+    return value
+
+
+def read_track_body_radius_m(params: dict | None) -> float:
+    """表面净空里的机体半径。缺省 0.35 m，与场景卡 body_radius_m 对齐。必须为正。"""
+    raw = _upstream_block(params).get("track_body_radius_m", TRACK_BODY_RADIUS_M)
+    if isinstance(raw, bool) or raw is None:
+        raise ValueError(f"track_body_radius_m 必须为正，收到 {raw!r}")
+    value = float(raw)
+    if not math.isfinite(value) or value <= 0.0:
+        raise ValueError(f"track_body_radius_m 必须为正，收到 {raw!r}")
+    return value
+
+
+def track_clearance_wants_neighbors(params: dict | None) -> bool:
+    """geom_multi 要邻机采样，才能知道本帧是不是多机。其它情况 False，peer_plan 载荷不变。"""
+    if not read_track_clearance(params):
+        return False
+    return read_track_clearance_mode(params) == "geom_multi"
+
+
+class _ObstacleIndex:
+    """ctx.obstacles 的表面净空。直立圆柱 / 地面 / 盒子与 scene.Obstacle.distance 同一公式。"""
+
+    def __init__(self, obstacles):
+        from .scene import Box, Cylinder, Ground
+
+        centers, radii, z_lo, z_hi = [], [], [], []
+        self.grounds: list[float] = []
+        self.boxes: list[Box] = []
+        self.others = []
+        for ob in obstacles:
+            if isinstance(ob, Cylinder) and ob.upright():
+                centers.append(ob.center_xy)
+                radii.append(ob.radius)
+                z_lo.append(ob.z_lo)
+                z_hi.append(ob.z_hi)
+            elif isinstance(ob, Ground):
+                self.grounds.append(float(ob.z))
+            elif isinstance(ob, Box):
+                self.boxes.append(ob)
+            else:
+                self.others.append(ob)
+        if centers:
+            self.center = np.asarray(centers, dtype=np.float64)
+            self.radius = np.asarray(radii, dtype=np.float64)
+            self.z_lo = np.asarray(z_lo, dtype=np.float64)
+            self.z_hi = np.asarray(z_hi, dtype=np.float64)
+        else:
+            self.center = None
+
+    def min_clearance(self, points: np.ndarray) -> float:
+        pts = np.asarray(points, dtype=np.float64)
+        if pts.ndim == 1:
+            pts = pts.reshape(1, 3)
+        if pts.shape[0] == 0:
+            return math.inf
+        best = math.inf
+        if self.center is not None:
+            radial = np.hypot(
+                pts[:, None, 0] - self.center[None, :, 0],
+                pts[:, None, 1] - self.center[None, :, 1],
+            ) - self.radius
+            radial = np.maximum(radial, 0.0)
+            dz = np.maximum(np.maximum(self.z_lo - pts[:, None, 2], 0.0), pts[:, None, 2] - self.z_hi)
+            best = min(best, float(np.hypot(radial, dz).min()))
+        for z in self.grounds:
+            best = min(best, float(np.maximum(pts[:, 2] - z, 0.0).min()))
+        for ob in self.boxes:
+            lo = np.asarray(ob.lo, dtype=np.float64)
+            hi = np.asarray(ob.hi, dtype=np.float64)
+            delta = np.maximum(np.maximum(lo - pts, 0.0), pts - hi)
+            best = min(best, float(np.linalg.norm(delta, axis=1).min()))
+        for ob in self.others:
+            for p in pts:
+                best = min(best, float(ob.distance(p)))
+        return float(best)
+
+
+def trajectory_sample_points(traj, dt: float = TRACK_SAMPLE_DT_S) -> np.ndarray:
+    """从 t_start 到 t_end（含两端）按 dt 采样位置。步长与几何回退相同。"""
+    from .geom_fallback import iter_times
+
+    times = iter_times(float(traj.t_start), float(traj.t_end), float(dt))
+    return np.stack(
+        [np.asarray(traj.evaluate(float(t), 0), dtype=np.float64) for t in times],
+        axis=0,
+    )
+
+
+def reference_surface_clearance(traj, obstacles, dt: float = TRACK_SAMPLE_DT_S) -> float:
+    """参考轨迹采样点到障碍表面的最小距离。没有障碍时为 +inf。"""
+    return _ObstacleIndex(obstacles).min_clearance(trajectory_sample_points(traj, dt))
+
+
 def deviates_from_upstream(radius: float) -> bool:
     return abs(float(radius) - UPSTREAM_SAFE_RADIUS_M) > 1e-9
 
@@ -150,6 +286,17 @@ class UpstreamPolicy:
     """参数（场景卡 policy_params.upstream）：
     - plan_from_reference（默认 True，上游注释「用位置控制器飞时设 True」；L0/L1 都跟踪位置设定点）
     - safe_radius：走廊准入半径，默认 0.05 m，与上游 d5e1e60 一致。0.35 m 是票 07d 的可选修法。
+    - track_clearance（E-C5b，默认 false）：跟踪误差补偿。关掉时不读 ctx.obstacles（backend 另开除外），
+      不改解码器，也不改 select_action 的结果。打开即偏离上游。
+      - mode `pred`：准入解码器半径改为 safe_radius + track_margin_m。不看几何。
+      - mode `geom`：0.05 m 走廊准入之后，按分数从高到低检查参考轨迹（0.02 s 采样到 t_end）
+        对障碍表面的最小净空，要求 ≥ track_body_radius_m（默认 0.35）+ track_margin_m（默认 0.08）。
+        最高分不合格就看下一个准入候选。全部被拒则走原来的无解分支。
+      - mode `geom_multi`（默认）：与 geom 相同，但只在本帧 `_neighbors` 非空时启用。
+        单机没有邻机，几何门保持关闭。多机第 0 个规划拍也没有邻机：runner 先 plan 再 bus.poll，
+        本拍广播要到下一拍规划才进来，这一拍不启几何门。
+      与 E-A1 的顺序：先走廊准入，再几何净空，得到的可行集才交给 `_apply_inter`。
+      几何门滤空，或邻机过滤再滤空，都进 `CORRIDOR_EMPTY_HOVER`（empty_brake 开着则从参考头刹停）。
     - arrive_radius_m / arrive_mode：上游进入到达半径（上游 5 m）后停止重规划，`hold_here` 原地保持（上游原样）。
       上游网络不会在目标点减速停住（训练目标是远处目标，goal 截断到 10 m），按 G2 oracle 0.4 m / 0.2 m/s / 1 s
       判到达时几乎总是绕圈超时，所以加一条项目终端规则 `stop_at_goal`：进入半径后用一段五次多项式从期望状态
@@ -185,6 +332,18 @@ class UpstreamPolicy:
         self._inter = inter_drone_config(ctx.params)
         # E-B4b：默认关。关时无解分支仍是上游的原地悬停。
         self._empty_brake = read_empty_brake(ctx.params)
+        # E-C5b：默认关。关时不读障碍，下面三个数只是占位，plan() 不会用。
+        self._track_on = read_track_clearance(ctx.params)
+        self._track_mode = "geom_multi"
+        self._track_margin = TRACK_MARGIN_DEFAULT_M
+        self._track_body = TRACK_BODY_RADIUS_M
+        self._track_index: _ObstacleIndex | None = None
+        if self._track_on:
+            self._track_mode = read_track_clearance_mode(ctx.params)
+            self._track_margin = read_track_margin_m(ctx.params)
+            self._track_body = read_track_body_radius_m(ctx.params)
+            if self._track_mode in ("geom", "geom_multi"):
+                self._track_index = _ObstacleIndex(ctx.obstacles)
         self._neighbors: dict[str, np.ndarray] = {}
         self._inter_filtered = 0
         self._inter_penalized = 0
@@ -199,7 +358,11 @@ class UpstreamPolicy:
         )
         from yopo_swarm_core.plan import hold_traj
 
-        dec = upstream_decoder(self.p["safe_radius"])
+        if self._track_on and self._track_mode == "pred":
+            # 只抬准入阈值。safe_radius 结果字段仍是场景卡上的数，不把 margin 写回去。
+            dec = upstream_decoder(float(self.p["safe_radius"]) + float(self._track_margin))
+        else:
+            dec = upstream_decoder(self.p["safe_radius"])
 
         s, now = obs.state, obs.now
         yaw = s.yaw if self.plan_obj is None else self.plan_obj.yaw
@@ -232,8 +395,16 @@ class UpstreamPolicy:
         tail_w = np.einsum("ij,nkj->nki", R, tail_b)
         tail_w[:, 0] += head[0]
         action, brake = select_action(score, inner_w, corridor_mu_lo(radius, dec), dec.safe_mu)
+        # 先准入（pred 时阈值已经抬高），再几何净空，最后才是邻机过滤。几何门关着时不进下面这一支。
+        geom_ok = None
+        if not brake and self._track_geom_now():
+            action, brake, geom_ok = self._apply_track_geom(
+                score, radius, dec, now, head, tail_w, inner_w, durations
+            )
         if not brake and self._inter is not None and self._neighbors:
-            action, brake = self._apply_inter(score, radius, dec, now, head, tail_w, inner_w, durations, action, brake)
+            action, brake = self._apply_inter(
+                score, radius, dec, now, head, tail_w, inner_w, durations, action, brake, geom_ok=geom_ok
+            )
         if brake:
             # SPEC：无准入候选时本帧悬停（停在当前位置），下帧照常重规划
             self.last_code = "CORRIDOR_EMPTY_HOVER"
@@ -263,9 +434,58 @@ class UpstreamPolicy:
         self.backend_log.append(rec)
         return out
 
+    def _track_geom_now(self) -> bool:
+        """本帧要不要做参考表面净空。关、pred、以及 geom_multi 没有邻机时都不做。"""
+        if not self._track_on or self._track_index is None:
+            return False
+        if self._track_mode == "geom":
+            return True
+        if self._track_mode == "geom_multi":
+            # 单机：runner 不会投递 peer_plan，_neighbors 一直空，0.05 m 走廊保持原样。
+            # 多机第 0 个规划拍：本 tick 的广播要等 plan() 全部返回后才 bus.poll，这里仍空。
+            # 下一拍规划（planner 10 Hz 时是 t = 0.1 s）起，邻机采样已经在，几何门才开。
+            return bool(self._neighbors)
+        return False
+
+    def _keep_neighbor_samples(self) -> bool:
+        if self._inter is not None or self._swarm:
+            return True
+        return bool(self._track_on and self._track_mode == "geom_multi")
+
+    def _apply_track_geom(self, score, radius, dec, now, head, tail_w, inner_w, durations):
+        """准入候选按分数从高到低看表面净空。没有合格的就交给无解分支。"""
+        from yopo_swarm_core.candidates import minco_two_piece, rank_candidates
+
+        ranking = rank_candidates(np.asarray(score), radius, dec)
+        n = int(np.asarray(score).shape[0])
+        geom_ok = np.zeros(n, dtype=bool)
+        if ranking.corridor_empty or self._track_index is None:
+            fallback = int(np.argmax(np.asarray(score)))
+            return fallback, True, geom_ok
+        limit = float(self._track_body) + float(self._track_margin)
+        # 邻机过滤还要在这份可行集上继续筛，所以有邻机时不能在第一名合格后就停。
+        keep_rest = self._inter is not None and bool(self._neighbors)
+        first = None
+        for i in ranking.order:
+            try:
+                traj_i = minco_two_piece(now, head, tail_w[int(i)], inner_w[int(i)], durations[int(i)])
+            except (ValueError, np.linalg.LinAlgError, FloatingPointError):
+                continue
+            clearance = self._track_index.min_clearance(trajectory_sample_points(traj_i))
+            if clearance + 1e-12 < limit:
+                continue
+            geom_ok[int(i)] = True
+            if first is None:
+                first = int(i)
+            if not keep_rest:
+                break
+        if first is None:
+            return int(ranking.order[0]), True, geom_ok
+        return first, False, geom_ok
+
     def note_neighbor_samples(self, src: str, samples) -> None:
-        """总线上邻机已提交轨迹的采样。E-A1 和 E-B3 都关时丢掉，不进状态。"""
-        if self._inter is None and not self._swarm:
+        """总线上邻机已提交轨迹的采样。E-A1、E-B3 都关、且不是 geom_multi 时丢掉，不进状态。"""
+        if not self._keep_neighbor_samples():
             return
         from .inter_drone import as_sample_array
 
@@ -280,14 +500,22 @@ class UpstreamPolicy:
 
         return report_block(self._inter, self._inter_filtered, self._inter_penalized, self._inter_empty)
 
-    def _apply_inter(self, score, radius, dec, now, head, tail_w, inner_w, durations, action, brake):
-        """阈值内的候选过滤或减分。没有可行候选时回到原来的悬停分支。"""
+    def _apply_inter(self, score, radius, dec, now, head, tail_w, inner_w, durations, action, brake, geom_ok=None):
+        """阈值内的候选过滤或减分。没有可行候选时回到原来的悬停分支。
+
+        ``geom_ok`` 是 E-C5b 已经按表面净空留过的可行集。None 时与以前一样，只看走廊准入。
+        """
         from yopo_swarm_core.candidates import corridor_mu_lo, minco_two_piece
 
         from .inter_drone import clearance_m, inter_pick, sample_motion
 
         mu = corridor_mu_lo(radius, dec)
         admitted = np.asarray(mu, dtype=np.float64) >= np.float64(dec.safe_mu)
+        if geom_ok is not None:
+            mask = np.asarray(geom_ok, dtype=bool)
+            if mask.shape != admitted.shape:
+                raise ValueError("geom_ok 与候选数不一致")
+            admitted = admitted & mask
         clear = np.full(int(dec.count), np.inf)
         neighbors = list(self._neighbors.values())
         for i in np.flatnonzero(admitted):
