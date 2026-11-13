@@ -40,6 +40,15 @@ os.environ.setdefault("MKL_NUM_THREADS", "1")
 os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
 import numpy as np
+from yopo_l0.experiment import (
+    comma_floats,
+    comma_ints,
+    comma_list,
+    markdown_table,
+    run_spawn_jobs,
+    unknown_values,
+    write_json,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 PARTIAL = ROOT / "out" / "e-c5-corridor-radius" / "partial"
@@ -687,12 +696,7 @@ def job_specs(scenes, radii, a1s, seeds, *, resume: bool = True) -> list[tuple]:
 
 
 def _run_group(specs: list[tuple], jobs: int) -> list[dict]:
-    if jobs <= 1 or len(specs) <= 1:
-        return [_worker(spec) for spec in specs]
-    import multiprocessing as mp
-
-    with mp.get_context("spawn").Pool(jobs) as pool:
-        return pool.map(_worker, specs, chunksize=1)
+    return run_spawn_jobs(specs, _worker, jobs)
 
 
 def _rng(values: list[float]) -> str:
@@ -712,10 +716,7 @@ def _group(rows: list[dict], scene: str, radius: float, a1: str) -> list[dict]:
 
 
 def render_summary(rows: list[dict]) -> str:
-    lines = [
-        "| 卡 | 臂 | 到达 | 撞树 | 机间碰撞 | 超时 | 最小树净空 m | 最小机间 m |",
-        "|---|---|---|---|---|---|---|---|",
-    ]
+    body = []
     for scene in SCENE_ORDER:
         for radius in RADII:
             for a1 in A1_ORDER:
@@ -733,11 +734,15 @@ def render_summary(rows: list[dict]) -> str:
                     for r in group
                     if r.get("min_inter_drone_distance_m") is not None
                 ]
-                lines.append(
+                body.append(
                     f"| {SCENE_LABEL[scene]} | {arm_label(radius, a1)} | {arrived}/{drones} | "
                     f"{tree} | {inter} | {timeout} | {_rng(trees)} | {_rng(gaps)} |"
                 )
-    return "\n".join(lines)
+    return markdown_table(
+        "| 卡 | 臂 | 到达 | 撞树 | 机间碰撞 | 超时 | 最小树净空 m | 最小机间 m |",
+        "|---|---|---|---|---|---|---|---|",
+        body,
+    )
 
 
 def render_seeds(rows: list[dict]) -> str:
@@ -883,13 +888,13 @@ def main(argv=None) -> int:
         return _check()
     if args.jobs not in (1, 2, 3, 4):
         raise SystemExit("jobs 只能是 1 到 4")
-    scenes = [s for s in args.scenes.split(",") if s]
-    radii = [float(s) for s in args.radii.split(",") if s]
-    a1s = [s for s in args.a1.split(",") if s]
-    seeds = [int(s) for s in args.seeds.split(",") if s != ""]
+    scenes = comma_list(args.scenes)
+    radii = comma_floats(args.radii)
+    a1s = comma_list(args.a1)
+    seeds = comma_ints(args.seeds)
     unknown = (
-        [s for s in scenes if s not in SCENES]
-        + [s for s in a1s if s not in A1_ORDER]
+        unknown_values(scenes, SCENES)
+        + unknown_values(a1s, A1_ORDER)
         + [r for r in radii if not any(abs(r - known) < 1e-9 for known in RADII)]
     )
     if unknown:
@@ -920,8 +925,7 @@ def main(argv=None) -> int:
     dest = Path(args.out)
     if not dest.is_absolute():
         dest = ROOT / dest
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    write_json(dest, payload)
     print(render_summary(rows))
     print(render_tree_counts(rows))
     print(f"写入 {dest}")
