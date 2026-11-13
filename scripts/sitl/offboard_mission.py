@@ -5,6 +5,8 @@
 任务逻辑（``Mission``）不依赖 rclpy，可在 box 上用 pytest 驱动；ROS 胶水只在 ``main()`` 里导入。
 
 不发任何 PX4 参数修改命令；降落用 PX4 自己的 NAV_LAND（VehicleCommand 21）。
+票 S3：``mission_mode`` 为 ``hover|goto|swap`` 时由 ``fleet.py`` 填每机配置。
+默认 ``mission_mode="s1"`` 且 ``goto_target_enu is None``，单机行为与票 S1 相同。
 SITL airframe 默认 NAV_DLL_ACT=2（数据链丢失要处置），没有地面站时预检报
 「No connection to the GCS」、拒绝解锁。这里不改该参数，而是像 QGC 一样向 PX4 的 GCS
 MAVLink 端口（SITL 实例 0：UDP 18570）每秒发一个 GCS HEARTBEAT（只发心跳，不发其他 MAVLink 消息）。
@@ -47,6 +49,14 @@ class MissionConfig:
     takeoff_timeout_s: float = 30.0
     goto_timeout_s: float = 30.0
     land_timeout_s: float = 60.0
+    # s1：单机起飞–悬停–平移–降落。hover/goto/swap 的路点由 fleet.py 填进来。
+    mission_mode: str = "s1"
+    # 相对悬停点的 ENU 偏移。None 时用 goal_offset_enu（S1 为 (5, 3, 0)）。z=0 表示不改高度。
+    goto_target_enu: tuple[float, float, float] | None = None
+
+
+# 与 fleet.GOTO_OFFSET_ENU 一致：三机 goto 相对各自悬停点 +6 m（x）。
+DEFAULT_GOTO_OFFSET_ENU = (6.0, 0.0, 0.0)
 
 
 @dataclass
@@ -118,6 +128,9 @@ class Mission:
         self.goto_truth: list[float] = []
         self.truth_home: np.ndarray | None = None
         self.land_sent = False
+        self.hover_complete = False
+        # Fleet 在 goto/swap 上置真：每机悬停采样结束后先停在 HOVER，等全体到齐再进 GOTO。
+        self.block_goto = False
         self.metrics = Metrics()
 
     @property
@@ -161,7 +174,10 @@ class Mission:
         if self.home is None:
             self.home = np.asarray(s.position, dtype=float).copy()
             self.hover_sp = self.home + np.array([0.0, 0.0, c.takeoff_alt_m])
-            self.goal_sp = self.hover_sp + np.asarray(c.goal_offset_enu, dtype=float)
+            if c.goto_target_enu is None:
+                self.goal_sp = self.hover_sp + np.asarray(c.goal_offset_enu, dtype=float)
+            else:
+                self.goal_sp = self.hover_sp + np.asarray(c.goto_target_enu, dtype=float)
             self.yaw_enu = None
         if self.truth_home is None and s.truth is not None and self.phase in ("WARMUP", "ARMING"):
             self.truth_home = np.asarray(s.truth, dtype=float).copy()
@@ -208,20 +224,24 @@ class Mission:
             if s.truth is not None:
                 self.hover_est_truth_dz.append(float(s.position[2] - s.truth[2]))
             if dt >= c.hover_s:
-                a = np.asarray(self.hover_alt_err)
-                self.metrics.hover_alt_err_rms_m = float(np.sqrt(np.mean(a * a)))
-                self.metrics.hover_alt_err_max_m = float(np.max(np.abs(a)))
-                self.metrics.hover_horiz_drift_max_m = float(np.max(self.hover_horiz))
-                self.metrics.hover_samples = len(a)
-                if self.hover_truth:
-                    b = np.asarray(self.hover_truth)
-                    self.metrics.hover_alt_err_truth_rms_m = float(np.sqrt(np.mean(b * b)))
-                    self.metrics.hover_alt_err_truth_max_m = float(np.max(np.abs(b)))
-                if self.hover_est_truth_dz:
-                    d = np.asarray(self.hover_est_truth_dz)
-                    self.metrics.hover_est_truth_alt_bias_mean_m = float(np.mean(d))
-                    self.metrics.hover_est_truth_alt_bias_rms_m = float(np.sqrt(np.mean(d * d)))
-                    self.metrics.hover_est_truth_alt_bias_max_m = float(np.max(np.abs(d)))
+                if not self.hover_complete:
+                    a = np.asarray(self.hover_alt_err)
+                    self.metrics.hover_alt_err_rms_m = float(np.sqrt(np.mean(a * a)))
+                    self.metrics.hover_alt_err_max_m = float(np.max(np.abs(a)))
+                    self.metrics.hover_horiz_drift_max_m = float(np.max(self.hover_horiz))
+                    self.metrics.hover_samples = len(a)
+                    if self.hover_truth:
+                        b = np.asarray(self.hover_truth)
+                        self.metrics.hover_alt_err_truth_rms_m = float(np.sqrt(np.mean(b * b)))
+                        self.metrics.hover_alt_err_truth_max_m = float(np.max(np.abs(b)))
+                    if self.hover_est_truth_dz:
+                        d = np.asarray(self.hover_est_truth_dz)
+                        self.metrics.hover_est_truth_alt_bias_mean_m = float(np.mean(d))
+                        self.metrics.hover_est_truth_alt_bias_rms_m = float(np.sqrt(np.mean(d * d)))
+                        self.metrics.hover_est_truth_alt_bias_max_m = float(np.max(np.abs(d)))
+                    self.hover_complete = True
+                if self.block_goto:
+                    return Action(self._pva(self.hover_sp), self.yaw_enu)
                 if c.land_at_hover:
                     self._enter("LAND", s.t)
                     return Action(self._pva(self.hover_sp), self.yaw_enu, ["land"])
@@ -242,7 +262,10 @@ class Mission:
         if self.phase == "GOTO_HOLD":
             self.goto_err.append(float(np.linalg.norm(s.position - self.goal_sp)))
             if s.truth is not None and self.truth_home is not None:
-                goal_truth = self.truth_home + np.array([0.0, 0.0, c.takeoff_alt_m]) + np.asarray(c.goal_offset_enu)
+                if c.goto_target_enu is None:
+                    goal_truth = self.truth_home + np.array([0.0, 0.0, c.takeoff_alt_m]) + np.asarray(c.goal_offset_enu)
+                else:
+                    goal_truth = self.truth_home + np.array([0.0, 0.0, c.takeoff_alt_m]) + np.asarray(c.goto_target_enu)
                 self.goto_truth.append(float(np.linalg.norm(s.truth - goal_truth)))
             if dt >= c.goto_measure_s:
                 self.metrics.goto_err_m = float(np.mean(self.goto_err))
@@ -266,6 +289,59 @@ class Mission:
         return Action(heartbeat=False)
 
 
+def parse_enu_offset(text: str) -> tuple[float, float, float]:
+    parts = [p.strip() for p in str(text).split(",")]
+    if len(parts) != 3 or any(p == "" for p in parts):
+        raise ValueError(f"goto_target_enu 需要 x,y,z，收到 {text!r}")
+    return (float(parts[0]), float(parts[1]), float(parts[2]))
+
+
+def _as_offset(goto_target_enu):
+    if goto_target_enu is None:
+        return None
+    if isinstance(goto_target_enu, str):
+        if not goto_target_enu.strip():
+            return None
+        return parse_enu_offset(goto_target_enu)
+    if len(goto_target_enu) != 3:
+        raise ValueError(f"goto_target_enu 需要 3 个数，收到 {goto_target_enu!r}")
+    return (float(goto_target_enu[0]), float(goto_target_enu[1]), float(goto_target_enu[2]))
+
+
+def mission_config_from_args(mission: str | None, goto_target_enu=None) -> MissionConfig:
+    """单机入口。mission 为空或 ``s1`` 且没有偏移时，返回值与 ``MissionConfig()`` 相同。
+
+    ``hover`` 是 1.5 m 悬停后降落。``goto`` 在 1.5 m 上飞向悬停点 + 偏移（默认 6,0,0）。
+    ``swap`` 不在单机入口跑。
+    """
+    mode = (mission or "s1").strip()
+    target = _as_offset(goto_target_enu)
+    if mode in ("s1", ""):
+        if target is None:
+            return MissionConfig()
+        return MissionConfig(mission_mode="s1", goto_target_enu=target)
+    if mode == "hover":
+        return MissionConfig(
+            takeoff_alt_m=1.5,
+            hover_s=10.0,
+            goal_offset_enu=(0.0, 0.0, 0.0),
+            land_at_hover=True,
+            mission_mode="hover",
+        )
+    if mode == "goto":
+        return MissionConfig(
+            takeoff_alt_m=1.5,
+            hover_s=10.0,
+            goal_offset_enu=(0.0, 0.0, 0.0),
+            land_at_hover=False,
+            mission_mode="goto",
+            goto_target_enu=target or DEFAULT_GOTO_OFFSET_ENU,
+        )
+    if mode == "swap":
+        raise ValueError("swap 是三机错高对飞，请用 fleet.py --n 3 --mission swap")
+    raise ValueError(f"未知 mission {mission!r}（只要 s1、hover、goto、swap）")
+
+
 # ---------------------------------------------------------------- ROS 胶水（只在容器里跑）
 
 
@@ -282,7 +358,21 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - 需要 rcl
     ap.add_argument("--world", default="default")
     ap.add_argument("--model", default="x500_0", help="Gazebo 里的机体模型名（PX4 gz_x500 实例 0）")
     ap.add_argument("--preflight-timeout", type=float, default=240.0, help="墙钟 s：预检一直不过就失败退出")
+    ap.add_argument("--mission", choices=("s1", "hover", "goto", "swap"), default=None)
+    ap.add_argument("--goto-target-enu", default=None, help="相对悬停点的 ENU 偏移 x,y,z，例如 6,0,0")
     args = ap.parse_args(argv)
+    # 不传 --mission、也不设 YOPO_SITL_MISSION_MODE 时仍是 Mission()，与票 S1 相同。
+    # n=1 的默认 hover 不导出该环境变量，避免把单机冒烟改成 1.5 m 原地降落。
+    env_mode = os.environ.get("YOPO_SITL_MISSION_MODE", "").strip()
+    try:
+        if args.mission is None and not args.goto_target_enu and not env_mode:
+            mission = Mission()
+        else:
+            mode = args.mission if args.mission is not None else env_mode
+            mission = Mission(mission_config_from_args(mode, args.goto_target_enu))
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
 
     import threading
 
@@ -356,7 +446,6 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - 需要 rcl
     def now_us() -> int:
         return node.get_clock().now().nanoseconds // 1000
 
-    mission = Mission()
     wall0 = time.monotonic()
     wall_ready = sim_ready = None
     trace = []

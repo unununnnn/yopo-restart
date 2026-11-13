@@ -1,4 +1,9 @@
-"""票 S2：多机 PX4 SITL 的布局与起飞–悬停–降落任务（report-only）。
+"""票 S2 / S3：多机 PX4 SITL 的布局与协同任务（report-only）。
+
+``--mission hover``（默认）是票 S2：各自起飞到 1.5 m，悬停后降落。
+``goto``：每机从悬停点平移，默认相对悬停点 ``(6, 0, 0)`` m。
+``swap``：三机交换两端位置，巡航高度 1.5 / 2.2 / 2.9 m，同步直线段的 3D 间隔至少 0.7 m。
+单机 S1 不走这里。``YOPO_SITL_MISSION=0`` 仍只表示拉起容器、不起飞。
 
 布局不写飞控参数。instance、MAV_SYS_ID、uXRCE namespace 按 PX4 v1.17 的 posix rcS：
 
@@ -17,6 +22,7 @@ import argparse
 import dataclasses
 import importlib.util
 import json
+import math
 import os
 import sys
 import time
@@ -32,6 +38,13 @@ SPAWN_SPACING_M = 3.0
 TAKEOFF_ALT_M = 1.5
 HOVER_S = 10.0  # 仿真时间，只用来采样估计/真值误差，不是冻结判据
 SCHEMA = "yopo-restart/s2-sitl-fleet/1"
+SCHEMA_S3 = "yopo-restart/s3-sitl-crossing/1"
+MISSION_MODES = ("hover", "goto", "swap")
+# 相对悬停点。z=0 保持起飞高度。与 offboard_mission.DEFAULT_GOTO_OFFSET_ENU 相同。
+GOTO_OFFSET_ENU = (6.0, 0.0, 0.0)
+SWAP_ALT_M = (1.5, 2.2, 2.9)  # 相邻层 0.7 m，避免未接规划器时在同一高度对冲
+MIN_GEOMETRIC_SEPARATION_M = 0.7
+_PLAN_SAMPLES = 51
 
 
 @dataclass(frozen=True)
@@ -78,16 +91,20 @@ def fleet_specs(n: int) -> list[VehicleSpec]:
     return specs
 
 
-def layout_dict(n: int) -> dict:
+def layout_dict(n: int, mission: str = "hover") -> dict:
+    mode = parse_mission(mission)
     specs = fleet_specs(n)
+    plans = vehicle_plans(n, mode)
     return {
         "n": n,
         "dds_domain_id": DDS_DOMAIN_ID,
         "xrce_port": XRCE_PORT,
         "takeoff_alt_m": TAKEOFF_ALT_M,
         "hover_s": HOVER_S,
+        "mission": mode,
         "report_only": True,
         "criteria_frozen": False,
+        "min_geometric_separation_m": min_geometric_separation_m(plans),
         "vehicles": [
             {
                 "index": s.index,
@@ -102,7 +119,129 @@ def layout_dict(n: int) -> dict:
             }
             for s in specs
         ],
+        "waypoints": _waypoint_dicts(plans),
     }
+
+
+@dataclass(frozen=True)
+class VehiclePlan:
+    index: int
+    start_enu: tuple[float, float, float]
+    hover_enu: tuple[float, float, float]
+    goal_enu: tuple[float, float, float]
+    takeoff_alt_m: float
+    goto_target_enu: tuple[float, float, float]  # 相对悬停点
+
+
+def parse_mission(mode: str) -> str:
+    if mode not in MISSION_MODES:
+        raise ValueError(f"mission 只能是 {'、'.join(MISSION_MODES)}，收到 {mode!r}")
+    return mode
+
+
+def resolve_mission(cli: str | None = None) -> str:
+    """命令行优先于 ``YOPO_SITL_MISSION_MODE``，都没有则是 hover。
+
+    ``exec_mission.sh`` 不传 ``--mission``，补跑任务时只靠容器里的环境变量。
+    """
+    if cli:
+        return parse_mission(cli)
+    env = os.environ.get("YOPO_SITL_MISSION_MODE", "").strip()
+    if env:
+        return parse_mission(env)
+    return "hover"
+
+
+def _lerp(a, b, u: float) -> tuple[float, float, float]:
+    return (a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u)
+
+
+def _dist3(a, b) -> float:
+    return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2)
+
+
+def _pair_plan_separation(a: VehiclePlan, b: VehiclePlan, samples: int) -> float:
+    """起飞段、悬停点、GOTO 段各自用同一进度对齐后的最小 3D 距离。"""
+    best = _dist3(a.hover_enu, b.hover_enu)
+    last = samples - 1
+    for k in range(samples):
+        u = k / last
+        best = min(best, _dist3(_lerp(a.start_enu, a.hover_enu, u), _lerp(b.start_enu, b.hover_enu, u)))
+        best = min(best, _dist3(_lerp(a.hover_enu, a.goal_enu, u), _lerp(b.hover_enu, b.goal_enu, u)))
+    return best
+
+
+def min_geometric_separation_m(plans: list[VehiclePlan], samples: int = _PLAN_SAMPLES) -> float | None:
+    """同步直线路点的 3D 最小间隔。少于两架时没有机间距离。"""
+    if len(plans) < 2:
+        return None
+    if samples < 2:
+        raise ValueError("samples 至少为 2")
+    best = None
+    for i in range(len(plans)):
+        for j in range(i + 1, len(plans)):
+            dist = _pair_plan_separation(plans[i], plans[j], samples)
+            best = dist if best is None else min(best, dist)
+    return best
+
+
+def assert_plan_separation(plans: list[VehiclePlan]) -> float | None:
+    dist = min_geometric_separation_m(plans)
+    if dist is not None and dist < MIN_GEOMETRIC_SEPARATION_M - 1e-6:
+        raise ValueError(
+            f"路点 3D 最小间隔 {dist:.3f} m 小于 {MIN_GEOMETRIC_SEPARATION_M:.1f} m"
+        )
+    return dist
+
+
+def vehicle_plans(n: int, mission: str = "hover") -> list[VehiclePlan]:
+    """每机的地面起点、悬停点和 GOTO 目标。hover 的目标就是悬停点（随后降落）。"""
+    mode = parse_mission(mission)
+    specs = fleet_specs(n)
+    if mode == "swap" and n != 3:
+        raise ValueError("swap 只用于 3 架（错高 1.5 / 2.2 / 2.9 m）")
+    plans: list[VehiclePlan] = []
+    for i, spec in enumerate(specs):
+        x, y = spec.spawn_xy_m
+        if mode == "hover":
+            alt = TAKEOFF_ALT_M
+            offset = (0.0, 0.0, 0.0)
+        elif mode == "goto":
+            alt = TAKEOFF_ALT_M
+            offset = GOTO_OFFSET_ENU
+        else:
+            alt = SWAP_ALT_M[i]
+            partner = specs[n - 1 - i]
+            offset = (partner.spawn_xy_m[0] - x, partner.spawn_xy_m[1] - y, 0.0)
+        start = (float(x), float(y), 0.0)
+        hover = (float(x), float(y), float(alt))
+        goal = (hover[0] + offset[0], hover[1] + offset[1], hover[2] + offset[2])
+        plans.append(
+            VehiclePlan(
+                index=spec.index,
+                start_enu=start,
+                hover_enu=hover,
+                goal_enu=goal,
+                takeoff_alt_m=float(alt),
+                goto_target_enu=(float(offset[0]), float(offset[1]), float(offset[2])),
+            )
+        )
+    assert_plan_separation(plans)
+    return plans
+
+
+def _waypoint_dicts(plans: list[VehiclePlan]) -> list[dict]:
+    return [
+        {
+            "index": p.index,
+            "start_enu": list(p.start_enu),
+            "hover_enu": list(p.hover_enu),
+            "goal_enu": list(p.goal_enu),
+            "takeoff_alt_m": p.takeoff_alt_m,
+            "goto_target_enu": list(p.goto_target_enu),
+        }
+        for p in plans
+    ]
 
 
 def format_shell(n: int) -> str:
@@ -143,25 +282,70 @@ def fleet_mission_config():
         hover_s=HOVER_S,
         goal_offset_enu=(0.0, 0.0, 0.0),
         land_at_hover=True,
+        mission_mode="hover",
+    )
+
+
+def _config_for_plan(plan: VehiclePlan, mission: str):
+    om = _om()
+    if mission == "hover":
+        return fleet_mission_config()
+    return om.MissionConfig(
+        takeoff_alt_m=plan.takeoff_alt_m,
+        hover_s=HOVER_S,
+        goal_offset_enu=(0.0, 0.0, 0.0),
+        land_at_hover=False,
+        mission_mode=mission,
+        goto_target_enu=plan.goto_target_enu,
     )
 
 
 class Fleet:
     """每机一台 Mission，共用仿真时钟。ok 只表示都落地并上锁，不看误差大小。"""
 
-    def __init__(self, n: int, cfg=None):
+    def __init__(self, n: int, cfg=None, mission: str = "hover"):
         om = _om()
+        mode = parse_mission(mission)
+        self.mission_mode = mode if cfg is None else getattr(cfg, "mission_mode", mode)
         self.specs = fleet_specs(n)
-        self.cfg = cfg or fleet_mission_config()
-        self.missions = [om.Mission(self.cfg) for _ in self.specs]
+        # 外部传入 cfg 时不改路点（S2 测试直接构造悬停配置）。
+        self.plans = None if cfg is not None else vehicle_plans(n, mode)
+        if cfg is not None:
+            self.cfg = cfg
+            self.missions = [om.Mission(self.cfg) for _ in self.specs]
+        elif mode == "hover":
+            self.cfg = fleet_mission_config()
+            self.missions = [om.Mission(self.cfg) for _ in self.specs]
+        else:
+            cfgs = [_config_for_plan(p, mode) for p in self.plans]
+            self.cfg = cfgs[0]
+            self.missions = [om.Mission(c) for c in cfgs]
+            for m in self.missions:
+                m.block_goto = True
 
     @property
     def done(self) -> bool:
         return all(m.done for m in self.missions)
 
+    def _maybe_release_goto(self) -> None:
+        if self.mission_mode not in ("goto", "swap"):
+            return
+        if not any(m.block_goto for m in self.missions):
+            return
+        if any(m.phase == "FAIL" for m in self.missions):
+            for m in self.missions:
+                m.block_goto = False
+            return
+        if any(m.phase in ("WARMUP", "ARMING", "TAKEOFF") for m in self.missions):
+            return
+        if all(m.hover_complete for m in self.missions):
+            for m in self.missions:
+                m.block_goto = False
+
     def step(self, states: list):
         if len(states) != len(self.missions):
             raise ValueError(f"需要 {len(self.missions)} 架的状态，收到 {len(states)}")
+        self._maybe_release_goto()
         return [m.step(s) for m, s in zip(self.missions, states)]
 
 
@@ -195,6 +379,57 @@ def ros_topics(spec: VehicleSpec) -> dict[str, str]:
     }
 
 
+def min_inter_drone_m_from_vehicles(vehicles: list[dict]) -> float | None:
+    """全程对齐时间戳后的最小机间距离。真值列优先，没有真值时用估计位置。"""
+    tracks = []
+    for veh in vehicles:
+        pts = {}
+        for row in veh.get("trace") or []:
+            if not row or len(row) < 5:
+                continue
+            t = row[0]
+            if len(row) >= 8 and row[5] is not None and row[6] is not None and row[7] is not None:
+                pts[t] = (float(row[5]), float(row[6]), float(row[7]))
+            else:
+                pts[t] = (float(row[2]), float(row[3]), float(row[4]))
+        if pts:
+            tracks.append(pts)
+    if len(tracks) < 2:
+        return None
+    times = set(tracks[0])
+    for track in tracks[1:]:
+        times &= set(track)
+    if not times:
+        return None
+    best = None
+    for t in times:
+        for i in range(len(tracks)):
+            for j in range(i + 1, len(tracks)):
+                dist = _dist3(tracks[i][t], tracks[j][t])
+                best = dist if best is None else min(best, dist)
+    return best
+
+
+def min_inter_drone_m_from_traces(traces: dict | None) -> float | None:
+    if not traces:
+        return None
+    return min_inter_drone_m_from_vehicles([{"trace": rows} for rows in traces.values()])
+
+
+def write_trajectory_csvs(out_dir, traces: dict) -> None:
+    """``/out/px4_<instance>/trajectory.csv``，供 summarize 在没有 result 轨迹时回退。"""
+    root = Path(out_dir)
+    for inst, rows in traces.items():
+        folder = root / f"px4_{inst}"
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / "trajectory.csv"
+        with path.open("w", encoding="utf-8") as fh:
+            fh.write("t,phase,est_x,est_y,est_z,truth_x,truth_y,truth_z\n")
+            for row in rows:
+                cells = ["" if value is None else str(value) for value in row]
+                fh.write(",".join(cells) + "\n")
+
+
 def result_payload(
     fleet: Fleet,
     *,
@@ -209,6 +444,10 @@ def result_payload(
     vehicles = []
     for spec, mission in zip(fleet.specs, fleet.missions):
         hover = None if mission.hover_sp is None else [float(x) for x in mission.hover_sp]
+        goal = None if mission.goal_sp is None else [float(x) for x in mission.goal_sp]
+        plan = None
+        if fleet.plans:
+            plan = next((p for p in fleet.plans if p.index == spec.index), None)
         vehicles.append(
             {
                 "index": spec.index,
@@ -220,6 +459,8 @@ def result_payload(
                 "pose": spec.pose,
                 "spawn_xy_m": list(spec.spawn_xy_m),
                 "hover_enu": hover,
+                "goal_enu": goal,
+                "goto_target_enu": None if plan is None else list(plan.goto_target_enu),
                 "ok": mission.phase == "DONE",
                 "phase": mission.phase,
                 "metrics": dataclasses.asdict(mission.metrics),
@@ -229,10 +470,13 @@ def result_payload(
         )
     ok = bool(vehicles) and all(v["ok"] for v in vehicles)
     rtf = (mission_sim_s / mission_wall_s) if mission_wall_s and mission_sim_s is not None else None
+    mode = getattr(fleet, "mission_mode", "hover")
+    separation = None if not getattr(fleet, "plans", None) else min_geometric_separation_m(fleet.plans)
     return {
-        "schema": SCHEMA,
+        "schema": SCHEMA if mode == "hover" else SCHEMA_S3,
         "report_only": True,
         "criteria_frozen": False,
+        "mission": mode,
         "n": len(fleet.specs),
         "dds_domain_id": DDS_DOMAIN_ID,
         "xrce_port": XRCE_PORT,
@@ -240,6 +484,9 @@ def result_payload(
         "ok": ok,
         "phase": "DONE" if ok else "FAIL",
         "config": dataclasses.asdict(fleet.cfg),
+        "min_geometric_separation_m": separation,
+        "min_inter_drone_m": min_inter_drone_m_from_traces(traces),
+        "waypoints": [] if not getattr(fleet, "plans", None) else _waypoint_dicts(fleet.plans),
         "vehicles": vehicles,
         "wall_to_preflight_ok_s": wall_to_preflight_ok_s,
         "preflight_checks_pass_seen": preflight_checks_pass_seen,
@@ -258,7 +505,7 @@ def _fail_open(fleet: Fleet, why: str) -> None:
         mission.phase = "FAIL"
 
 
-def run_ros(n: int, out_path: str, wall_timeout: float, world: str, preflight_timeout: float) -> int:
+def run_ros(n: int, out_path: str, wall_timeout: float, world: str, preflight_timeout: float, mission: str = "hover") -> int:
     """容器内：订阅每机 uXRCE 话题和 Gazebo 真值，写出 result.json。"""
     import threading
 
@@ -285,11 +532,12 @@ def run_ros(n: int, out_path: str, wall_timeout: float, world: str, preflight_ti
     from yopo_swarm_core import px4
 
     om = _om()
+    mode = parse_mission(mission)
     if px4.XRCE_DEFAULT_PORT != XRCE_PORT:
         print(f"XRCE 端口与 core 不一致：布局 {XRCE_PORT}，core {px4.XRCE_DEFAULT_PORT}", file=sys.stderr)
         return 2
     specs = fleet_specs(n)
-    fleet = Fleet(n)
+    fleet = Fleet(n, mission=mode)
     positioning = os.environ.get("YOPO_POSITIONING", "default")
 
     lock = threading.Lock()
@@ -464,6 +712,7 @@ def run_ros(n: int, out_path: str, wall_timeout: float, world: str, preflight_ti
         mission_sim_s=mission_sim,
         traces=traces,
     )
+    write_trajectory_csvs(Path(out_path).parent, traces)
     with open(out_path, "w") as f:
         json.dump(out, f, indent=1)
     brief = {k: v for k, v in out.items() if k != "vehicles"}
@@ -473,32 +722,38 @@ def run_ros(n: int, out_path: str, wall_timeout: float, world: str, preflight_ti
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="三机 PX4 SITL 布局 / 任务（report-only）")
+    ap = argparse.ArgumentParser(description="三机 PX4 SITL 布局 / 协同任务（report-only）")
     sub = ap.add_subparsers(dest="cmd")
     lay = sub.add_parser("layout", help="打印机群布局，不起飞")
     lay.add_argument("--n", type=int, required=True)
     lay.add_argument("--format", choices=("shell", "json"), default="json")
-    run = sub.add_parser("run", help="容器内跑起飞到 1.5 m 悬停再降落")
+    lay.add_argument("--mission", choices=MISSION_MODES, default=None)
+    run = sub.add_parser("run", help="容器内跑 hover / goto / swap")
     run.add_argument("--n", type=int, required=True)
     run.add_argument("--out", required=True)
     run.add_argument("--wall-timeout", type=float, default=900.0)
     run.add_argument("--world", default="default")
     run.add_argument("--preflight-timeout", type=float, default=240.0)
+    run.add_argument("--mission", choices=MISSION_MODES, default=None)
     # 兼容：`fleet.py --n 3 --format shell`（up.sh / in_container.sh 用这个）
     ap.add_argument("--n", type=int)
     ap.add_argument("--format", choices=("shell", "json"), default="json")
+    ap.add_argument("--mission", choices=MISSION_MODES, default=None)
     args = ap.parse_args(argv)
     try:
+        mode = resolve_mission(args.mission)
         if args.cmd == "run":
-            return run_ros(args.n, args.out, args.wall_timeout, args.world, args.preflight_timeout)
+            return run_ros(args.n, args.out, args.wall_timeout, args.world, args.preflight_timeout, mode)
         n = args.n
         fmt = args.format
         if n is None:
             ap.error("需要 --n")
         if fmt == "shell":
+            # 先校验路点。shell 行集保持 S2，in_container.sh 只认那一组前缀。
+            vehicle_plans(n, mode)
             sys.stdout.write(format_shell(n))
         else:
-            json.dump(layout_dict(n), sys.stdout, indent=1)
+            json.dump(layout_dict(n, mode), sys.stdout, indent=1)
             sys.stdout.write("\n")
         return 0
     except ValueError as exc:
