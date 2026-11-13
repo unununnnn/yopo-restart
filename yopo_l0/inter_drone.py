@@ -12,6 +12,13 @@ E-A1 原文写椭球距离。论文没有给椭球系数，椭球惩罚归 E-B3�
 阈值做中心距，避免和后段抢同一套公式。
 
 开关关闭时，本模块的配置函数返回 None。运行器不采样、不改分数、不往结果里加字段。
+
+E-A2：硬过滤把可行集清空时的软让行，默认关。`inter_drone_soft_yield` 缺省或 false 时，
+配置和 `inter_pick` 与上面这段逐位相同。打开、且惩罚权重为 0、所有准入候选都在阈值内时，
+保留中心距不小于 `inter_drone_hard_min_m`（默认 0.75 m）的候选，含测不到的 +inf。
+0.75 m 高于机间碰撞球 0.70 m（机体半径 0.35 m 的两倍），低于这一下限的仍然滤掉。
+保底集里按 `score - yield_penalty * (阈值 − d) / 阈值` 重排，同分取索引较小者。
+连下限都没有候选时，才回到原来的空集。不新做几何回退。
 """
 
 from __future__ import annotations
@@ -33,6 +40,10 @@ FALLBACK_CODE = "CORRIDOR_EMPTY_HOVER"
 class InterDroneConfig:
     threshold_m: float
     penalty: float
+    # E-A2 默认关。关时 inter_pick 不读后面两项，对象与只传前两项相同。
+    soft_yield: bool = False
+    hard_min_m: float = 0.75
+    yield_penalty: float = 2.0
 
 
 def inter_drone_config(params: dict | None) -> InterDroneConfig | None:
@@ -52,7 +63,43 @@ def inter_drone_config(params: dict | None) -> InterDroneConfig | None:
         raise ValueError(f"inter_drone_threshold_m 必须为正，收到 {raw['inter_drone_threshold_m']!r}")
     if not math.isfinite(penalty) or penalty < 0.0:
         raise ValueError(f"inter_drone_penalty 必须为非负，收到 {raw['inter_drone_penalty']!r}")
-    return InterDroneConfig(threshold_m=threshold, penalty=penalty)
+    soft = raw.get("inter_drone_soft_yield", False)
+    if soft is not True and soft is not False:
+        raise ValueError(f"inter_drone_soft_yield 必须是布尔值，收到 {soft!r}")
+    hard_min = 0.75
+    yield_penalty = 2.0
+    # 关掉时不读下限和让行权重，返回值与 E-A1 只传阈值、惩罚相同。
+    if soft is True:
+        if "inter_drone_hard_min_m" in raw:
+            hard_min = _positive_finite("inter_drone_hard_min_m", raw["inter_drone_hard_min_m"])
+        if "inter_drone_yield_penalty" in raw:
+            yield_penalty = _nonnegative_finite("inter_drone_yield_penalty", raw["inter_drone_yield_penalty"])
+    return InterDroneConfig(
+        threshold_m=threshold,
+        penalty=penalty,
+        soft_yield=soft,
+        hard_min_m=hard_min,
+        yield_penalty=yield_penalty,
+    )
+
+
+def _positive_finite(name: str, value) -> float:
+    """正实数。布尔值不能借 int 混进来（True 会变成 1.0）。"""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{name} 必须为正实数，收到 {value!r}")
+    number = float(value)
+    if not math.isfinite(number) or number <= 0.0:
+        raise ValueError(f"{name} 必须为正实数，收到 {value!r}")
+    return number
+
+
+def _nonnegative_finite(name: str, value) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{name} 必须为非负实数，收到 {value!r}")
+    number = float(value)
+    if not math.isfinite(number) or number < 0.0:
+        raise ValueError(f"{name} 必须为非负实数，收到 {value!r}")
+    return number
 
 
 @dataclass(frozen=True)
@@ -102,12 +149,39 @@ def inter_pick(
         adjusted[within] = score[within] - cfg.penalty * scale[within]
         penalized = n_within
     if not bool(feasible.any()):
+        # 只有惩罚为 0 的硬过滤才会把准入候选全部拿掉。软让行只接这一条，避免和减分路径抢。
+        if cfg.soft_yield and cfg.penalty == 0.0:
+            return _soft_yield_pick(score, admitted, clearances, cfg, filtered)
         return InterPick("empty", filtered=filtered, penalized=penalized)
     # 与 select_action 相同：可行者里 argmax，同分取 flatnonzero 的第一个（索引较小）。
     cand = np.flatnonzero(feasible)
     first = int(cand[int(np.argmax(adjusted[cand]))])
     rest = sorted((int(i) for i in cand.tolist() if int(i) != first), key=lambda i: (-float(adjusted[i]), i))
     return InterPick("adjusted", action=first, order=(first, *rest), filtered=filtered, penalized=penalized)
+
+
+def _soft_yield_pick(score, admitted, clearances, cfg: InterDroneConfig, filtered: int) -> InterPick:
+    """硬过滤已经清空可行集。留下不低于 hard_min_m 的准入候选（含 +inf），按让行权重重排。
+
+    低于下限的仍然算滤掉。一个都不剩时返回 empty，调用方走原来的悬停或刹停。
+    """
+    keep = admitted & (clearances >= float(cfg.hard_min_m))
+    if not bool(keep.any()):
+        return InterPick("empty", filtered=filtered, penalized=0)
+    adjusted = np.array(score, dtype=np.float64, copy=True)
+    finite = keep & np.isfinite(clearances)
+    penalized = 0
+    if bool(finite.any()):
+        scale = (float(cfg.threshold_m) - clearances[finite]) / float(cfg.threshold_m)
+        adjusted[finite] = score[finite] - float(cfg.yield_penalty) * scale
+        penalized = int(np.count_nonzero(finite & (clearances < float(cfg.threshold_m))))
+    still = int(np.count_nonzero(
+        admitted & np.isfinite(clearances) & (clearances < float(cfg.hard_min_m))
+    ))
+    cand = np.flatnonzero(keep)
+    first = int(cand[int(np.argmax(adjusted[cand]))])
+    rest = sorted((int(i) for i in cand.tolist() if int(i) != first), key=lambda i: (-float(adjusted[i]), i))
+    return InterPick("adjusted", action=first, order=(first, *rest), filtered=still, penalized=penalized)
 
 
 def sample_motion(motion, t0: float, horizon: float = SAMPLE_HORIZON_S, dt: float = SAMPLE_DT_S) -> np.ndarray:
