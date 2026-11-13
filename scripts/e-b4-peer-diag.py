@@ -41,6 +41,8 @@ if "--code-root" in sys.argv:
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from yopo_l0.experiment import json_text
+
 SCENES = {
     "swap8": "scenes/swap-8-open.json",
     "d014-swap3": "scenes/ego-density-014-swap3.json",
@@ -682,7 +684,7 @@ def collect(diag_dir: str, out_json: str) -> dict:
     compare.sort(key=lambda r: (r["scene"], r["label"], r["seed"]))
     data = {"disclaimer": DISCLAIMER, "diagnostics": _round(diags), "e_b3_refine_analysis": _round(analysis),
             "compare": _round(compare)}
-    Path(out_json).write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    Path(out_json).write_text(json_text(data, indent=1), encoding="utf-8")
     return data
 
 
@@ -765,7 +767,7 @@ def main(argv=None) -> int:
         return 0
     if args.analyze_dump:
         rows = analyze_dump(args.analyze_dump)
-        text = json.dumps(rows, ensure_ascii=False, indent=1)
+        text = json_text(rows, indent=1, final_newline=False)
         if args.out:
             Path(args.out).write_text(text + "\n", encoding="utf-8")
         print(text)
@@ -774,7 +776,7 @@ def main(argv=None) -> int:
         ap.error("需要 --scene")
     if args.compare:
         row = compare_row(args.scene, args.arm, args.seed, extra=extra, proto_brake=args.proto_brake)
-        text = json.dumps(row, ensure_ascii=False)
+        text = json_text(row, indent=None, final_newline=False)
         if args.out:
             Path(args.out).parent.mkdir(parents=True, exist_ok=True)
             Path(args.out).write_text(text + "\n", encoding="utf-8")
@@ -782,12 +784,12 @@ def main(argv=None) -> int:
         return 0
     s = diagnose(args.scene, args.arm, args.seed, window_s=args.window_s, post_s=args.post_s, extra=extra,
                  proto_brake=args.proto_brake, dump_refine=args.dump_refine)
-    text = json.dumps(s, indent=1, ensure_ascii=False)
+    text = json_text(s, indent=1, final_newline=False)
     if args.out:
         Path(args.out).parent.mkdir(parents=True, exist_ok=True)
         Path(args.out).write_text(text + "\n", encoding="utf-8")
     short = {k: v for k, v in s.items() if k not in ("window_ticks", "plan_events")}
-    print(json.dumps(short, indent=1, ensure_ascii=False))
+    print(json_text(short, indent=1, final_newline=False))
     return 0
 
 

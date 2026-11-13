@@ -10,6 +10,7 @@ from yopo_l0.experiment import (
     comma_floats,
     comma_ints,
     comma_list,
+    json_text,
     markdown_table,
     run_completion_jobs,
     run_spawn_jobs,
@@ -43,6 +44,8 @@ def test_json_and_markdown_rendering_are_byte_exact(tmp_path: Path):
     assert dest.read_bytes() == b'{\n  "\xe4\xb8\xad\xe6\x96\x87": [\n    1,\n    2\n  ]\n}\n'
     assert json.loads(dest.read_text(encoding="utf-8")) == {"中文": [1, 2]}
     assert markdown_table("| A | B |", "|---|---|", ["| 1 | 2 |"]) == "| A | B |\n|---|---|\n| 1 | 2 |"
+    assert json_text({"中文": 1}, indent=1) == '{\n "中文": 1\n}\n'
+    assert json_text({"a": 1}, indent=None, final_newline=False) == '{"a": 1}'
 
 
 def test_serial_job_shells_keep_order():
@@ -64,4 +67,16 @@ def test_migrated_scripts_locked_small_rendering():
         "### 分种子\n\n"
         "| 场景 | 臂 | seed | 结果 | 到达 | 撞树 | 机间 | 最小机间 m | 后段 p50 ms | 后段 p95 ms |\n"
         "|---|---|---|---|---|---|---|---|---|---|\n"
+    )
+    c5b = _load_script("e-c5b-track-clearance.py")
+    assert c5b.render_summary([]) == (
+        "| 卡 | 臂 | 偏离上游 | 到达 | 撞树 | 撞圆柱 | 机间碰撞 | 超时 | 最小树净空 m | 最小机间 m |\n"
+        "|---|---|---|---|---|---|---|---|---|---|"
+    )
+    b4 = _load_script("e-b4-peer-diag.py")
+    assert b4.render_compare([]) == (
+        "| 卡 | 臂 | seeds | 到达（架次） | 机间碰撞 | 撞树 | 超时 | 最小机间 m | 最小障碍 m | 刹停原型触发（规划拍） |\n"
+        "|---|---|---|---|---|---|---|---|---|---|\n\n"
+        "| 卡 | 臂 | seed | 结果 | 原因 | 到达 | 最小机间 m | 最小障碍 m | 仿真 s |\n"
+        "|---|---|---|---|---|---|---|---|---|"
     )

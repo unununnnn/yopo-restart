@@ -36,6 +36,15 @@ os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
 import numpy as np
 
+from yopo_l0.experiment import (
+    comma_ints,
+    comma_list,
+    markdown_table,
+    run_spawn_jobs,
+    unknown_values,
+    write_json,
+)
+
 ROOT = Path(__file__).resolve().parents[1]
 PARTIAL = ROOT / "out" / "e-c5b-track-clearance" / "partial"
 GEOM_NAME = "ego-density-014.json"
@@ -354,12 +363,7 @@ def job_specs(scenes, arms, seeds, *, resume: bool = True) -> list[tuple]:
 
 
 def _run_group(specs: list[tuple], jobs: int) -> list[dict]:
-    if jobs <= 1 or len(specs) <= 1:
-        return [_worker(spec) for spec in specs]
-    import multiprocessing as mp
-
-    with mp.get_context("spawn").Pool(jobs) as pool:
-        return pool.map(_worker, specs, chunksize=1)
+    return run_spawn_jobs(specs, _worker, jobs)
 
 
 def _rng(values: list[float]) -> str:
@@ -402,7 +406,7 @@ def render_summary(rows: list[dict]) -> str:
                 f"| {SCENE_LABEL[scene]} | {arm_label(arm)} | {dev} | {arrived}/{drones} | "
                 f"{tree} | {cyl} | {inter} | {timeout} | {_rng(trees)} | {_rng(gaps)} |"
             )
-    return "\n".join(lines)
+    return markdown_table(lines[0], lines[1], lines[2:])
 
 
 def render_tree_counts(rows: list[dict]) -> str:
@@ -429,7 +433,7 @@ def render_tree_counts(rows: list[dict]) -> str:
                 + " | ".join(str(counts[name]) for name in ec5.TREE_ORDER)
                 + " |"
             )
-    return "\n".join(lines)
+    return markdown_table(lines[0], lines[1], lines[2:])
 
 
 def render_tree_details(rows: list[dict]) -> str:
@@ -462,7 +466,7 @@ def render_tree_details(rows: list[dict]) -> str:
         )
     if len(lines) == 2:
         lines.append("| — | — | — | — | — | — | — | — | — | — | — | — |")
-    return "\n".join(lines)
+    return markdown_table(lines[0], lines[1], lines[2:])
 
 
 def render_seeds(rows: list[dict]) -> str:
@@ -482,7 +486,7 @@ def render_seeds(rows: list[dict]) -> str:
                     f"{row['outcome']} | `{row['reason']}` | {row['arrived']}/{row['n_drones']} | "
                     f"{tree_s} | {gap_s} | {float(row['sim_duration_s']):.2f} | {int(row['brake_plans'])} |"
                 )
-    return "\n".join(lines)
+    return markdown_table(lines[0], lines[1], lines[2:])
 
 
 def _check() -> int:
@@ -560,10 +564,10 @@ def main(argv=None) -> int:
         return _check()
     if args.jobs not in (1, 2, 3, 4):
         raise SystemExit("jobs 只能是 1 到 4")
-    scenes = [s for s in args.scenes.split(",") if s]
-    arms = [s for s in args.arms.split(",") if s]
-    seeds = [int(s) for s in args.seeds.split(",") if s != ""]
-    unknown = [s for s in scenes if s not in SCENES] + [s for s in arms if s not in ARMS]
+    scenes = comma_list(args.scenes)
+    arms = comma_list(args.arms)
+    seeds = comma_ints(args.seeds)
+    unknown = unknown_values(scenes, SCENES) + unknown_values(arms, ARMS)
     if unknown:
         raise SystemExit(f"未知场景或臂：{unknown}")
     _check()
@@ -595,8 +599,7 @@ def main(argv=None) -> int:
     dest = Path(args.out)
     if not dest.is_absolute():
         dest = ROOT / dest
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    write_json(dest, payload)
     print(render_summary(rows))
     print(render_tree_counts(rows))
     print(f"写入 {dest}")
