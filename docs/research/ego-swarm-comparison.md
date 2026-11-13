@@ -229,20 +229,51 @@ yopo-restart：实飞在 [SPEC](../SPEC.md) 的 Out of Scope 里。票 09 已关
 
 ## 5. 票
 
-这些票不在 [docs/tickets.md](../tickets.md) 里。要进那个列表时再搬。状态用那边的词：`todo`。每张票一个接缝：只加文档，或只加一张不进套件的卡，或只给结果记录加一个不参与确定性比较、也不进 gates 的字段。已冻卡的到达、碰撞和距离门不动。
+这些票已经搬进 [docs/tickets.md](../tickets.md)。下表按 main 上 `git log` 能对上的合入提交核准状态。每张票一个接缝：只加文档，或只加一张不进套件的卡，或只给结果记录加一个不参与确定性比较、也不进 gates 的字段。已冻卡的到达、碰撞和距离门不动。下面各小节的勾选清单是写计划时的验收口径，合入状态以表为准。
 
 | 票 | 标题 | 被谁阻塞 | 状态 |
 |---|---|---|---|
-| E-C1 | 外部跑 ego-planner-swarm，填论文同列的记录 | 无 | todo |
-| E-C2 | 3 机开阔对向卡，只报数 | 无 | todo |
-| E-C3 | 结果记录增加单次规划墙钟 | 无 | todo |
-| E-C4 | 8 机对向，以及一张标明假设的密度场 | E-C2 | todo |
-| E-B1 | 后段接缝说明，不写求解器 | E-C1 | todo |
-| E-B2 | 单机 B 样条原型，默认关 | E-B1 | todo |
-| E-B3 | 机间椭球惩罚接到后段 | E-B2 | todo |
-| E-A1 | 机间过滤开关，默认关 | E-C2 | todo |
+| E-C1 | 外部跑 ego-planner-swarm，填论文同列的记录 | 无 | done（#42，合入 `ad20920c8c24`） |
+| E-C2 | 3 机开阔对向卡，只报数 | 无 | done（#40，合入 `4c17a8d0b60f`） |
+| E-C3 | 结果记录增加单次规划墙钟 | 无 | done（#41，合入 `0d7e138f7a80`） |
+| E-C4 | 8 机对向，以及一张标明假设的密度场 | E-C2 | done（#50，合入 `c958a3e87fed`。该票本身未在密度场上跑 L0） |
+| E-C4 八机补跑 | 八机开阔对向 seeds 1–9，只报数 | E-C4 | done（#54，合入 `07bd3b1eda93`） |
+| E-C4 密度 L0 | 密度场 L0 seed 0，只报数 | E-C4 | done（#55，合入 `72450291481c`） |
+| E-C4 密度 L0 补跑 | 密度场 L0 seeds 1–9 与失败归因，只报数 | E-C4 | done（#59，合入 `cc6f5f7800be`） |
+| E-C4b | 补跑密度场 combo 臂 seeds 0–9，只报数 | E-C4 | done（#78，合入 `c0c4623e40d8`） |
+| E-C5 | 走廊 safe_radius 对照，只报数 | 无 | done（#75，合入 `ae1ab82a302a`） |
+| E-B1 | 后段接缝说明，不写求解器 | E-C1 | done（#47，与 E-B2 合入 `616909b78e6c`） |
+| E-B2 | 单机 B 样条原型，默认关 | E-B1 | done（#47，与 E-B1 合入 `616909b78e6c`） |
+| E-B2p | 后段提速，多数调用能在 0.02 s 预算内收敛 | E-B2 | done（#58，合入 `f05eac028893`） |
+| E-B3 | 机间椭球惩罚接到后段 | E-B2 | done（#65，合入 `f5cedba4540c`。收口见 [e-b3-closeout.md](e-b3-closeout.md)） |
+| E-B3c | 机间椭球改到段内采样，默认关，只报数 | E-B3 | done（#76，合入 `41e820f2ed63`） |
+| E-B3 收口 | 结论、开关保留与票表同步 | E-B3c | done（本票） |
+| E-B4 | 机间碰撞诊断，只报数 | 无 | done（#66，合入 `f5b668ff8cb6`） |
+| E-B4b | 无解时从参考头刹停（empty_brake，默认关） | E-B4 | done（#77，合入 `d6d00c386f3f`） |
+| E-A1 | 机间过滤开关，默认关 | E-C2 | done（#45，合入 `e07d93659428`） |
 
-第一批是 E-C1、E-C2、E-C3，三张互不阻塞。E-B 串在 E-C1 后面。E-A1 只在 E-C2 出现机间碰撞时才值得做。
+E-C1、E-C2、E-C3 已合入。E-B 串在 E-C1 后面，E-B1 至 E-B3c 已合入。E-A1 已合入。E-B3 的实现线在 [e-b3-closeout.md](e-b3-closeout.md) 收口：不再开后续调参或叠加欧氏铰链的实现票。E-B2p、E-B4、E-B4b、E-C4 的后续只报数、E-C4b、E-C5 只在表里登记合入，细节在各自的 `docs/research/` 记录里。
+
+同期已合入、原先不在这张表里的票，sha 与 [docs/tickets.md](../tickets.md) 相同：
+
+| 票 | 标题 | 被谁阻塞 | 状态 |
+|---|---|---|---|
+| 组合 | E-A1、D1、E-B2 三个开关一起只报数 | E-A1, D1, E-B2 | done（#52，合入 `54407cb153ee`） |
+| 组合-六机 | 六机林带上 E-A1、D1、E-B2 三个开关一起只报数 | E-A1, D1, E-B2 | done（#56，合入 `026cad288b6d`） |
+| D2b | 加密度 0 / 0.14 / 0.28 的 EGO-Swarm 教师轨迹（中途收口） | D2 | done（#60，合入 `ea62b302b048`） |
+| D2c | 登记 D2b 补齐后的全量教师数据清单 | D2b | done（#61，合入 `a30eb2b6b290`） |
+| D4 | 学生干路加邻机输入，默认关 | D3 | done（#57，合入 `34d3ed52f421`） |
+| D5 | 训练学生网络并接到 L0 闭环，默认关 | D4 | done（#62，合入 `737d88e28a45`） |
+| D5b | 学生闭环接口修正与改训练，默认关，report-only | D5 | done（#69，合入 `7520c62197f4`） |
+| D6 | 教师飞行高度扩到 {1.0, 1.5} 的数据规划与 z 平移可行性，report-only | D5b | done（#74，合入 `314ee0566f22`） |
+| S1 | box 上 headless 单机 PX4 SITL + Gazebo 冒烟，report-only | 无 | done（#63，合入 `8f5608d01071`） |
+| S1b | PX4 SITL 采用 RTK 厘米级定位源，默认关，report-only | S1 | done（#64，合入 `4dcc55c63521`） |
+| S2 | 三机 PX4 SITL + Gazebo headless 骨架，report-only | S1 | done（#73，合入 `7b5c58b9d4ea`） |
+| C1 | regress.sh 提速（pytest 并行、批跑 jobs 按 nproc、分段耗时表） | 无 | done（#71，合入 `056d9ae582be`） |
+| C2 | scripts/status.sh 只读状态快照 | 无 | done（#67，合入 `438cc313ebc9`） |
+| C3 | scripts/pr_summary.py 从 regress 输出生成 PR 说明 | 无 | done（#68，合入 `42936cf8b66f`） |
+| C5 | premerge 已验树缓存（record-verified-tree.sh） | 无 | done（#72，合入 `59bae63b6160`） |
+| V1 | E-B4 修复前后回放动图脚本，只报数 | E-B4 | done（#70，合入 `468c869f355c`） |
 
 ### E-C1：外部跑 ego-planner-swarm，填论文同列的记录
 
@@ -250,7 +281,7 @@ yopo-restart：实飞在 [SPEC](../SPEC.md) 的 Out of Scope 里。票 09 已关
 
 **被谁阻塞：** 无
 
-**状态：** todo
+**状态：** done（#42，合入 `ad20920c8c24`）
 
 - [ ] 表中每格标明来自论文、README 或这一次运行
 - [ ] 没有的量写未知
@@ -262,7 +293,7 @@ yopo-restart：实飞在 [SPEC](../SPEC.md) 的 Out of Scope 里。票 09 已关
 
 **被谁阻塞：** 无
 
-**状态：** todo
+**状态：** done（#40，合入 `4c17a8d0b60f`）
 
 - [ ] 结果写出到达、碰撞、最小机间距离、commit、场景卡哈希
 - [ ] 已冻卡的批跑结果不变
@@ -274,7 +305,7 @@ yopo-restart：实飞在 [SPEC](../SPEC.md) 的 Out of Scope 里。票 09 已关
 
 **被谁阻塞：** 无
 
-**状态：** todo
+**状态：** done（#41，合入 `0d7e138f7a80`）
 
 - [ ] 去掉新字段后，同 seed 的结果记录与改前一致
 - [ ] 旧测试在字段缺失时仍通过
@@ -286,7 +317,7 @@ yopo-restart：实飞在 [SPEC](../SPEC.md) 的 Out of Scope 里。票 09 已关
 
 **被谁阻塞：** E-C2
 
-**状态：** todo
+**状态：** done（#50，合入 `c958a3e87fed`）
 
 - [ ] 几何文件能被现有场景加载器读入，不改 `forest.py` 的三档
 - [ ] 结果页把假设和测量分开
@@ -298,7 +329,7 @@ yopo-restart：实飞在 [SPEC](../SPEC.md) 的 Out of Scope 里。票 09 已关
 
 **被谁阻塞：** E-C1
 
-**状态：** todo
+**状态：** done（#47，与 E-B2 合入 `616909b78e6c`）
 
 - [ ] 说明里写明不改网络权重、不改已冻 gates
 - [ ] 写明 GPLv3 源码不复制，公式按论文重写
@@ -310,7 +341,7 @@ yopo-restart：实飞在 [SPEC](../SPEC.md) 的 Out of Scope 里。票 09 已关
 
 **被谁阻塞：** E-B1
 
-**状态：** todo
+**状态：** done（#47，与 E-B1 合入 `616909b78e6c`）
 
 - [ ] 已冻场景同 seed 的到达、碰撞、距离与打开开关之前一致
 - [ ] 新卡只报数，记录是否收敛、最近障碍距离、规划墙钟
@@ -322,11 +353,27 @@ yopo-restart：实飞在 [SPEC](../SPEC.md) 的 Out of Scope 里。票 09 已关
 
 **被谁阻塞：** E-B2
 
-**状态：** todo
+**状态：** done（#65，合入 `f5cedba4540c`。收口见 [e-b3-closeout.md](e-b3-closeout.md)）
 
 - [ ] 关闭开关时与 E-B2 的单机结果一致
 - [ ] 对向卡报出最小机间距离和碰撞
 - [ ] 不把 Delay Check 的改动放进这张票
+
+### E-B3c：机间椭球改到段内采样
+
+**做什么：** 同一条椭球铰链改到每段 6 个内点。默认关。实测见 [e-b3c-segment-penalty.md](e-b3c-segment-penalty.md)。
+
+**被谁阻塞：** E-B3
+
+**状态：** done（#76，合入 `41e820f2ed63`）
+
+### E-B3 收口：结论、开关保留与票表同步
+
+**做什么：** 只更新文档和票表。结论、根因和开关保留写在 [e-b3-closeout.md](e-b3-closeout.md)。不改代码、测试和默认值。
+
+**被谁阻塞：** E-B3c
+
+**状态：** done（本票）
 
 ### E-A1：机间过滤开关，默认关
 
@@ -334,7 +381,7 @@ yopo-restart：实飞在 [SPEC](../SPEC.md) 的 Out of Scope 里。票 09 已关
 
 **被谁阻塞：** E-C2
 
-**状态：** todo
+**状态：** done（#45，合入 `e07d93659428`）
 
 - [ ] E-C2 没有机间碰撞时，这张票保持关闭，只留开关和测试
 - [ ] 打开后旧卡结果不变
