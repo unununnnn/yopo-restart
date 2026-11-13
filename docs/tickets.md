@@ -39,22 +39,49 @@ frank 拍板卡片未回；父代理代定（仅 L0，L1 不动）：
 | E-C1 | 外部跑 ego-planner-swarm，填论文同列的记录 | 无 | done（#42，合入 `ad20920c8c24`） |
 | E-C2 | 3 机开阔对向卡，只报数 | 无 | done（#40，合入 `4c17a8d0b60f`） |
 | E-C3 | 结果记录增加单次规划墙钟 | 无 | done（#41，合入 `0d7e138f7a80`） |
-| E-C4 | 8 机对向，以及一张标明假设的密度场 | E-C2 | done（#50，合入 `c958a3e87fed`。八机开阔对向 seed 0 只报数，另有密度几何文件；该票未在密度场上跑 L0） |
+| E-C4 | 8 机对向，以及一张标明假设的密度场 | E-C2 | done（#50，合入 `c958a3e87fed`。八机开阔对向 seed 0 只报数，另有密度几何文件；该票本身未在密度场上跑 L0，后续见下行） |
 | E-B1 | 后段接缝说明，不写求解器 | E-C1 | done（#47，与 E-B2 合入 `616909b78e6c`） |
 | E-B2 | 单机 B 样条原型，默认关 | E-B1 | done（#47，与 E-B1 合入 `616909b78e6c`） |
-| E-B3 | 机间椭球惩罚接到后段 | E-B2 | todo |
+| E-B3 | 机间椭球惩罚接到后段 | E-B2 | done（#65，合入 `f5cedba4540c`。默认关，只报数。收口见 [e-b3-closeout.md](research/e-b3-closeout.md)） |
+| E-B3c | 机间椭球改到段内采样，默认关，只报数 | E-B3 | done（#76，合入 `41e820f2ed63`） |
+| E-B3 收口 | 结论、开关保留与票表同步 | E-B3c | done（本票） |
 | E-A1 | 机间过滤开关，默认关 | E-C2 | done（#45，合入 `e07d93659428`） |
 | D1 | 几何回退 | 无 | done（#46，合入 `14dc25a8dab8`。默认关） |
 | D2 | EGO-Swarm 教师数据 | 无 | done（#49，合入 `be734163b85b`。密度 0.42：单机 9/16，三机与六机 0/16） |
 | D3 | 单机多头连续学生脚手架，默认关 | 无 | done（#51，合入 `7ef6a33d989f`。默认关，不进飞行环，未提交权重；可用教师集很薄） |
 | P1 | 推理加速 | 无 | done（#48，合入 `80f375baae8d`。默认仍是逐位相同的 inference_mode；YOPO_INFER_ACCEL 保持关） |
 | 组合 | E-A1、D1、E-B2 三个开关一起只报数 | E-A1, D1, E-B2 | done（#52，合入 `54407cb153ee`。开关仍默认关，不冻结） |
+| 组合-六机 | 六机林带上 E-A1、D1、E-B2 三个开关一起只报数 | E-A1, D1, E-B2 | done（#56，合入 `026cad288b6d`。开关仍默认关，不冻结） |
+| E-B2p | 后段提速，多数调用能在 0.02 s 预算内收敛 | E-B2 | done（#58，合入 `f05eac028893`） |
+| E-B4 | 机间碰撞诊断，只报数 | 无 | done（#66，合入 `f5b668ff8cb6`） |
+| E-B4b | 无解时从参考头刹停（empty_brake，默认关） | E-B4 | done（#77，合入 `d6d00c386f3f`） |
+| E-C4 八机补跑 | 八机开阔对向 seeds 1–9，只报数 | E-C4 | done（#54，合入 `07bd3b1eda93`） |
+| E-C4 密度 L0 | 密度场 L0 seed 0，只报数 | E-C4 | done（#55，合入 `72450291481c`） |
+| E-C4 密度 L0 补跑 | 密度场 L0 seeds 1–9 与失败归因，只报数 | E-C4 | done（#59，合入 `cc6f5f7800be`） |
+| E-C4b | 补跑密度场 combo 臂 seeds 0–9，只报数 | E-C4 | done（#78，合入 `c0c4623e40d8`） |
+| 走廊半径 | 走廊 safe_radius 对照，只报数 | 无 | done（#75，合入 `ae1ab82a302a`。票号写在 [ego-swarm-comparison.md](research/ego-swarm-comparison.md) 第 5 节。`tests/test_e_c5_corridor_radius.py` 断言本文件不含该票号，所以这里不重复） |
+| D2b | 加密度 0 / 0.14 / 0.28 的 EGO-Swarm 教师轨迹（中途收口） | D2 | done（#60，合入 `ea62b302b048`） |
+| D2c | 登记 D2b 补齐后的全量教师数据清单 | D2b | done（#61，合入 `a30eb2b6b290`） |
+| D4 | 学生干路加邻机输入，默认关 | D3 | done（#57，合入 `34d3ed52f421`） |
+| D5 | 训练学生网络并接到 L0 闭环，默认关 | D4 | done（#62，合入 `737d88e28a45`） |
+| D5b | 学生闭环接口修正与改训练，默认关，report-only | D5 | done（#69，合入 `7520c62197f4`） |
+| D6 | 教师飞行高度扩到 {1.0, 1.5} 的数据规划与 z 平移可行性，report-only | D5b | done（#74，合入 `314ee0566f22`） |
+| S1 | box 上 headless 单机 PX4 SITL + Gazebo 冒烟，report-only | 无 | done（#63，合入 `8f5608d01071`） |
+| S1b | PX4 SITL 采用 RTK 厘米级定位源，默认关，report-only | S1 | done（#64，合入 `4dcc55c63521`） |
+| S2 | 三机 PX4 SITL + Gazebo headless 骨架，report-only | S1 | done（#73，合入 `7b5c58b9d4ea`） |
+| C1 | regress.sh 提速（pytest 并行、批跑 jobs 按 nproc、分段耗时表） | 无 | done（#71，合入 `056d9ae582be`） |
+| C2 | scripts/status.sh 只读状态快照 | 无 | done（#67，合入 `438cc313ebc9`） |
+| C3 | scripts/pr_summary.py 从 regress 输出生成 PR 说明 | 无 | done（#68，合入 `42936cf8b66f`） |
+| C5 | premerge 已验树缓存（record-verified-tree.sh） | 无 | done（#72，合入 `59bae63b6160`） |
+| V1 | E-B4 修复前后回放动图脚本，只报数 | E-B4 | done（#70，合入 `468c869f355c`） |
 
 12：交付包收口。12a README 一键命令（#33，`78f63bcdb9bc`）；12b 结果总表（#36，`252bae86781e`）；12c 视频索引（#35，`cf9c0b0b9832`）；12d 已知限制（#34，`7a545ac3a645`）；12e 上游策略 vs 影子盾（#37，`0bb043cae739`）；12f 本票：README 顶部增加交付包入口，并核验所有表格带层级和 commit。干净检出复现由 12a 的 `tests/test_demo.py` 覆盖。
 
-E 票：来自 `docs/research/ego-swarm-comparison.md`（#39，合入 `47a3041474a6`）。E-C1（#42，`ad20920c8c24`）、E-C2（#40，`4c17a8d0b60f`）、E-C3（#41，`0d7e138f7a80`）、E-A1（#45，`e07d93659428`）、E-B1 与 E-B2（#47，`616909b78e6c`）、E-C4（#50，`c958a3e87fed`）已合。E-B3 仍为 todo。已冻门不动。E-A1、D1、E-B2 三个开关一起只报数（#52，`54407cb153ee`）：开关仍默认关，不冻结。
+E 票：来自 `docs/research/ego-swarm-comparison.md`（#39，合入 `47a3041474a6`）。E-C1（#42，`ad20920c8c24`）、E-C2（#40，`4c17a8d0b60f`）、E-C3（#41，`0d7e138f7a80`）、E-A1（#45，`e07d93659428`）、E-B1 与 E-B2（#47，`616909b78e6c`）、E-B2p（#58，`f05eac028893`）、E-B3（#65，`f5cedba4540c`）、E-B3c（#76，`41e820f2ed63`）、E-B4（#66，`f5b668ff8cb6`）、E-B4b（#77，`d6d00c386f3f`）、E-C4（#50，`c958a3e87fed`）、E-C4 的后续只报数（#54 `07bd3b1eda93`、#55 `72450291481c`、#59 `cc6f5f7800be`）、E-C4b（#78，`c0c4623e40d8`）、走廊 safe_radius 对照（#75，`ae1ab82a302a`）已合。E-B3 实现线收口见 [e-b3-closeout.md](research/e-b3-closeout.md)（本票）：不再开后续调参或叠加欧氏铰链的实现票。已冻门不动。E-A1、D1、E-B2 三个开关一起只报数（#52，`54407cb153ee`；六机林带 #56，`026cad288b6d`）：开关仍默认关，不冻结。
 
-D / P 票：D1（#46，`14dc25a8dab8`，默认关）、D2（#49，`be734163b85b`。密度 0.42：单机 9/16，三机与六机 0/16）、D3（#51，`7ef6a33d989f`。默认关的学生脚手架，不进飞行环，未提交权重；可用教师集很薄）、P1（#48，`80f375baae8d`。默认仍是逐位相同的 inference_mode，YOPO_INFER_ACCEL 保持关）已合。D4、D5 未开工。
+D / P 票：D1（#46，`14dc25a8dab8`，默认关）、D2（#49，`be734163b85b`。密度 0.42：单机 9/16，三机与六机 0/16）、D2b（#60，`ea62b302b048`）、D2c（#61，`a30eb2b6b290`）、D3（#51，`7ef6a33d989f`。默认关的学生脚手架，不进飞行环，未提交权重；可用教师集很薄）、D4（#57，`34d3ed52f421`）、D5（#62，`737d88e28a45`）、D5b（#69，`7520c62197f4`）、D6（#74，`314ee0566f22`）、P1（#48，`80f375baae8d`。默认仍是逐位相同的 inference_mode，YOPO_INFER_ACCEL 保持关）已合。
+
+S / C / V：S1（#63，`8f5608d01071`）、S1b（#64，`4dcc55c63521`）、S2（#73，`7b5c58b9d4ea`）、C1（#71，`056d9ae582be`）、C2（#67，`438cc313ebc9`）、C3（#68，`42936cf8b66f`）、C5（#72，`59bae63b6160`）、V1（#70，`468c869f355c`）已合。这些是只报数或工具脚本，不改已冻门。
 
 06b：同步出发那一轮收不齐 ACK 时，本机在 t_start 超时 RELEASE，并按 resend_period 重发 RELEASE/COMMIT。下一轮自己的窗口重新提案，沿本槽弧长追到当前时刻表（速度/加速度不超过计划限幅），只飞本机已提交的计划。随机丢包+乱序只报数。
 

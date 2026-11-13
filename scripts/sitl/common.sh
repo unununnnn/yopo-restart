@@ -15,3 +15,15 @@ else
 fi
 image_exists() { "${DOCKER[@]}" image inspect "$SITL_IMAGE" >/dev/null 2>&1; }
 pid_alive() { [[ -f "$1" ]] && kill -0 "$(cat "$1")" 2>/dev/null; }
+# n=1 沿用 S1 容器名。n>1 是票 S2 的一趟仿真（容器里有 n 个 PX4 进程）。
+sitl_container_name() {
+  if [[ "$1" == "1" ]]; then
+    printf '%s\n' "yopo-restart-s1-sitl"
+  else
+    printf '%s\n' "yopo-restart-sitl-n$1"
+  fi
+}
+sitl_running_names() {
+  "${DOCKER[@]}" ps --format '{{.Names}}' 2>/dev/null \
+    | grep -E '^yopo-restart-s(1-sitl|itl-n[0-9]+)$' || true
+}

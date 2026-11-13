@@ -1,4 +1,4 @@
-# scripts/sitl：box 上的单机 PX4 SITL（票 S1，report-only）
+# scripts/sitl：box 上的 PX4 SITL（票 S1 单机，票 S2 三机骨架，report-only）
 
 headless 跑一个 PX4 实例（gz_x500，Gazebo Harmonic 服务端），用 ROS 2 + px4_msgs 走 offboard：
 起飞到 2.5 m → 悬停 10 s（仿真时间）→ 飞到悬停点 +(5, 3, 0) m（ENU）→ PX4 自己的 NAV_LAND。
@@ -30,3 +30,36 @@ scripts/sitl/compare.sh       # 默认与 RTK 各跑 2 次，出对照表
 - report-only：判据未冻结，不进 `scenes/suite.txt`，不进 regress。
 - box 网络：packages.ros.org 证书不匹配、osrfoundation 的 http 返回 500，所以 ROS 直接用
   `ros:humble-ros-base-jammy`，Gazebo 源改用 https。
+
+## 票 S2：三机骨架（report-only，判据未冻结）
+
+在同一套镜像上再拉三架 x500。不另改 PX4 安全参数；`--positioning rtk` 仍只注入 S1b 白名单。
+本说明没有实测数字。误差写在每次运行的 `result.json` 里，在 box 上跑完才有。
+
+```bash
+scripts/sitl/up.sh --n 3          # 镜像没有就先构建，然后拉起 3 架（headless，不起飞）
+scripts/sitl/up.sh --n 3 --status
+scripts/sitl/up.sh --n 3 --down
+scripts/sitl/smoke.sh --n 3       # 三机各自起飞到 1.5 m 悬停点，采样后再降落
+scripts/sitl/smoke.sh --n 3 --positioning rtk
+```
+
+`smoke.sh --n 3` 如果发现 `up.sh --n 3` 的容器还在，就在里面补跑任务；否则自己起一趟仿真并飞完。
+`--n` 省略时仍是 S1 单机任务（2.5 m、平移、降落），不是这条 1.5 m 悬停。
+
+身份按 PX4 v1.17 的 posix `rcS`，脚本不写这些参数：
+
+| 机 | `px4 -i` | MAV_SYS_ID | uXRCE namespace | Gazebo 模型 | GCS UDP | 生成点（x,y） |
+|---|---|---|---|---|---|---|
+| 1 | 1 | 2 | `px4_1` | `x500_1` | 18571 | 0, 0 |
+| 2 | 2 | 3 | `px4_2` | `x500_2` | 18572 | 0, 3 |
+| 3 | 3 | 4 | `px4_3` | `x500_3` | 18573 | 0, 6 |
+
+- instance 0 没有 namespace，所以三机从 instance 1 起，namespace 才是 `px4_1`..`px4_3`。`MAV_SYS_ID` 因此是 2、3、4。
+- 一个 Micro-XRCE-DDS Agent（端口 8888），一个 DDS 域（`ROS_DOMAIN_ID=0`，三机相同）。不设 `PX4_UXRCE_DDS_NS`。
+- 第一架拉起 Gazebo，其余 `PX4_GZ_STANDALONE=1` 接进同一个世界。`HEADLESS=1`。生成点在 y 上隔 3 m，避免叠在一起。
+- 每机：起飞到自己起飞点上方 1.5 m → 悬停 10 s（仿真时间，只为采样）→ PX4 自己的 NAV_LAND。不飞 S1 那个平移点。
+- `result.json` 的 schema 是 `yopo-restart/s2-sitl-fleet/1`。`report_only=true`，`criteria_frozen=false`。
+  `ok` 只表示每机都落地并上锁。悬停高度误差（估计 / Gazebo 真值）和估计相对真值的高度偏差按机记录，不设门。
+- 仍是一次只起一趟仿真。容器名 `yopo-restart-sitl-n3`。输出在 `/workspace/yopo-ops/sitl/runs/<时间>-n3/`。
+- 不进 `scenes/suite.txt`，不进 regress 的场景批跑。单测只覆盖布局、任务状态机和 `result.json` / 表的生成。

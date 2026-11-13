@@ -29,9 +29,21 @@ from .assumptions import (
 )
 
 
-def scenario_id(density: float, n_drones: int, pattern: str, seed: int) -> str:
+def scenario_id(
+    density: float,
+    n_drones: int,
+    pattern: str,
+    seed: int,
+    flight_z_m: float | None = None,
+) -> str:
     tag = {0.0: "d000", 0.14: "d014", 0.28: "d028", 0.42: "d042"}[float(density)]
-    return f"{tag}-n{n_drones}-{pattern}-s{seed}"
+    base = f"{tag}-n{n_drones}-{pattern}-s{seed}"
+    if flight_z_m is None or float(flight_z_m) == float(FLIGHT_Z_M):
+        return base
+    milli = int(round(float(flight_z_m) * 100.0))
+    if abs(milli / 100.0 - float(flight_z_m)) > 1e-6:
+        raise ValueError(f"飞行高度要能写成 0.01 m 的整数倍，收到 {flight_z_m}")
+    return f"{tag}-n{n_drones}-{pattern}-z{milli:03d}-s{seed}"
 
 
 def iter_scenarios():
@@ -42,10 +54,19 @@ def iter_scenarios():
                     yield make_scenario(density, n_drones, pattern, seed)
 
 
-def make_scenario(density: float, n_drones: int, pattern: str, seed: int) -> dict:
+def make_scenario(
+    density: float,
+    n_drones: int,
+    pattern: str,
+    seed: int,
+    flight_z_m: float | None = None,
+) -> dict:
     if pattern not in PATTERNS:
         raise ValueError(f"图案只支持 parallel 与 headon，收到 {pattern}")
     density = float(density)
+    z = FLIGHT_Z_M if flight_z_m is None else float(flight_z_m)
+    if not np.isfinite(z) or z <= 0.0:
+        raise ValueError(f"飞行高度必须是正的有限数，收到 {flight_z_m}")
     ys = lane_ys(n_drones)
     goal_ys = list(reversed(ys)) if pattern == "headon" else list(ys)
     drones = []
@@ -54,8 +75,8 @@ def make_scenario(density: float, n_drones: int, pattern: str, seed: int) -> dic
             {
                 "ros_id": i,
                 "id": f"uav{i}",
-                "start_enu": [START_X_M, float(y0), FLIGHT_Z_M],
-                "goal_enu": [GOAL_X_M, float(y1), FLIGHT_Z_M],
+                "start_enu": [START_X_M, float(y0), z],
+                "goal_enu": [GOAL_X_M, float(y1), z],
             }
         )
     anchors = [d["start_enu"] for d in drones] + [d["goal_enu"] for d in drones]
@@ -67,7 +88,7 @@ def make_scenario(density: float, n_drones: int, pattern: str, seed: int) -> dic
     n = len(cylinders)
     area = MAP_SIDE_M * MAP_SIDE_M
     return {
-        "id": scenario_id(density, n_drones, pattern, seed),
+        "id": scenario_id(density, n_drones, pattern, seed, None if flight_z_m is None else z),
         "density_per_m2": density,
         "n_drones": n_drones,
         "pattern": pattern,
@@ -75,7 +96,7 @@ def make_scenario(density: float, n_drones: int, pattern: str, seed: int) -> dic
         "map_side_m": MAP_SIDE_M,
         "obstacle_radius_m": OBSTACLE_RADIUS_M,
         "body_radius_m": BODY_RADIUS_M,
-        "flight_z_m": FLIGHT_Z_M,
+        "flight_z_m": z,
         "drones": drones,
         "cylinders": cylinders,
         "n_obstacles": n,

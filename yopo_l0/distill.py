@@ -59,13 +59,15 @@ class WindowBatch:
     horizon_dt_s: float
     max_range_m: float
     n_neighbors: int
+    # 0 表示不平移。非 0 时位置和目标的世界系 z 加了这么多米，深度按 L0 相机重渲。
+    altitude_shift_m: float = 0.0
 
     @property
     def n(self) -> int:
         return int(self.state.shape[0])
 
     def meta(self) -> dict:
-        return {
+        out = {
             "tensor_schema": TENSOR_SCHEMA,
             "teacher_schema": TEACHER_SCHEMA,
             "scenario_id": self.scenario_id,
@@ -92,6 +94,13 @@ class WindowBatch:
             ),
             "bsplines": "未把系数写入张量",
         }
+        if self.altitude_shift_m != 0.0:
+            out["altitude_shift_m"] = float(self.altitude_shift_m)
+            out["altitude_note"] = (
+                "位置和目标的世界系 z 平移了这么多米，再按 L0 相机重渲深度。"
+                "速度、加速度、偏航不改。障碍和地面不平移。"
+            )
+        return out
 
 
 def _empty(
@@ -192,9 +201,18 @@ def convert_run(
     *,
     max_windows: int | None = None,
     cfg: StudentConfig | None = None,
+    altitude_shift_m: float = 0.0,
 ) -> WindowBatch:
-    """成功记录 → 窗口。每一架都是一个视点。``metrics.success`` 不是 true 时返回空批次，不渲染。"""
+    """成功记录 → 窗口。每一架都是一个视点。``metrics.success`` 不是 true 时返回空批次，不渲染。
+
+    ``altitude_shift_m`` 默认 0。为 0 时不改数组，输出与不传这个参数逐位相同。
+    非 0 时把位置和目标的世界系 z 加上这个数，深度按平移后的位姿用 L0 相机重渲。
+    速度、加速度、偏航、障碍和地面都不改。机体坐标里的相对量因此不变，变的是深度。
+    """
     cfg = cfg or StudentConfig()
+    shift = float(altitude_shift_m)
+    if not np.isfinite(shift):
+        raise DistillError(f"altitude_shift_m 必须是有限数，收到 {altitude_shift_m!r}")
     if cfg.horizon_steps != HORIZON_STEPS or cfg.depth_height != DEPTH_HEIGHT or cfg.depth_width != DEPTH_WIDTH:
         raise DistillError("本票的转换只产出固定的 8 步、24×40 窗口。")
     run_dir = Path(run_dir)
@@ -240,6 +258,11 @@ def convert_run(
         raise DistillError(f"{traj_path} 的 yaw_rad 形状是 {yaw.shape}，应为 {(time_s.shape[0], n_drones)}")
     if goal.shape != (n_drones, 3):
         raise DistillError(f"{traj_path} 的 goal_m 形状是 {goal.shape}")
+    if shift != 0.0:
+        position = np.array(position, copy=True)
+        goal = np.array(goal, copy=True)
+        position[:, :, 2] += shift
+        goal[:, 2] += shift
     declared = scenario.get("n_drones")
     if declared is not None and int(declared) != n_drones:
         raise DistillError(f"scenario.n_drones={declared} 与轨迹机数 {n_drones} 不一致")
@@ -362,6 +385,7 @@ def convert_run(
         horizon_dt_s=dt,
         max_range_m=float(camera_cfg.max_range_m),
         n_neighbors=n_k,
+        altitude_shift_m=shift,
     )
 
 
@@ -407,6 +431,7 @@ def load_batch(path: Path | str) -> WindowBatch:
             horizon_dt_s=float(meta["horizon_dt_s"]),
             max_range_m=float(meta["max_range_m"]),
             n_neighbors=int(meta.get("n_neighbors", NEIGHBOR_K)),
+            altitude_shift_m=float(meta.get("altitude_shift_m", 0.0)),
         )
 
 
@@ -417,20 +442,23 @@ def parse_run_id(run_id: str) -> dict:
     """解析 d000-n3-headon-s12 这类教师场次编号。"""
     import re
 
-    m = re.fullmatch(r"d(\d+)-n(\d+)-(headon|parallel)-s(\d+)", str(run_id))
+    m = re.fullmatch(r"d(\d+)-n(\d+)-(headon|parallel)(?:-z(\d+))?-s(\d+)", str(run_id))
     if m is None:
         raise DistillError(f"无法解析场次编号：{run_id}")
     density_code = m.group(1)
     density = int(density_code) / 100.0
-    return {
+    info = {
         "id": str(run_id),
         "density_code": density_code,
         "density_per_m2": density,
         "n_drones": int(m.group(2)),
         "pattern": m.group(3),
-        "seed": int(m.group(4)),
+        "seed": int(m.group(5)),
         "scene_key": f"d{density_code}-n{m.group(2)}-{m.group(3)}",
     }
+    if m.group(4) is not None:
+        info["flight_z_m"] = int(m.group(4)) / 100.0
+    return info
 
 
 def is_holdout_seed(seed: int, *, mod: int = HOLD_SEED_MOD) -> bool:

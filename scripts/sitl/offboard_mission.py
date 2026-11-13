@@ -36,6 +36,7 @@ class MissionConfig:
     takeoff_alt_m: float = 2.5
     hover_s: float = 10.0
     goal_offset_enu: tuple[float, float, float] = (5.0, 3.0, 0.0)  # 相对悬停点
+    land_at_hover: bool = False  # True：悬停采样结束后直接 NAV_LAND，不飞 GOTO（票 S2）
     warmup_s: float = 1.0  # 切 offboard 前先连续发心跳和设定点
     settle_pos_m: float = 0.2
     settle_vel_mps: float = 0.3
@@ -221,6 +222,9 @@ class Mission:
                     self.metrics.hover_est_truth_alt_bias_mean_m = float(np.mean(d))
                     self.metrics.hover_est_truth_alt_bias_rms_m = float(np.sqrt(np.mean(d * d)))
                     self.metrics.hover_est_truth_alt_bias_max_m = float(np.max(np.abs(d)))
+                if c.land_at_hover:
+                    self._enter("LAND", s.t)
+                    return Action(self._pva(self.hover_sp), self.yaw_enu, ["land"])
                 self._enter("GOTO", s.t)
                 return Action(self._pva(self.goal_sp), self.yaw_enu)
             return Action(self._pva(self.hover_sp), self.yaw_enu)

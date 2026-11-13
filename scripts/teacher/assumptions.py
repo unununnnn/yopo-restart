@@ -37,6 +37,8 @@ SPAWN_CLEARANCE_EXTRA_M = 0.30
 # 同样标成假设。
 START_X_M = -9.0
 GOAL_X_M = 9.0
+# 已有教师数据全是这个高度。D6 另加 1.5 m 时走 make_scenario(flight_z_m=1.5)，
+# 不改这个默认值。评测卡飞的是 1.5 m。
 FLIGHT_Z_M = 1.0
 
 # 论文没有到达半径。0.5 m / 0.3 m/s / 1.0 s 是本管线的到达定义，写进场景卡，

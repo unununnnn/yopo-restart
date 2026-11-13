@@ -40,7 +40,13 @@ from .policy import (
     PolicyContext,
     deviates_from_upstream,
     empty_solution_count,
+    read_empty_brake,
     read_safe_radius,
+    read_track_body_radius_m,
+    read_track_clearance,
+    read_track_clearance_mode,
+    read_track_margin_m,
+    track_clearance_wants_neighbors,
 )
 from .scene import SceneCard
 from .sensor import CameraConfig, DepthCamera
@@ -226,12 +232,17 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         )
     faults = _faults(card, cfg)
     bus = MessageBus(faults, rng=np.random.default_rng(np.random.SeedSequence([cfg.seed, _BUS_SEED_SALT])))
-    # 只在 upstream 且打开 E-A1 或 E-B3 时，才把已提交采样放进既有的 peer_plan。两项都关时载荷与以前相同。
+    # 只在 upstream 且打开 E-A1、E-B3 或 E-C5b geom_multi 时，才把已提交采样放进既有的 peer_plan。
+    # 都关时载荷与以前相同。采样在本 tick 全部 plan() 之后才 poll，第 0 个规划拍策略还看不到邻机。
     params = tuned.get("policy_params")
     broadcast_traj = (
         fleet is None
         and cfg.policy == "upstream"
-        and (inter_drone_config(params) is not None or swarm_penalty_enabled(params))
+        and (
+            inter_drone_config(params) is not None
+            or swarm_penalty_enabled(params)
+            or track_clearance_wants_neighbors(params)
+        )
     )
     # 只有显式选 student 才附带邻机里程计。其他策略的载荷与以前相同。
     broadcast_student = fleet is None and cfg.policy == "student"
@@ -484,6 +495,17 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         radius_m = read_safe_radius(tuned.get("policy_params"))
         result["safe_radius_m"] = radius_m
         result["upstream_deviation"] = deviates_from_upstream(radius_m)
+        # E-B4b：只有 goto / hover 的 upstream 策略读这个开关。关时不加字段。
+        if fleet is None and cfg.policy == "upstream" and read_empty_brake(tuned.get("policy_params")):
+            result["empty_brake"] = True
+            result["upstream_deviation"] = True
+        # E-C5b：关时不加字段。开着才标偏离上游（半径仍可以是 0.05 m）。
+        if fleet is None and cfg.policy == "upstream" and read_track_clearance(tuned.get("policy_params")):
+            result["track_clearance"] = True
+            result["track_clearance_mode"] = read_track_clearance_mode(tuned.get("policy_params"))
+            result["track_margin_m"] = read_track_margin_m(tuned.get("policy_params"))
+            result["track_body_radius_m"] = read_track_body_radius_m(tuned.get("policy_params"))
+            result["upstream_deviation"] = True
         if fleet is not None and hasattr(fleet, "empty_solution"):
             result["empty_solution_count"] = int(fleet.empty_solution)
         else:
