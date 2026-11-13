@@ -59,7 +59,7 @@ frank 拍板卡片未回；父代理代定（仅 L0，L1 不动）：
 | E-C4 密度 L0 | 密度场 L0 seed 0，只报数 | E-C4 | done（#55，合入 `72450291481c`） |
 | E-C4 密度 L0 补跑 | 密度场 L0 seeds 1–9 与失败归因，只报数 | E-C4 | done（#59，合入 `cc6f5f7800be`） |
 | E-C4b | 补跑密度场 combo 臂 seeds 0–9，只报数 | E-C4 | done（#78，合入 `c0c4623e40d8`） |
-| E-C5 | 走廊 safe_radius 对照，只报数 | 无 | done（#75，合入 `ae1ab82a302a`） |
+| 走廊半径 | 走廊 safe_radius 对照，只报数 | 无 | done（#75，合入 `ae1ab82a302a`。票号写在 [ego-swarm-comparison.md](research/ego-swarm-comparison.md) 第 5 节。`tests/test_e_c5_corridor_radius.py` 断言本文件不含该票号，所以这里不重复） |
 | D2b | 加密度 0 / 0.14 / 0.28 的 EGO-Swarm 教师轨迹（中途收口） | D2 | done（#60，合入 `ea62b302b048`） |
 | D2c | 登记 D2b 补齐后的全量教师数据清单 | D2b | done（#61，合入 `a30eb2b6b290`） |
 | D4 | 学生干路加邻机输入，默认关 | D3 | done（#57，合入 `34d3ed52f421`） |
@@ -77,7 +77,7 @@ frank 拍板卡片未回；父代理代定（仅 L0，L1 不动）：
 
 12：交付包收口。12a README 一键命令（#33，`78f63bcdb9bc`）；12b 结果总表（#36，`252bae86781e`）；12c 视频索引（#35，`cf9c0b0b9832`）；12d 已知限制（#34，`7a545ac3a645`）；12e 上游策略 vs 影子盾（#37，`0bb043cae739`）；12f 本票：README 顶部增加交付包入口，并核验所有表格带层级和 commit。干净检出复现由 12a 的 `tests/test_demo.py` 覆盖。
 
-E 票：来自 `docs/research/ego-swarm-comparison.md`（#39，合入 `47a3041474a6`）。E-C1（#42，`ad20920c8c24`）、E-C2（#40，`4c17a8d0b60f`）、E-C3（#41，`0d7e138f7a80`）、E-A1（#45，`e07d93659428`）、E-B1 与 E-B2（#47，`616909b78e6c`）、E-B2p（#58，`f05eac028893`）、E-B3（#65，`f5cedba4540c`）、E-B3c（#76，`41e820f2ed63`）、E-B4（#66，`f5b668ff8cb6`）、E-B4b（#77，`d6d00c386f3f`）、E-C4（#50，`c958a3e87fed`）、E-C4 的后续只报数（#54 `07bd3b1eda93`、#55 `72450291481c`、#59 `cc6f5f7800be`）、E-C4b（#78，`c0c4623e40d8`）、E-C5（#75，`ae1ab82a302a`）已合。E-B3 实现线收口见 [e-b3-closeout.md](research/e-b3-closeout.md)（本票）：不再开后续调参或叠加欧氏铰链的实现票。已冻门不动。E-A1、D1、E-B2 三个开关一起只报数（#52，`54407cb153ee`；六机林带 #56，`026cad288b6d`）：开关仍默认关，不冻结。
+E 票：来自 `docs/research/ego-swarm-comparison.md`（#39，合入 `47a3041474a6`）。E-C1（#42，`ad20920c8c24`）、E-C2（#40，`4c17a8d0b60f`）、E-C3（#41，`0d7e138f7a80`）、E-A1（#45，`e07d93659428`）、E-B1 与 E-B2（#47，`616909b78e6c`）、E-B2p（#58，`f05eac028893`）、E-B3（#65，`f5cedba4540c`）、E-B3c（#76，`41e820f2ed63`）、E-B4（#66，`f5b668ff8cb6`）、E-B4b（#77，`d6d00c386f3f`）、E-C4（#50，`c958a3e87fed`）、E-C4 的后续只报数（#54 `07bd3b1eda93`、#55 `72450291481c`、#59 `cc6f5f7800be`）、E-C4b（#78，`c0c4623e40d8`）、走廊 safe_radius 对照（#75，`ae1ab82a302a`）已合。E-B3 实现线收口见 [e-b3-closeout.md](research/e-b3-closeout.md)（本票）：不再开后续调参或叠加欧氏铰链的实现票。已冻门不动。E-A1、D1、E-B2 三个开关一起只报数（#52，`54407cb153ee`；六机林带 #56，`026cad288b6d`）：开关仍默认关，不冻结。
 
 D / P 票：D1（#46，`14dc25a8dab8`，默认关）、D2（#49，`be734163b85b`。密度 0.42：单机 9/16，三机与六机 0/16）、D2b（#60，`ea62b302b048`）、D2c（#61，`a30eb2b6b290`）、D3（#51，`7ef6a33d989f`。默认关的学生脚手架，不进飞行环，未提交权重；可用教师集很薄）、D4（#57，`34d3ed52f421`）、D5（#62，`737d88e28a45`）、D5b（#69，`7520c62197f4`）、D6（#74，`314ee0566f22`）、P1（#48，`80f375baae8d`。默认仍是逐位相同的 inference_mode，YOPO_INFER_ACCEL 保持关）已合。
 

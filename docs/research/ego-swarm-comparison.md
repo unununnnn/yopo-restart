@@ -241,7 +241,7 @@ yopo-restart：实飞在 [SPEC](../SPEC.md) 的 Out of Scope 里。票 09 已关
 | E-C4 密度 L0 | 密度场 L0 seed 0，只报数 | E-C4 | done（#55，合入 `72450291481c`） |
 | E-C4 密度 L0 补跑 | 密度场 L0 seeds 1–9 与失败归因，只报数 | E-C4 | done（#59，合入 `cc6f5f7800be`） |
 | E-C4b | 补跑密度场 combo 臂 seeds 0–9，只报数 | E-C4 | done（#78，合入 `c0c4623e40d8`） |
-| E-C5 | 走廊 safe_radius 对照，只报数 | 无 | done（#75，合入 `ae1ab82a302a`） |
+| E-C5 | 走廊 safe_radius 对照，只报数 | 无 | done（#75，合入 `ae1ab82a302a`。票表用同一 sha 登记，不重复本编号：`tests/test_e_c5_corridor_radius.py` 断言 `docs/tickets.md` 不含 `E-C5`） |
 | E-B1 | 后段接缝说明，不写求解器 | E-C1 | done（#47，与 E-B2 合入 `616909b78e6c`） |
 | E-B2 | 单机 B 样条原型，默认关 | E-B1 | done（#47，与 E-B1 合入 `616909b78e6c`） |
 | E-B2p | 后段提速，多数调用能在 0.02 s 预算内收敛 | E-B2 | done（#58，合入 `f05eac028893`） |
