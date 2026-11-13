@@ -11,6 +11,11 @@ E-B3c（``swarm_segment_penalty``，默认关）把同一条椭球铰链改到�
 打开时不再钉死：最近点常常落在轨迹尾部，钉死的末端收不到步长。关掉时自由集
 和代价都与 E-B3 逐位相同。
 
+E-B4c（``peer_sphere_enabled``，默认关）是另一条线，不改椭球开关。它只在
+时间对齐点的 3D 欧氏距离小于 ``peer_sphere_radius_m`` 时加平滑二次/三次铰链，
+打在除最后一跨之外的段内采样上。头尾控制点仍按原来的规则钉死，障碍走廊权重
+和末段平滑权重不动。关掉时不读邻机，自由集和代价与加这项之前逐位相同。
+
 不复制 ego-planner-swarm。那份代码是 GPLv3，本仓库根目录没有 LICENSE。
 代价按论文的角色重写：平滑是控制点三阶差分，碰撞是米制有符号距离上的平方铰链，
 可行是速度、加速度超过上限的平方铰链，机间是论文式 (5)(6) 的椭球软障碍。
@@ -45,6 +50,8 @@ _LAMBDA_W = 40.0
 _SWARM_EPS = 1e-9
 # E-B3c：每段内点个数，落在 4–8。取各等分箱的中点，段端点不重复计。
 _SWARM_SEGMENT_SAMPLES = 6
+# L0 机间碰撞球。peer_sphere_radius 比它多出来的一截是三次过渡带，再往里是二次。
+_PEER_COLLISION_BALL_M = 0.70
 # 软惩罚比机体半径多出来的一截。铰链在门槛上梯度为零，留 5 cm 才推得动表面。
 _CLEARANCE_BUFFER_M = 0.05
 _MIN_DURATION_S = 0.6
@@ -134,9 +141,11 @@ def refine_yopo(traj, cfg: BackendConfig, obstacles, goal=None, neighbors=None):
     在这条前缀上。打开时末端三个控制点放开，起点 PVA 仍然钉死。
     形状不合法就当这次失败，交回原曲线。
     ``neighbors`` 是邻机已提交轨迹的采样，每份 (t, x, y, z)。只有
-    ``cfg.swarm_penalty`` 为真时才读；关上时这个参数不影响代价。
+    ``cfg.swarm_penalty`` 或 ``cfg.peer_sphere_enabled`` 为真时才读；两个都
+    关上时这个参数不影响代价。
     ``cfg.swarm_segment_penalty`` 为真时，椭球项改在段内点上算。该项为假时
     仍用控制点上的椭球项，自由集也不变，与 E-B3 逐位相同。
+    ``cfg.peer_sphere_enabled`` 不改自由集，也不改椭球项。
     """
     # 首次 import 不计入这次调用的时间预算。
     import scipy.optimize  # noqa: F401
@@ -200,6 +209,8 @@ def _refine(traj, cfg: BackendConfig, obstacles, t0: float, neighbors=None):
     swarm = bool(cfg.swarm_penalty)
     # 段内惩罚只在机间项已经打开时替换采样位置。单独打开它不读邻机。
     segment = swarm and bool(cfg.swarm_segment_penalty)
+    # 欧氏球不放开末端，也不改椭球采样。关时下面的分支不进入。
+    peer = bool(cfg.peer_sphere_enabled)
     # 关：自由集是中间控制点，末端三元组钉死，与 E-B3 相同。
     # 开：末端三个也放开。它们不是当前状态，钉死时尾部最近点推不动。
     free = np.arange(3, n_ctrl if segment else n_ctrl - 3)
@@ -212,6 +223,8 @@ def _refine(traj, cfg: BackendConfig, obstacles, t0: float, neighbors=None):
     packed = _pack_obstacles(obstacles)
     clr_before = min_signed_distance(traj, obstacles, packed=packed)
     swarm_nbs = tuple(neighbors or ()) if swarm else ()
+    # 关时不读 neighbors。开时与椭球分开存，避免椭球关着仍去碰那份采样。
+    sphere_nbs = tuple(neighbors or ()) if peer else ()
 
     def cost_grad(q):
         cost, grad = _cost_grad(
@@ -236,8 +249,12 @@ def _refine(traj, cfg: BackendConfig, obstacles, t0: float, neighbors=None):
                 float(cfg.swarm_clearance_m),
                 float(cfg.swarm_c),
             )
-            return cost + sc, grad + sg
-        if swarm:
+            # peer 关时原样返回，加法和加这项之前是同一条表达式。
+            if not peer:
+                return cost + sc, grad + sg
+            cost = cost + sc
+            grad = grad + sg
+        elif swarm:
             sc, sg = _swarm_cost_grad(
                 q,
                 dt,
@@ -246,7 +263,22 @@ def _refine(traj, cfg: BackendConfig, obstacles, t0: float, neighbors=None):
                 float(cfg.swarm_clearance_m),
                 float(cfg.swarm_c),
             )
-            return cost + sc, grad + sg
+            if not peer:
+                return cost + sc, grad + sg
+            cost = cost + sc
+            grad = grad + sg
+        if peer:
+            pc, pg = _peer_sphere_cost_grad(
+                q,
+                dt,
+                float(traj.t_start),
+                sphere_nbs,
+                float(cfg.peer_sphere_radius_m),
+                float(cfg.peer_sphere_weight),
+            )
+            # 代价和梯度都是 0 时不要做加法，远邻机与关掉逐位相同。
+            if pc != 0.0 or np.any(pg):
+                return cost + pc, grad + pg
         return cost, grad
 
     x0 = q_fit[free].reshape(-1).copy()
@@ -567,6 +599,107 @@ def _swarm_segment_cost_grad(q, dt, t_start, neighbors, clearance, c, lam: float
     contrib = np.einsum("kb,skc->sbc", _B_SEGMENT, d_sk)
     for j in range(4):
         grad[j : j + n_span] += contrib[:, j, :]
+    return float(cost), grad
+
+
+def _peer_sphere_sample(dist: np.ndarray, radius: float, weight: float, band: float):
+    """平滑二次/三次铰链。返回每个样本的代价，以及 d(cost)/d(dist)（≤ 0）。
+
+    s = R - d。d >= R 时为 0，球面处函数值、一阶和二阶导数都是 0。
+    band = R - 0.70 m（默认 0.15 m）是碰撞球外的三次带：0 < s <= band 用
+    w·s³/band，再往里（已经进了 0.70 m 球）用与之 C1 相接的二次
+    w·(s² + band·s - band²)。band <= 0 时整段都是 w·s²。
+    """
+    dist = np.asarray(dist, dtype=float)
+    cost = np.zeros(dist.shape, dtype=float)
+    dcost = np.zeros(dist.shape, dtype=float)
+    inside = dist < float(radius)
+    if not np.any(inside):
+        return cost, dcost
+    s = float(radius) - dist
+    if band <= 1e-12:
+        cost[inside] = weight * s[inside] * s[inside]
+        dcost[inside] = -2.0 * weight * s[inside]
+        return cost, dcost
+    cubic = inside & (s <= band)
+    deep = inside & ~cubic
+    if np.any(cubic):
+        sc = s[cubic]
+        cost[cubic] = weight * (sc * sc * sc) / band
+        dcost[cubic] = -(3.0 * weight * (sc * sc) / band)
+    if np.any(deep):
+        sd = s[deep]
+        cost[deep] = weight * (sd * sd + band * sd - band * band)
+        dcost[deep] = -(weight * (2.0 * sd + band))
+    return cost, dcost
+
+
+def _peer_sphere_cost_grad(q, dt, t_start, neighbors, radius, weight):
+    """除最后一跨外，段内点对邻机同时刻位置的欧氏球铰链。
+
+    采样与 E-B3c 相同：每段 ``_SWARM_SEGMENT_SAMPLES`` 个箱中点，梯度按三次
+    基函数分回控制点。最后一跨不进这项，留给平滑项；头三个和尾三个控制点仍由
+    调用方钉死，这里不改自由集。没有时间重叠的邻机采样不外推。重合时距离的
+    方向无定义，只加代价，不推梯度。
+    """
+    n = int(q.shape[0])
+    n_span = n - 3
+    grad = np.zeros_like(q)
+    radius = float(radius)
+    weight = float(weight)
+    band = radius - _PEER_COLLISION_BALL_M
+    # 末段（最后一跨）不进机间球，避免去拽钉死的末端 PVA。
+    n_pen = n_span - 1
+    if n_pen < 1 or not neighbors or not (weight > 0.0) or not (radius > 0.0):
+        return 0.0, grad
+    windows = _control_windows(q)[:n_pen]
+    pts = np.einsum("kb,sbc->skc", _B_SEGMENT, windows)
+    span = np.arange(n_pen, dtype=float)[:, None]
+    times = float(t_start) + (span + _SEGMENT_U[None, :]) * float(dt)
+    flat_t = times.reshape(-1)
+    flat_p = pts.reshape(-1, 3)
+    cost = 0.0
+    dpos = np.zeros_like(flat_p)
+    for raw in neighbors:
+        arr = np.asarray(raw, dtype=float)
+        if arr.ndim != 2 or arr.shape[1] != 4 or arr.shape[0] == 0:
+            continue
+        if not bool(np.all(np.isfinite(arr))):
+            continue
+        ts = arr[:, 0]
+        mask = (flat_t >= float(ts[0])) & (flat_t <= float(ts[-1]))
+        if not bool(np.any(mask)):
+            continue
+        t = flat_t[mask]
+        delta = flat_p[mask] - np.column_stack((
+            np.interp(t, ts, arr[:, 1]),
+            np.interp(t, ts, arr[:, 2]),
+            np.interp(t, ts, arr[:, 3]),
+        ))
+        dist = np.sqrt(np.sum(delta * delta, axis=1))
+        sample_cost, dcost_dd = _peer_sphere_sample(dist, radius, weight, band)
+        zero = dist <= _SWARM_EPS
+        if bool(np.any(zero)):
+            # 方向无定义。代价按贴在球心算，梯度留 0。
+            zdist = np.zeros(int(np.count_nonzero(zero)), dtype=float)
+            zcost, _zd = _peer_sphere_sample(zdist, radius, weight, band)
+            sample_cost = sample_cost.copy()
+            sample_cost[zero] = zcost
+            dcost_dd = dcost_dd.copy()
+            dcost_dd[zero] = 0.0
+        cost += float(np.sum(sample_cost))
+        active = (dcost_dd != 0.0) & ~zero
+        if not bool(np.any(active)):
+            continue
+        push = (dcost_dd[active] / dist[active])[:, None] * delta[active]
+        idx = np.flatnonzero(mask)
+        dpos[idx[active]] += push
+    if cost == 0.0 and not np.any(dpos):
+        return 0.0, grad
+    d_sk = dpos.reshape(n_pen, _SWARM_SEGMENT_SAMPLES, 3)
+    contrib = np.einsum("kb,skc->sbc", _B_SEGMENT, d_sk)
+    for j in range(4):
+        grad[j : j + n_pen] += contrib[:, j, :]
     return float(cost), grad
 
 
