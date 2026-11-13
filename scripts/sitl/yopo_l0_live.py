@@ -1,0 +1,276 @@
+"""票 S4b：容器内把 YOPO L0 规划桥接到 PX4 ROS 2 话题（report-only）。
+
+订阅每机 ``VehicleOdometry``（``/fmu/out/vehicle_odometry`` 或 ``/px4_N/...``）、
+可选的深度图 ``/yopo/depth_image`` 和障碍摘要 ``/yopo/obstacle_summary``。
+ENU↔NED 只走 ``yopo_swarm_core.px4``。设定点是 NED 的 ``TrajectorySetpoint``。
+
+``rclpy`` 只在真正开环时导入。``--dry-run`` 只打印话题表，不起飞，不写飞控参数。
+默认离线假 PX4 仍走 ``run_yopo_l0.py``。本文件不改 ``offboard_mission.py``。
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import threading
+import time
+from pathlib import Path
+
+from yopo_l0.scene import load_card
+from yopo_l0.sitl_bridge import (
+    LiveFleetConfig,
+    VehicleInbox,
+    live_topic_plan,
+    make_live_session,
+    normalize_positioning,
+    vehicle_topics,
+)
+
+_REPO = Path(__file__).resolve().parents[2]
+ARMING_STATE_ARMED = 2
+NAV_STATE_OFFBOARD = 14
+
+
+def _scene_path(raw: str) -> Path:
+    path = Path(raw)
+    if path.is_file():
+        return path
+    alt = _REPO / raw
+    if alt.is_file():
+        return alt
+    raise SystemExit(f"找不到场景卡：{raw}")
+
+
+def _write(path: str, payload: dict) -> None:
+    text = json.dumps(payload, indent=1, ensure_ascii=False) + "\n"
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text)
+    sys.stdout.write(text)
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--scene", default="scenes/g2-pillar.json")
+    ap.add_argument("--n", type=int, default=None, help="必须和场景卡里的飞机数一致")
+    ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--out", required=True)
+    ap.add_argument("--wall-timeout", type=float, default=900.0)
+    ap.add_argument("--max-s", type=float, default=None, help="仿真时间上限，默认用场景卡 duration_s")
+    ap.add_argument("--positioning", choices=("default", "rtk"), default=None)
+    ap.add_argument("--world", default="default")
+    ap.add_argument("--preflight-timeout", type=float, default=240.0)
+    ap.add_argument("--dry-run", action="store_true", help="只写话题和定位模式，不连 ROS")
+    return ap.parse_args(argv)
+
+
+def _positioning(arg: str | None) -> str:
+    if arg:
+        return normalize_positioning(arg)
+    return normalize_positioning(os.environ.get("YOPO_POSITIONING", "default"))
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    if not args.wall_timeout > 0.0:
+        print("--wall-timeout 必须为正", file=sys.stderr)
+        return 2
+    positioning = _positioning(args.positioning)
+    card = load_card(_scene_path(args.scene))
+    n = len(card.card["drones"])
+    if args.n is not None and int(args.n) != n:
+        print(f"--n {args.n} 和场景 {card.name} 的飞机数 {n} 不一致", file=sys.stderr)
+        return 2
+    if args.dry_run:
+        _write(args.out, live_topic_plan(card, positioning=positioning, seed=args.seed))
+        return 0
+    try:
+        return _run_ros(args, card, positioning)
+    except ModuleNotFoundError as exc:
+        missing = exc.name or "依赖"
+        print(f"实飞入口停住：当前解释器没有 {missing}。不写飞控参数。", file=sys.stderr)
+        return 2
+
+
+def _fill(msg, fields: dict):
+    for key, value in fields.items():
+        setattr(msg, key, value)
+    return msg
+
+
+def _run_ros(args, card, positioning: str) -> int:  # pragma: no cover - 需要 rclpy / px4_msgs
+    import rclpy
+    from px4_msgs.msg import (
+        OffboardControlMode,
+        TrajectorySetpoint,
+        VehicleCommand,
+        VehicleLandDetected,
+        VehicleOdometry,
+        VehicleStatus,
+    )
+    from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
+    from sensor_msgs.msg import Image
+    from std_msgs.msg import String
+
+    task = card.card.get("task") or {}
+    max_s = float(args.max_s) if args.max_s is not None else float(task.get("duration_s", 45.0))
+    session = make_live_session(
+        card,
+        seed=args.seed,
+        live=LiveFleetConfig(positioning=positioning, depth_source="auto", initial_phase="WARMUP"),
+    )
+    ports = [int(slot.ident["gcs_port"]) for slot in session.slots]
+    stop = threading.Event()
+
+    def gcs_heartbeat() -> None:
+        from pymavlink import mavutil
+
+        conns = [
+            mavutil.mavlink_connection(f"udpout:127.0.0.1:{port}", source_system=255, source_component=190)
+            for port in ports
+        ]
+        while not stop.is_set():
+            for conn in conns:
+                conn.mav.heartbeat_send(
+                    mavutil.mavlink.MAV_TYPE_GCS,
+                    mavutil.mavlink.MAV_AUTOPILOT_INVALID,
+                    0,
+                    0,
+                    mavutil.mavlink.MAV_STATE_ACTIVE,
+                )
+            stop.wait(1.0)
+
+    threading.Thread(target=gcs_heartbeat, daemon=True).start()
+
+    lock = threading.Lock()
+    sim = {"t": None}
+
+    def on_clock(msg) -> None:
+        with lock:
+            sim["t"] = msg.sim.sec + msg.sim.nsec * 1e-9
+
+    try:
+        from gz.msgs10.clock_pb2 import Clock
+        from gz.transport13 import Node as GzNode
+
+        gz = GzNode()
+        gz.subscribe(Clock, f"/world/{args.world}/clock", on_clock)
+    except Exception:
+        gz = None
+
+    rclpy.init()
+    node = rclpy.create_node("yopo_l0_sitl_live")
+    qos = QoSProfile(
+        reliability=ReliabilityPolicy.BEST_EFFORT,
+        durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        history=HistoryPolicy.KEEP_LAST,
+        depth=1,
+    )
+    sensor_qos = QoSProfile(
+        reliability=ReliabilityPolicy.BEST_EFFORT,
+        durability=DurabilityPolicy.VOLATILE,
+        history=HistoryPolicy.KEEP_LAST,
+        depth=1,
+    )
+    pubs = {}
+    slots = {}
+    for slot in session.slots:
+        ns = slot.ident["namespace"]
+        topics = vehicle_topics(ns)
+        state = {"odom": None, "status": None, "land": None, "depth": None, "summary": None}
+        slots[ns] = state
+        pubs[ns] = {
+            "ocm": node.create_publisher(OffboardControlMode, topics["offboard_control_mode"], qos),
+            "sp": node.create_publisher(TrajectorySetpoint, topics["trajectory_setpoint"], qos),
+            "cmd": node.create_publisher(VehicleCommand, topics["vehicle_command"], qos),
+        }
+        node.create_subscription(VehicleOdometry, topics["vehicle_odometry"], lambda msg, box=state: box.__setitem__("odom", msg), qos)
+        node.create_subscription(VehicleStatus, topics["vehicle_status"], lambda msg, box=state: box.__setitem__("status", msg), qos)
+        node.create_subscription(
+            VehicleLandDetected, topics["vehicle_land_detected"], lambda msg, box=state: box.__setitem__("land", msg), qos
+        )
+        node.create_subscription(Image, topics["depth_image"], lambda msg, box=state: box.__setitem__("depth", msg), sensor_qos)
+        node.create_subscription(
+            String, topics["obstacle_summary"], lambda msg, box=state: box.__setitem__("summary", msg.data), sensor_qos
+        )
+
+    def inbox_for(ns: str) -> VehicleInbox | None:
+        state = slots[ns]
+        odom, status, land = state["odom"], state["status"], state["land"]
+        if odom is None or status is None or land is None:
+            return None
+        summary = state["summary"]
+        return VehicleInbox(
+            odometry=odom,
+            depth=state["depth"],
+            obstacle_summary=summary if summary else None,
+            armed=status.arming_state == ARMING_STATE_ARMED,
+            offboard=status.nav_state == NAV_STATE_OFFBOARD,
+            landed=bool(land.landed),
+            preflight_ok=bool(status.pre_flight_checks_pass),
+        )
+
+    wall0 = time.monotonic()
+    last_step = None
+    physics_dt = float(session.slots[0].bridge.cfg.physics_dt)
+    failure = ""
+    try:
+        while True:
+            rclpy.spin_once(node, timeout_sec=0.02)
+            wall = time.monotonic() - wall0
+            if wall > args.wall_timeout:
+                failure = f"WALL_TIMEOUT {args.wall_timeout}s"
+                break
+            with lock:
+                t_sim = sim["t"]
+            boxes = {ns: inbox_for(ns) for ns in slots}
+            if any(box is None or not box.preflight_ok for box in boxes.values()):
+                if wall > args.preflight_timeout:
+                    missing = [ns or "/" for ns, box in boxes.items() if box is None]
+                    failure = "PREFLIGHT " + (",".join(missing) if missing else "checks")
+                    break
+                time.sleep(0.02)
+                continue
+            if t_sim is None:
+                t_sim = float(boxes[next(iter(boxes))].odometry.timestamp) * 1e-6
+            if t_sim > max_s and session.result()["outcome"] == "RUNNING":
+                failure = f"MAX_S {max_s}"
+                break
+            fresh = last_step is None or float(t_sim) + 1e-9 >= float(last_step) + physics_dt
+            if fresh:
+                commands = session.step(float(t_sim), boxes)
+                last_step = float(t_sim)
+            else:
+                # 仿真时钟还没走到下一拍时，只重复上一拍的心跳和设定点，避免把解锁/降落再发一遍。
+                commands = session.step(float(last_step), boxes)
+            for command in commands:
+                pub = pubs[command.namespace]
+                if command.heartbeat and command.offboard is not None:
+                    pub["ocm"].publish(_fill(OffboardControlMode(), command.offboard))
+                if command.setpoint is not None:
+                    pub["sp"].publish(_fill(TrajectorySetpoint(), command.setpoint))
+                if fresh:
+                    for fields in command.vehicle_commands:
+                        pub["cmd"].publish(_fill(VehicleCommand(), fields))
+            if session.result()["ok"]:
+                break
+            time.sleep(0.02)
+    finally:
+        stop.set()
+        node.destroy_node()
+        rclpy.try_shutdown()
+
+    payload = session.result(adapter="px4-ros")
+    if failure and not payload["ok"]:
+        payload["outcome"] = "FAIL"
+        payload["reason"] = failure
+        payload["ok"] = False
+    payload["positioning"] = positioning
+    _write(args.out, payload)
+    return 0 if payload["ok"] else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
