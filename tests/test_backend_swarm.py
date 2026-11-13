@@ -42,7 +42,7 @@ def _line(y: float = 0.0, speed: float = 2.0, duration: float = 1.6, t0: float =
 
 
 def _cfg(**kwargs) -> BackendConfig:
-    base = dict(a_max=6.0, v_max=6.0, max_iterations=8, time_budget_s=0.05, clearance_m=0.35)
+    base = dict(a_max=6.0, v_max=6.0, max_iterations=8, time_budget_s=5.0, clearance_m=0.35)
     base.update(kwargs)
     return BackendConfig(**base)
 
@@ -105,6 +105,8 @@ def test_swarm_off_ignores_neighbors_bitwise():
     out_a, rec_a = refine_yopo(traj, off, ())
     out_b, rec_b = refine_yopo(traj, off, (), neighbors=[close])
     assert rec_a["applied"] is True and rec_b["applied"] is True
+    assert rec_a.get("budget_cut") is False
+    assert rec_b.get("budget_cut") is False
     np.testing.assert_array_equal(_positions(out_a), _positions(out_b))
     assert rec_a["iterations"] == rec_b["iterations"]
     assert rec_a["reason"] == rec_b["reason"]
@@ -117,6 +119,8 @@ def test_swarm_on_without_neighbors_matches_off():
     out_off, rec_off = refine_yopo(traj, off, ())
     out_on, rec_on = refine_yopo(traj, on, (), neighbors=None)
     assert rec_off["applied"] is True and rec_on["applied"] is True
+    assert rec_off.get("budget_cut") is False
+    assert rec_on.get("budget_cut") is False
     np.testing.assert_array_equal(_positions(out_off), _positions(out_on))
     assert rec_off["iterations"] == rec_on["iterations"]
 
@@ -135,7 +139,7 @@ def test_far_neighbor_does_not_change_the_curve():
 def test_close_neighbor_pushes_the_curve_away():
     traj = _line(y=0.0)
     neighbor = _samples(_line(y=0.40))
-    out, rec = refine_yopo(traj, _cfg(swarm_penalty=True, max_iterations=8, time_budget_s=0.10), (), neighbors=[neighbor])
+    out, rec = refine_yopo(traj, _cfg(swarm_penalty=True, max_iterations=8, time_budget_s=5.0), (), neighbors=[neighbor])
     assert rec["applied"] is True, rec
     mid_t = 0.5 * (float(out.t_start) + float(out.t_end))
     y = float(out.evaluate(mid_t, 0)[1])
@@ -300,16 +304,15 @@ def test_existing_scene_cards_leave_segment_penalty_off():
 
 
 def test_segment_flag_off_matches_control_point_refine():
-    # 邻机代价一次迭代就要几十毫秒。0.05 s 的墙钟预算在 pytest -n 把核占满时会把两次
-    # 优化切在不同的评估上，曲线不再逐位相同。这里把预算放到迭代能跑完，比的是开关，不是时钟。
     traj = _line()
     close = _samples(_line(y=0.40))
-    point = _cfg(swarm_penalty=True, time_budget_s=2.0)
-    explicit = _cfg(swarm_penalty=True, swarm_segment_penalty=False, time_budget_s=2.0)
+    point = _cfg(swarm_penalty=True)
+    explicit = _cfg(swarm_penalty=True, swarm_segment_penalty=False)
     out_a, rec_a = refine_yopo(traj, point, (), neighbors=[close])
     out_b, rec_b = refine_yopo(traj, explicit, (), neighbors=[close])
     assert rec_a["applied"] is True and rec_b["applied"] is True
-    assert rec_a["budget_cut"] is False and rec_b["budget_cut"] is False
+    assert rec_a.get("budget_cut") is False
+    assert rec_b.get("budget_cut") is False
     np.testing.assert_array_equal(_positions(out_a), _positions(out_b))
     assert rec_a["iterations"] == rec_b["iterations"]
     assert rec_a["reason"] == rec_b["reason"]
@@ -323,6 +326,8 @@ def test_segment_without_swarm_ignores_neighbors():
     out_a, rec_a = refine_yopo(traj, off, ())
     out_b, rec_b = refine_yopo(traj, flagged, (), neighbors=[close])
     assert rec_a["applied"] is True and rec_b["applied"] is True
+    assert rec_a.get("budget_cut") is False
+    assert rec_b.get("budget_cut") is False
     np.testing.assert_array_equal(_positions(out_a), _positions(out_b))
     assert rec_a["iterations"] == rec_b["iterations"]
 
@@ -392,11 +397,11 @@ def test_segment_penalty_pushes_a_gap_the_control_points_miss():
     neighbor = _neighbor_rows(rows)
     point_cost, _ = _swarm_cost_grad(q, dt, t0, [neighbor], 0.80, 2.0)
     assert point_cost == 0.0
-    cfg = _cfg(swarm_penalty=True, swarm_segment_penalty=True, max_iterations=8, time_budget_s=0.20)
+    cfg = _cfg(swarm_penalty=True, swarm_segment_penalty=True, max_iterations=8, time_budget_s=5.0)
     out, rec = refine_yopo(traj, cfg, (), neighbors=[neighbor])
     assert rec["applied"] is True, rec
     # 邻机在曲线 +y 侧 0.20 m。段内铰链应把中段推向更小的 y。控制点版代价为 0，推不动。
-    off, rec_off = refine_yopo(traj, _cfg(swarm_penalty=True, time_budget_s=0.20), (), neighbors=[neighbor])
+    off, rec_off = refine_yopo(traj, _cfg(swarm_penalty=True, time_budget_s=5.0), (), neighbors=[neighbor])
     assert rec_off["applied"] is True
     mid = 0.5 * (float(out.t_start) + float(out.t_end))
     assert float(out.evaluate(mid, 0)[1]) < float(off.evaluate(mid, 0)[1]) - 0.05
@@ -408,7 +413,7 @@ def test_segment_penalty_moves_the_unpinned_end_and_keeps_the_start():
     end = np.asarray(traj.evaluate(float(traj.t_end), 0), dtype=float)
     times = np.linspace(float(traj.t_start), float(traj.t_end), 40)
     neighbor = np.column_stack((times, np.repeat(end[None, :], len(times), axis=0)))
-    kw = dict(max_iterations=8, time_budget_s=0.20)
+    kw = dict(max_iterations=8, time_budget_s=5.0)
     out_point, rec_point = refine_yopo(traj, _cfg(swarm_penalty=True, **kw), (), neighbors=[neighbor])
     out_seg, rec_seg = refine_yopo(
         traj, _cfg(swarm_penalty=True, swarm_segment_penalty=True, **kw), (), neighbors=[neighbor]
@@ -436,6 +441,8 @@ def test_far_neighbor_segment_matches_swarm_off():
     out_off, rec_off = refine_yopo(traj, off, ())
     out_seg, rec_seg = refine_yopo(traj, seg, (), neighbors=[far])
     assert rec_off["applied"] is True and rec_seg["applied"] is True
+    assert rec_off.get("budget_cut") is False
+    assert rec_seg.get("budget_cut") is False
     # 末端放开后拟合维数变了，远邻机时代价仍是 0，曲线只差舍入。
     np.testing.assert_allclose(_positions(out_off), _positions(out_seg), atol=1e-9, rtol=0.0)
     assert rec_off["iterations"] == rec_seg["iterations"]
