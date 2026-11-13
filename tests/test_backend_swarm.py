@@ -300,13 +300,16 @@ def test_existing_scene_cards_leave_segment_penalty_off():
 
 
 def test_segment_flag_off_matches_control_point_refine():
+    # 邻机代价一次迭代就要几十毫秒。0.05 s 的墙钟预算在 pytest -n 把核占满时会把两次
+    # 优化切在不同的评估上，曲线不再逐位相同。这里把预算放到迭代能跑完，比的是开关，不是时钟。
     traj = _line()
     close = _samples(_line(y=0.40))
-    point = _cfg(swarm_penalty=True)
-    explicit = _cfg(swarm_penalty=True, swarm_segment_penalty=False)
+    point = _cfg(swarm_penalty=True, time_budget_s=2.0)
+    explicit = _cfg(swarm_penalty=True, swarm_segment_penalty=False, time_budget_s=2.0)
     out_a, rec_a = refine_yopo(traj, point, (), neighbors=[close])
     out_b, rec_b = refine_yopo(traj, explicit, (), neighbors=[close])
     assert rec_a["applied"] is True and rec_b["applied"] is True
+    assert rec_a["budget_cut"] is False and rec_b["budget_cut"] is False
     np.testing.assert_array_equal(_positions(out_a), _positions(out_b))
     assert rec_a["iterations"] == rec_b["iterations"]
     assert rec_a["reason"] == rec_b["reason"]
