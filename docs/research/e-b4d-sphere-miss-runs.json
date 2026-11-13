@@ -1,0 +1,143 @@
+{
+  "ticket": "E-B4d",
+  "report_only": true,
+  "disclaimer": "report-only。只报数。不改 yopo_l0 后段、不冻结、不进 scenes/suite.txt，不设 gates。本票不拷贝 PR #94 的欧氏球实现。main 尚未带 peer_sphere_enabled 时跳过实飞，标 missing_feature。开关合入后再用同一脚本逐 tick 回答 014-swap3 seed 1（对照 seed 0）。",
+  "status": "missing_feature",
+  "flight": "skipped",
+  "feature": {
+    "supported": false,
+    "config_has_peer_sphere_enabled": false,
+    "config_from_params_honors_flag": false,
+    "refine_yopo_reads_peer_sphere": false,
+    "peer_sphere_cost_grad": false
+  },
+  "blocked_on": {
+    "pr": 94,
+    "branch": "yopo-restart-bot/e-b4c-sphere-avoid"
+  },
+  "target": {
+    "scene": "ego-density-014-swap3",
+    "scene_path": "scenes/ego-density-014-swap3.json",
+    "miss_seed": 1,
+    "reference_seed": 0,
+    "pair": [
+      "uav1",
+      "uav2"
+    ],
+    "collision_ball_m": 0.7,
+    "sphere_radius_m": 0.85,
+    "sphere_weight": 8.0,
+    "window_s": 1.0,
+    "arms": [
+      "sphere",
+      "sphere+track_geom_multi"
+    ]
+  },
+  "cited_e_b4c": {
+    "source": "PR #94 docs/research/e-b4c-sphere-avoid.md",
+    "remeasured_here": false,
+    "scene": "ego-density-014-swap3",
+    "sphere": {
+      "seed0": {
+        "outcome": "SUCCESS",
+        "min_inter_m": "0.946",
+        "arrival_time_s": "14.76"
+      },
+      "seed1": {
+        "outcome": "COLLISION",
+        "reason": "uav1-uav2:INTER_DRONE",
+        "min_inter_m": "0.694"
+      }
+    },
+    "sphere_track_geom_multi": {
+      "seed0": {
+        "outcome": "SUCCESS",
+        "min_inter_m": "0.943",
+        "arrival_time_s": "8.60"
+      },
+      "seed1": {
+        "outcome": "COLLISION",
+        "reason": "uav1-uav2:INTER_DRONE",
+        "min_inter_m": "0.694"
+      }
+    }
+  },
+  "questions": [
+    {
+      "id": 1,
+      "key": "neighbor_samples",
+      "prompt": "撞前 1.0 s 内后段是否收到邻机采样；第 0 个规划拍是否缺邻机",
+      "status": "deferred",
+      "answer": null,
+      "reason": "main 的 BackendConfig / refine_yopo 还没有可用的 peer_sphere_enabled。实飞诊断待 PR #94 合入后再跑（不要 --partial）。"
+    },
+    {
+      "id": 2,
+      "key": "hinge",
+      "prompt": "铰链是否激活；激活时的三维距、代价、控制点位移、末端是否因钉死无法上推",
+      "status": "deferred",
+      "answer": null,
+      "reason": "main 的 BackendConfig / refine_yopo 还没有可用的 peer_sphere_enabled。实飞诊断待 PR #94 合入后再跑（不要 --partial）。"
+    },
+    {
+      "id": 3,
+      "key": "locus",
+      "prompt": "碰撞在轨迹头/中/尾；是否一侧 CORRIDOR_EMPTY_HOVER / empty_brake、另一侧还在飞",
+      "status": "deferred",
+      "answer": null,
+      "reason": "main 的 BackendConfig / refine_yopo 还没有可用的 peer_sphere_enabled。实飞诊断待 PR #94 合入后再跑（不要 --partial）。"
+    },
+    {
+      "id": 4,
+      "key": "geom_multi",
+      "prompt": "几何门放行的参考轨迹自身是否已经 < 0.70 m",
+      "status": "deferred",
+      "answer": null,
+      "reason": "main 的 BackendConfig / refine_yopo 还没有可用的 peer_sphere_enabled。实飞诊断待 PR #94 合入后再跑（不要 --partial）。"
+    }
+  ],
+  "comparison": null,
+  "cases": [],
+  "partial_smoke": {
+    "scene_loads": true,
+    "scene_files_unchanged": true,
+    "scene_sha256": "a46380a0e72437d64281c1aa7e0f4686a50ce2af6a802e784638628f4ffd005a",
+    "uav_ids": [
+      "uav0",
+      "uav1",
+      "uav2"
+    ],
+    "pair_present": true,
+    "body_radius_m": 0.35,
+    "collision_line_m": 0.7,
+    "runner_plan_before_poll": true,
+    "runner_plan_before_poll_is_static": true,
+    "in_memory_arms": {
+      "sphere": {
+        "backend_enabled": true,
+        "peer_sphere_enabled": true,
+        "peer_sphere_radius_m": 0.85,
+        "peer_sphere_weight": 8.0,
+        "swarm_penalty": false,
+        "track_clearance": false,
+        "track_clearance_mode": null
+      },
+      "sphere+track_geom_multi": {
+        "backend_enabled": true,
+        "peer_sphere_enabled": true,
+        "peer_sphere_radius_m": 0.85,
+        "peer_sphere_weight": 8.0,
+        "swarm_penalty": false,
+        "track_clearance": true,
+        "track_clearance_mode": "geom_multi"
+      }
+    },
+    "feature": {
+      "supported": false,
+      "config_has_peer_sphere_enabled": false,
+      "config_from_params_honors_flag": false,
+      "refine_yopo_reads_peer_sphere": false,
+      "peer_sphere_cost_grad": false
+    }
+  }
+}
