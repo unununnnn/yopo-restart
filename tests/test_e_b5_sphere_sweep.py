@@ -165,6 +165,19 @@ def test_last_span_cost_is_local_and_default_hook_matches_library():
     assert np.any(local_grad)
 
     mod.install_end_free()
+    try:
+        _assert_end_free_hook(mod, bspline, q, tail, local_cost)
+    finally:
+        mod.STATE["end_free"] = False
+        if mod.ORIG:
+            bspline._refine = mod.ORIG["refine"]
+            bspline._peer_sphere_cost_grad = mod.ORIG["peer"]
+            bspline._swarm_segment_cost_grad = mod.ORIG["seg"]
+            mod.STATE["end"] = False
+    assert (ROOT / "yopo_l0/backend/bspline.py").read_bytes() == before
+
+
+def _assert_end_free_hook(mod, bspline, q, tail, local_cost):
     mod.STATE["end_free"] = False
     hooked = bspline._peer_sphere_cost_grad(q, 0.2, 0.0, [tail], 0.85, 8.0)
     assert hooked[0] == pytest.approx(0.0)
@@ -185,7 +198,6 @@ def test_last_span_cost_is_local_and_default_hook_matches_library():
     assert cfg.peer_sphere_enabled is True
     assert cfg.peer_sphere_radius_m == pytest.approx(0.85)
     mod.STATE["end_free"] = False
-    assert (ROOT / "yopo_l0/backend/bspline.py").read_bytes() == before
 
 
 def test_approach_reports_crossing_and_closing_speed():
