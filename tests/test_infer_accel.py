@@ -71,6 +71,8 @@ def test_threads_keep_the_same_argmax_within_golden_tolerance(monkeypatch, resto
 def test_ort_keeps_the_same_argmax_when_installed(monkeypatch, restore_threads):
     """单次前向。闭环是否还是同一条轨迹，以研究记录里的场景表为准。"""
     pytest.importorskip("onnxruntime")
+    # torch.onnx.export 还要 onnx 包。只装了 runtime 时导出直接失败，不当成回归。
+    pytest.importorskip("onnx")
     model = load_model()
     depth, obs = fixed_inputs(model.config)
     monkeypatch.setenv("YOPO_INFER_ACCEL", "baseline")

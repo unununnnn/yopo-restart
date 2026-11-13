@@ -8,7 +8,7 @@
 
 ## 结论
 
-1. **014 对向 seed 2 与 seed 9 的 `uav1` 撞地，在三档打开 `ground_guard` 的臂上都没有了。** 关着的臂与 [E-C5c](e-c5c-blindspot-dense.md) 对得上：两次都是 `uav1:TRUTH_POSITION`，地面净空 0.349 m 和 0.347 m，都低于机体半径 0.35 m，圆柱净空仍大于 0.35 m。`geom + ground_guard`（`empty_brake` 关）把 seed 9 送到终点，`uav1` 最低离地 0.523 m；seed 2 不再撞地（`uav1` 0.388 m），改成撞柱。`geom + empty_brake + ground_guard` 和 `geom_multi + empty_brake + ground_guard` 这两档数字相同：seed 2 三机都到，`uav1` 最低离地 0.622 m；seed 9 改成撞柱，`uav1` 离地 0.596 m。
+1. **014 对向 seed 2 与 seed 9 的 `uav1` 撞地，在三档打开 `ground_guard` 的臂上都没有了。** 关着的臂与 E-C5c 对得上：两次都是 `uav1:TRUTH_POSITION`，地面净空 0.349 m 和 0.347 m，都低于机体半径 0.35 m，圆柱净空仍大于 0.35 m。`geom + ground_guard`（`empty_brake` 关）把 seed 9 送到终点，`uav1` 最低离地 0.523 m；seed 2 不再撞地（`uav1` 0.388 m），改成撞柱。`geom + empty_brake + ground_guard` 和 `geom_multi + empty_brake + ground_guard` 这两档数字相同：seed 2 三机都到，`uav1` 最低离地 0.622 m；seed 9 改成撞柱，`uav1` 离地 0.596 m。
 
 2. **014 对向到达架次没有增加，撞地换成了别的碰撞。** 四档都是 24/30。关着的臂是 2 次撞地。`empty_brake` 关、只开地面闸门：撞柱 1、机间 1（seed 5，`uav1-uav2`，机间 0.656 m）。两档 `empty_brake` 开着再加闸门：撞柱 2，机间 0，最小地面净空 0.431–0.666 m。闸门把参考从地面上拉开，没有多送出一架。
 
