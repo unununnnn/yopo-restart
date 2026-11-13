@@ -2,25 +2,32 @@
 # 容器内入口（由 smoke.sh / up.sh 以 nice 15 调起）。
 # YOPO_SITL_N=1（默认）：单个 PX4（gz_x500，instance 0）+ S1 任务。与票 S1 相同。
 # YOPO_SITL_N=2 或 3：instance 1..N，uXRCE namespace px4_1..px4_N，同一个 DDS 域、同一个 XRCE Agent。
-#   YOPO_SITL_MISSION=0 只把仿真留着；=1（默认）再让各机起飞到自己的 1.5 m 悬停点后降落。
+#   YOPO_SITL_MISSION=0 只把仿真留着；=1（默认）再按 YOPO_SITL_MISSION_MODE 飞。
+#   YOPO_SITL_MISSION_MODE=hover（默认）|goto|swap。n=1 且 hover 时不把该变量传给单机脚本，
+#   单机仍是 S1（2.5 m、平移、降落）。goto/swap 才是票 S3。
 # PX4 参数：全新空状态目录。默认只用官方 airframe 默认值。
 # YOPO_POSITIONING=rtk 时 source positioning-rtk.env（仅白名单定位/估计参数，经官方 PX4_PARAM_* 在启动时注入）。
 set -eo pipefail
+# shellcheck disable=SC1091
 source /opt/ros/humble/setup.bash
+# shellcheck disable=SC1091
 source /opt/ros_ws/install/setup.bash
 BUILD=/opt/PX4-Autopilot/build/px4_sitl_default
+# shellcheck disable=SC1091
 source "$BUILD/rootfs/gz_env.sh"
 set -u
 OUT=/out
 mkdir -p "$OUT/px4-state"
 N="${YOPO_SITL_N:-1}"
 MISSION="${YOPO_SITL_MISSION:-1}"
+MISSION_MODE="${YOPO_SITL_MISSION_MODE:-hover}"
 POSITIONING="${YOPO_POSITIONING:-default}"
 echo "$POSITIONING" > "$OUT/positioning.txt"
+echo "$MISSION_MODE" > "$OUT/mission_mode.txt"
 if [[ "$POSITIONING" == "rtk" ]]; then
   # shellcheck disable=SC1091
   set -a
-  # shellcheck source=positioning-rtk.env
+  # shellcheck disable=SC1091
   . /repo/scripts/sitl/positioning-rtk.env
   set +a
 elif [[ "$POSITIONING" != "default" ]]; then
@@ -31,12 +38,28 @@ export HEADLESS=1 PX4_SYS_AUTOSTART=4001 PX4_SIM_MODEL=gz_x500 PX4_GZ_WORLD=defa
 export PYTHONPATH=/repo/core/src${PYTHONPATH:+:$PYTHONPATH}
 export YOPO_POSITIONING="$POSITIONING"
 
-cleanup() { kill $(jobs -pr) 2>/dev/null || true; pkill -f 'gz sim' 2>/dev/null || true; wait 2>/dev/null || true; }
+# trap 在 EXIT/TERM/INT 时调用。shellcheck 仍把函数体标成不可达。
+# shellcheck disable=SC2317
+cleanup() {
+  local pid
+  while IFS= read -r pid; do
+    if [[ -n "$pid" ]]; then
+      kill "$pid" 2>/dev/null || true
+    fi
+  done < <(jobs -pr || true)
+  pkill -f 'gz sim' 2>/dev/null || true
+  wait 2>/dev/null || true
+}
 trap cleanup EXIT TERM INT
 
 case "$N" in
   ''|*[!0-9]*) echo "未知 YOPO_SITL_N=$N" >&2; exit 2 ;;
 esac
+case "$MISSION_MODE" in
+  hover|goto|swap) ;;
+  *) echo "未知 YOPO_SITL_MISSION_MODE=$MISSION_MODE（只要 hover、goto 或 swap）" >&2; exit 2 ;;
+esac
+python3 /repo/scripts/sitl/fleet.py layout --n "$N" --mission "$MISSION_MODE" --format json >/dev/null
 
 wait_px4() {
   local log=$1 pid=$2
@@ -90,8 +113,18 @@ if [[ "$N" -eq 1 ]]; then
     exit 0
   fi
   set +e
-  python3 /repo/scripts/sitl/offboard_mission.py --out "$OUT/result.json" --wall-timeout "${YOPO_SITL_WALL_TIMEOUT:-900}"
-  rc=$?
+  if [[ "$MISSION_MODE" == "hover" ]]; then
+    # 与票 S1 相同的参数：不传 --mission。清掉模式变量，避免容器环境里的 hover 把单机改成 1.5 m 降落。
+    env -u YOPO_SITL_MISSION_MODE python3 /repo/scripts/sitl/offboard_mission.py --out "$OUT/result.json" --wall-timeout "${YOPO_SITL_WALL_TIMEOUT:-900}"
+    rc=$?
+  elif [[ "$MISSION_MODE" == "goto" ]]; then
+    python3 /repo/scripts/sitl/offboard_mission.py --out "$OUT/result.json" --wall-timeout "${YOPO_SITL_WALL_TIMEOUT:-900}" \
+      --mission goto --goto-target-enu 6,0,0
+    rc=$?
+  else
+    echo "swap 需要 3 架（YOPO_SITL_N=3 YOPO_SITL_MISSION_MODE=swap）" >&2
+    rc=2
+  fi
   set -e
   finish_mission_rc "$rc"
 fi
@@ -158,12 +191,13 @@ start_vehicle
 echo "px4_startup_wall_s $SECONDS"
 date -Is > "$OUT/ready"
 if [[ "$MISSION" == 0 ]]; then
-  echo "sim ready n=$N domain=$DDS_DOMAIN_ID mission=0; waiting"
+  echo "sim ready n=$N domain=$DDS_DOMAIN_ID mission=0 mode=$MISSION_MODE; waiting"
   wait
   exit 0
 fi
 set +e
-python3 /repo/scripts/sitl/fleet.py run --out "$OUT/result.json" --n "$N" --wall-timeout "${YOPO_SITL_WALL_TIMEOUT:-900}"
+python3 /repo/scripts/sitl/fleet.py run --out "$OUT/result.json" --n "$N" \
+  --mission "$MISSION_MODE" --wall-timeout "${YOPO_SITL_WALL_TIMEOUT:-900}"
 rc=$?
 set -e
 finish_mission_rc "$rc"

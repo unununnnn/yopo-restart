@@ -21,6 +21,8 @@ import json
 import time
 from pathlib import Path
 
+from yopo_l0.experiment import comma_ints, comma_list, markdown_table, run_completion_jobs, unknown_values, write_json
+
 ROOT = Path(__file__).resolve().parents[1]
 PARTIAL = ROOT / "out" / "e-b3c-segment-penalty" / "partial"
 BODY_R = 0.35
@@ -221,8 +223,7 @@ def _rng(values: list[float], nd: int) -> str:
 
 def summarize(rows: list[dict], *, title: str) -> str:
     lines = [f"## {title}", ""]
-    lines.append("| 场景 | 臂 | 到达 | 撞树 | 机间碰撞 | 超时 | 最小机间 m | 后段 p50 / p95 ms | 预算截断 |")
-    lines.append("|---|---|---|---|---|---|---|---|---|")
+    summary_rows = []
     scenes = []
     for row in rows:
         if row["scene_kind"] not in scenes:
@@ -243,10 +244,15 @@ def summarize(rows: list[dict], *, title: str) -> str:
             cuts = sum(int(r.get("backend_budget_cuts") or 0) for r in group)
             calls = sum(int(r.get("backend_budget_calls") or 0) for r in group)
             backend_t = "—" if not p50 else f"{_rng(p50, 1)} / {_rng(p95, 1)}"
-            lines.append(
+            summary_rows.append(
                 f"| {scene} | {arm} | {arrived}/{total} | {tree} | {inter} | {timeout} | "
                 f"{_rng(gaps, 3)} | {backend_t} | {cuts}/{calls} |"
             )
+    lines.append(markdown_table(
+        "| 场景 | 臂 | 到达 | 撞树 | 机间碰撞 | 超时 | 最小机间 m | 后段 p50 / p95 ms | 预算截断 |",
+        "|---|---|---|---|---|---|---|---|---|",
+        summary_rows,
+    ))
     lines.append("")
     lines.append("### 分种子")
     lines.append("")
@@ -275,16 +281,7 @@ def _load_partials(scenes: list[str], arms: list[str], seeds: list[int]) -> list
 
 def _run_group(scenes: list[str], arms: list[str], seeds: list[int], *, jobs: int, resume: bool) -> list[dict]:
     specs = [(scene, arm, seed, resume) for scene in scenes for arm in arms for seed in seeds]
-    if jobs <= 1:
-        return [_job(spec) for spec in specs]
-    from concurrent.futures import ProcessPoolExecutor, as_completed
-
-    rows = []
-    with ProcessPoolExecutor(max_workers=jobs) as pool:
-        futs = [pool.submit(_job, spec) for spec in specs]
-        for fut in as_completed(futs):
-            rows.append(fut.result())
-    return rows
+    return run_completion_jobs(specs, _job, jobs)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -297,10 +294,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out", default="docs/research/e-b3c-segment-penalty-runs.json")
     ap.add_argument("--no-resume", action="store_true")
     a = ap.parse_args(argv)
-    scenes = [s for s in a.scenes.split(",") if s]
-    arms = [s for s in a.arms.split(",") if s]
-    seeds = [int(s) for s in a.seeds.split(",") if s != ""]
-    unknown = [s for s in scenes if s not in SCENES] + [s for s in arms if s not in ARMS]
+    scenes = comma_list(a.scenes)
+    arms = comma_list(a.arms)
+    seeds = comma_ints(a.seeds)
+    unknown = unknown_values(scenes, SCENES) + unknown_values(arms, ARMS)
     if unknown:
         raise SystemExit(f"未知场景或臂: {unknown}")
     resume = not a.no_resume
@@ -340,8 +337,7 @@ def main(argv: list[str] | None = None) -> int:
         "rows": [r for r in rows if r["scene_kind"] in scenes and r["arm"] in arms and int(r["seed"]) in seeds],
     }
     out = ROOT / a.out
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    write_json(out, payload)
     print(summarize(payload["rows"], title="E-B3c 段内惩罚 vs E-B3 vs 全关"))
     print(f"wrote {out} ({payload['completed']}/{payload['expected']})")
     return 0 if payload["incomplete"] == 0 else 2

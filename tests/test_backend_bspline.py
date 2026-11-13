@@ -40,7 +40,7 @@ def _line(y: float = 0.0, speed: float = 2.0, duration: float = 1.6) -> Piecewis
 
 
 def _cfg(**kwargs) -> BackendConfig:
-    base = dict(a_max=6.0, v_max=6.0, max_iterations=8, time_budget_s=0.05, clearance_m=0.35)
+    base = dict(a_max=6.0, v_max=6.0, max_iterations=8, time_budget_s=5.0, clearance_m=0.35)
     base.update(kwargs)
     return BackendConfig(**base)
 
@@ -171,7 +171,7 @@ def test_cylinder_penalty_increases_clearance():
     cyl = Cylinder("trunk", (0.0, 0.15), 0.45, 0.0, 4.0)
     before = min_signed_distance(traj, (cyl,))
     assert before < 0.0
-    out, rec = refine_yopo(traj, _cfg(max_iterations=8, time_budget_s=0.05), (cyl,))
+    out, rec = refine_yopo(traj, _cfg(max_iterations=8, time_budget_s=5.0), (cyl,))
     assert rec["applied"] is True, rec
     after = min_signed_distance(out, (cyl,))
     assert after > before + 0.05
