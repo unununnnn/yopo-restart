@@ -746,6 +746,14 @@ def _f(value, nd: int) -> str:
     return f"{float(value):.{nd}f}"
 
 
+def _xyz(x: float, y: float, z: float = 1.5) -> str:
+    def one(v: float) -> str:
+        v = 0.0 if abs(float(v)) < 5e-4 else float(v)
+        return f"{v:.3f}"
+
+    return f"{one(x)}, {one(y)}, {one(z)}"
+
+
 def _rng(values: list[float], nd: int) -> str:
     if not values:
         return "—"
@@ -837,16 +845,26 @@ def seed1_headline(rows: list[dict]) -> str:
     for row in group:
         if row.get("arm") == "sphere":
             continue
-        g = row.get("min_inter_drone_distance_m")
-        gs = "—" if g is None else f"{float(g):.3f} m"
-        if int(row.get("inter_drone_collisions") or 0):
-            flag = f"仍机间碰撞（`{row.get('reason')}`）"
-        else:
-            flag = str(row.get("outcome"))
-        others.append(f"{arm_label(row['arm'])}为{flag}，最小机间 {gs}")
+        others.append(_seed1_phrase(row))
     if others:
-        text += " 同一粒其余各臂：" + "；".join(others) + "。"
+        text += "同一粒其余各臂：" + "；".join(others) + "。"
     return text
+
+
+def _seed1_phrase(row: dict) -> str:
+    gap = row.get("min_inter_drone_distance_m")
+    gap_s = "—" if gap is None else f"{float(gap):.3f} m"
+    if int(row.get("inter_drone_collisions") or 0):
+        flag = f"仍是机间碰撞（`{row.get('reason')}`）"
+    elif int(row.get("obstacle_collisions") or 0):
+        flag = f"机间没有越线，但是障碍碰撞（`{row.get('reason')}`）"
+    elif row.get("outcome") == "TIMEOUT":
+        flag = f"超时，到达 {int(row.get('arrived') or 0)}/{int(row.get('n_drones') or 0)}"
+    elif row.get("outcome") == "SUCCESS":
+        flag = "到达，机间没有越线"
+    else:
+        flag = str(row.get("outcome"))
+    return f"{arm_label(row['arm'])}：{flag}，最小机间 {gap_s}"
 
 
 def format_approach_md(approach: dict | None, *, after_samples: list[dict] | None = None) -> str:
@@ -892,10 +910,23 @@ def _seed1_curves(rows: list[dict]) -> str:
             continue
         if int(row.get("inter_drone_collisions") or 0):
             ordered.append(row)
+    sphere_approach = (sphere or {}).get("approach") if sphere is not None else None
     parts = []
     for row in ordered:
         approach = row.get("approach")
         if not approach:
+            continue
+        if (
+            row is not sphere
+            and sphere_approach
+            and approach.get("pair") == sphere_approach.get("pair")
+            and abs(float(approach["t_s"]) - float(sphere_approach["t_s"])) < 0.02
+            and abs(float(approach["distance_m"]) - float(sphere_approach["distance_m"])) < 0.002
+        ):
+            parts.append(
+                f"### seed 1 · {arm_label(row['arm'])}\n\n"
+                "越线的那一对、时刻和距离与默认球这一粒相同（差小于 0.002 m）。曲线不另附。"
+            )
             continue
         diag = row.get("approach_after") or {}
         after = diag.get("samples") if diag.get("trusted") else None
@@ -962,13 +993,87 @@ def _placement_md() -> str:
     ]
     for i, (ux, uy) in enumerate(ec6.SWAP6_UNIT):
         sx, sy = 8.0 * float(ux), 8.0 * float(uy)
-        open_lines.append(f"| uav{i} | {sx:.3f}, {sy:.3f}, 1.500 | {-sx:.3f}, {-sy:.3f}, 1.500 |")
+        open_lines.append(
+            f"| uav{i} | {_xyz(sx, sy)} | {_xyz(-sx, -sy)} |"
+        )
     return (
-        "六机开阔的名义圆半径 8.0 m，方位间隔 60°，目标是起点的对径。开阔场没有柱子，不起出 8 m。\n\n"
+        "六机开阔的名义圆半径 8.0 m，方位间隔 60°，目标是起点的对径。开阔场没有柱子，起终点留在 8 m 圆上。\n\n"
         + "\n".join(open_lines)
         + "\n\n014 六机对向的起终点与 [E-C6](e-c6-six-density.md) 同一条规则：轴距低于 0.70 m 就沿射线推到 20 m 正方形外。\n\n"
         + "\n".join(lines)
     )
+
+
+def _arm_group(rows: list[dict], scene: str, arm: str) -> list[dict]:
+    return [r for r in rows if r.get("scene_kind") == scene and r.get("arm") == arm]
+
+
+def results_blurb(rows: list[dict]) -> str:
+    """从合计里抽出和 0.694 m、六机对照直接相关的几句。没有这些行时留空。"""
+
+    def counts(scene: str, arm: str) -> str | None:
+        group = _arm_group(rows, scene, arm)
+        if not group:
+            return None
+        st = _stats(group)
+        return (
+            f"到达 {st['arrived']}/{st['total']}，障碍 {st['obs']}，机间 {st['inter']}，"
+            f"超时 {st['timeout']}，最小机间 {_rng(st['gaps'], 3)} m"
+        )
+
+    parts = []
+    sphere = counts("d014-swap3", "sphere")
+    if sphere:
+        wider = []
+        for arm in ("r100", "w16", "r100w16"):
+            group = _arm_group(rows, "d014-swap3", arm)
+            if not group:
+                continue
+            st = _stats(group)
+            seed1 = next((r for r in group if int(r.get("seed", -1)) == 1), None)
+            seed1_bit = ""
+            if seed1 is not None and int(seed1.get("inter_drone_collisions") or 0) == 0:
+                seed1_bit = "，seed 1 的机间碰撞没有了"
+            wider.append(
+                f"{arm_label(arm)}：到达 {st['arrived']}/{st['total']}，障碍 {st['obs']}，机间 {st['inter']}{seed1_bit}"
+            )
+        parts.append(
+            f"014 三机对向 seeds 0–9。默认球：{sphere}。seed 1 的 0.694 m 还在。"
+            + ("加大半径或权重：" + "；".join(wider) + "。" if wider else "")
+        )
+    end = next((r for r in _arm_group(rows, "d014-swap3", "end_free") if int(r.get("seed", -1)) == 1), None)
+    if end is not None and int(end.get("inter_drone_collisions") or 0) == 0:
+        if int(end.get("obstacle_collisions") or 0):
+            parts.append(
+                "脚本内末端放行在 seed 1 上不再记机间碰撞，"
+                f"换成障碍碰撞（`{end.get('reason')}`），最小机间 {_f(end.get('min_inter_drone_distance_m'), 3)} m。"
+                "放开末端能把 0.694 m 的擦线推开，这一粒改去撞障碍。"
+            )
+        elif end.get("outcome") == "SUCCESS":
+            parts.append(
+                "脚本内末端放行在 seed 1 上到达，最小机间 "
+                f"{_f(end.get('min_inter_drone_distance_m'), 3)} m，机间没有越线。"
+            )
+    stacks = []
+    for arm in ("geom_multi", "empty_brake", "geom_multi+empty_brake"):
+        row = next((r for r in _arm_group(rows, "d014-swap3", arm) if int(r.get("seed", -1)) == 1), None)
+        if row is not None and int(row.get("inter_drone_collisions") or 0):
+            stacks.append(f"{arm_label(arm)} 仍是 {_f(row.get('min_inter_drone_distance_m'), 3)} m")
+    if stacks:
+        parts.append("seed 1 上，" + "；".join(stacks) + "。叠 geom_multi 或 empty_brake 没有去掉这次擦线。")
+    open_off = counts("swap6-open", "off")
+    open_sphere = counts("swap6-open", "sphere")
+    open_geom = counts("swap6-open", "geom")
+    if open_off and open_sphere and open_geom:
+        parts.append(f"六机开阔，seeds 0–4。全关：{open_off}。默认球：{open_sphere}。叠 geom：{open_geom}。")
+    six_off = counts("d014-swap6", "off")
+    six_sphere = counts("d014-swap6", "sphere")
+    six_geom = counts("d014-swap6", "geom")
+    if six_off and six_sphere and six_geom:
+        parts.append(
+            f"014 六机对向，seeds 0–4。全关：{six_off}。默认球单独：{six_sphere}。叠 geom：{six_geom}。"
+        )
+    return "\n\n".join(parts)
 
 
 def render_markdown(payload: dict) -> str:
@@ -1026,6 +1131,8 @@ E-B4c 在 `scenes/ego-density-014-swap3.json` seed 1、默认欧氏球上记下�
 到达按架次。撞障碍是 `TRUTH_POSITION`，机间是 `INTER_DRONE`，仿真在第一次碰撞停下，所以一次运行最多记 1 次碰撞。超时是 `TIMEOUT`。最小机间：没撞时是全程采样最小；撞了则是越线那一拍的采样。到达时间是全部飞机都进到达判据时的 `arrival_time_s`。
 
 ## 结果
+
+{results_blurb(rows)}
 
 {summarize(rows)}
 

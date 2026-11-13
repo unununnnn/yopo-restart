@@ -238,6 +238,7 @@ def test_seed1_headline_says_whether_0694_remains():
     }
     text = mod.seed1_headline([hit, cleared])
     assert "0.694 m 没有消除" in text
+    assert "到达，机间没有越线" in text
     page = mod.render_markdown({"rows": []})
     assert "report-only" in page
     assert "偏离上游" in page
