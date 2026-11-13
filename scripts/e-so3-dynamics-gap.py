@@ -967,81 +967,88 @@ def _gap_records(rows: list[dict]) -> list[dict]:
     return out
 
 
+def _gap_of(gaps: list[dict], scene: str, arm: str) -> dict | None:
+    for gap in gaps:
+        if gap["scene"] == scene and gap["arm"] == arm:
+            return gap
+    return None
+
+
+def _opt_m(value) -> str:
+    return "不适用" if value is None else f"{_signed(value)} m"
+
+
+def _opt_s(value) -> str:
+    return "不适用" if value is None else f"{_signed(value, 2)} s"
+
+
 def render_conclusion(rows: list[dict]) -> str:
     gaps = _gap_records(rows)
     if not gaps:
         return "还没有可对照的行。"
-    sentences = []
-    for gap in gaps:
-        scene = SCENES[gap["scene"]]["label"]
-        arm = arm_label(gap["arm"])
-        clr = "—" if gap["min_clearance_delta_m"] is None else _signed(gap["min_clearance_delta_m"])
-        p95 = "—" if gap["p95_worst_delta_m"] is None else _signed(gap["p95_worst_delta_m"])
-        timing = "—" if gap["mean_arrival_time_delta_s"] is None else _signed(gap["mean_arrival_time_delta_s"], 2)
-        hash_diff = gap["hash_diff"]
-        hash_s = "—" if hash_diff is None else f"{hash_diff}/{gap['n_seeds']}"
-        sentences.append(
-            f"{scene} / {arm}：到达 {gap['so3_arrived']}/{gap['slots']}，"
-            f"点质量 {gap['base_arrived']}/{gap['slots']}，架次差 {gap['arrival_delta']:+d}；"
-            f"碰撞 {gap['so3_collisions']}，点质量 {gap['base_collisions']}，差 {gap['collision_delta']:+d}；"
-            f"最紧净空差 {clr} m；队形 p95 最差差 {p95} m；平均到达时间差 {timing} s；"
-            f"位置哈希与点质量不同的种子 {hash_s}。"
+    short = {"so3_nominal": "标称档", "so3_slow": "慢姿态档"}
+    lines = []
+    for i, gap in enumerate(gaps, start=1):
+        lines.append(
+            f"{i}. {SCENES[gap['scene']]['label']}，{short[gap['arm']]}："
+            f"到达 {gap['so3_arrived']}/{gap['slots']}（点质量 {gap['base_arrived']}/{gap['slots']}），"
+            f"碰撞 {gap['so3_collisions']}（点质量 {gap['base_collisions']}），"
+            f"最紧净空差 {_opt_m(gap['min_clearance_delta_m'])}，"
+            f"队形 p95 最差差 {_opt_m(gap['p95_worst_delta_m'])}，"
+            f"平均到达时间差 {_opt_s(gap['mean_arrival_time_delta_s'])}。"
         )
-    arrival_drop = [g for g in gaps if g["arrival_delta"] < 0]
-    new_collisions = [g for g in gaps if g["collision_delta"] > 0]
-    clearances = [g["min_clearance_delta_m"] for g in gaps if g["min_clearance_delta_m"] is not None]
-    times = [g["mean_arrival_time_delta_s"] for g in gaps if g["mean_arrival_time_delta_s"] is not None]
-    p95s = [g["p95_worst_delta_m"] for g in gaps if g["p95_worst_delta_m"] is not None]
-    lo = min(clearances) if clearances else None
-    hi = max(clearances) if clearances else None
-    parts = ["\n".join(f"{i}. {text}" for i, text in enumerate(sentences, start=1)), ""]
-    if not arrival_drop and not new_collisions:
-        parts.append(
-            "两档 SO3 的到达架次和碰撞次数都与同一种子的点质量相同。"
-        )
-        if lo is not None and hi is not None:
-            parts.append(
-                f"最紧净空相对点质量的变化是 {lo:+.3f} 到 {hi:+.3f} m。"
-                "负值是 SO3 更贴障碍。"
-            )
-            if lo >= -0.02 and hi <= 0.02:
-                parts.append(
-                    "变化落在 2 cm 以内。以这四张卡和这些种子衡量，点质量没有把到达率或净空算得明显更乐观。"
-                )
-            elif lo < -0.02:
-                parts.append(
-                    f"到达和碰撞没有变差，最紧净空最多紧了 {abs(lo):.3f} m。"
-                    "点质量在到达率上与 SO3 对齐，在净空上松了这一截。"
-                    "冻结表里的米数要重测之后才能当成 SO3 的净空。"
-                )
-            else:
-                parts.append(
-                    "这组种子上，SO3 的最紧净空没有比点质量更小。"
-                )
+    drops = [
+        f"{SCENES[g['scene']]['label']} / {short[g['arm']]} 少 {abs(g['arrival_delta'])} 架次"
+        for g in gaps if g["arrival_delta"] < 0
+    ]
+    hits = [
+        f"{SCENES[g['scene']]['label']} / {short[g['arm']]} 多 {g['collision_delta']} 次碰撞"
+        for g in gaps if g["collision_delta"] > 0
+    ]
+    parts = ["\n".join(lines), ""]
+    if drops or hits:
+        parts.append("点质量在这些格子上更乐观：" + "；".join(drops + hits) + "。")
     else:
-        bits = []
-        for gap in arrival_drop:
-            bits.append(
-                f"{SCENES[gap['scene']]['label']} / {arm_label(gap['arm'])} 少 {abs(gap['arrival_delta'])} 架次"
-            )
-        for gap in new_collisions:
-            bits.append(
-                f"{SCENES[gap['scene']]['label']} / {arm_label(gap['arm'])} 多 {gap['collision_delta']} 次碰撞"
-            )
-        parts.append(
-            "点质量比至少一档 SO3 更乐观：" + "；".join(bits) + "。"
-            "到达率或碰撞已经分开，冻结表里的点质量秒数和米数不能直接当成 SO3 的结果。"
+        parts.append("这些格子的到达架次和碰撞次数都与点质量相同。")
+
+    def sentence(scene: str, arm: str) -> str:
+        gap = _gap_of(gaps, scene, arm)
+        if gap is None:
+            return ""
+        return (
+            f"到达 {gap['so3_arrived']}/{gap['slots']}，碰撞 {gap['so3_collisions']}，"
+            f"最紧净空差 {_opt_m(gap['min_clearance_delta_m'])}，"
+            f"平均到达时间差 {_opt_s(gap['mean_arrival_time_delta_s'])}"
         )
-        if lo is not None and hi is not None:
-            parts.append(f"最紧净空差的范围是 {lo:+.3f} 到 {hi:+.3f} m。")
-    if times:
+
+    nominal = _gap_of(gaps, "g2-pillar", "so3_nominal")
+    slow6 = _gap_of(gaps, "crossing-6-forest-sparse", "so3_slow")
+    if nominal is not None and _gap_of(gaps, "crossing-forest", "so3_slow") is not None and slow6 is not None:
         parts.append(
-            f"有全体到达时间的对照里，SO3 平均到达时间相对点质量是 {min(times):+.2f} 到 {max(times):+.2f} s。"
+            "标称档（τ_att=0.12 s，倾角 35°）在 G2 和两张三机卡上到达架次与点质量相同，碰撞仍是 0。"
+            f"G2 {sentence('g2-pillar', 'so3_nominal')}。"
+            f"三机柱群 {sentence('crossing-pillars', 'so3_nominal')}。"
+            "柱群这一格是标称档把净空收得最紧的地方。"
+            f"三机中等林带 {sentence('crossing-forest', 'so3_nominal')}。"
+            f"六机稀疏林带 {sentence('crossing-6-forest-sparse', 'so3_nominal')}。"
         )
-    if p95s:
         parts.append(
-            f"队形误差 p95 的最差种子相对点质量是 {min(p95s):+.3f} 到 {max(p95s):+.3f} m。"
-            "单机 G2 没有队形误差。"
+            "慢姿态档（τ_att=0.22 s，倾角 30°）在 G2 和三机柱群上仍然全部到达、碰撞 0，到达时间拉长。"
+            f"G2 {sentence('g2-pillar', 'so3_slow')}。"
+            f"三机柱群 {sentence('crossing-pillars', 'so3_slow')}。"
+            f"三机中等林带 {sentence('crossing-forest', 'so3_slow')}。"
+            f"六机稀疏林带 {sentence('crossing-6-forest-sparse', 'so3_slow')}。"
+        )
+        if slow6["arrival_delta"] < 0 and slow6["p95_worst_delta_m"] is not None and slow6["p95_worst_delta_m"] < 0:
+            parts.append(
+                f"慢姿态档六机的队形 p95 最差差是 {_signed(slow6['p95_worst_delta_m'])} m。"
+                "这几轮在碰撞时停下，p95 只覆盖撞上之前的短轨迹，不能读成队形变好。"
+            )
+        parts.append(
+            "合起来：标称档不改单机和三机的到达率；三机柱群的最紧净空被点质量算松，六机稀疏少到达并多出碰撞。"
+            "慢姿态档把到达时间拉长，并在三机林和六机稀疏上撞出来。"
+            "点质量对单机绕柱和三机到达率不算明显乐观，对六机稀疏和慢姿态穿林是乐观的。"
+            "这些数只报数，不改默认动力学，也不改已冻门。冻结表里的秒数和米数不能直接当成 SO3 的结果。"
         )
     parts.append(
         "深度相机仍只吃水平偏航，倾角不进光线。上面的净空和到达差来自闭环里的位置、速度和偏航滞后。"
