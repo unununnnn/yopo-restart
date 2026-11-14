@@ -220,6 +220,16 @@ def test_research_switch_on_is_hard(tmp_path, switch_path):
     assert "research-switches" in _ids(report, "hard_failures")
 
 
+def test_d435_depth_on_is_hard(tmp_path):
+    card = _card()
+    card["task"] = {**card["task"], "d435_depth": True}
+    root = make_tree(tmp_path, card=card)
+    report = MOD.audit(root, head=HEAD)
+    assert report["exit_code"] == 1
+    assert "research-switches" in _ids(report, "hard_failures")
+    assert "d435_depth" in report["hard_failures"][0]["detail"]
+
+
 def test_non_bool_switch_is_hard(tmp_path):
     root = make_tree(tmp_path, card=_card(policy_params={"upstream": {"track_clearance": "true"}}))
     report = MOD.audit(root, head=HEAD)

@@ -5,8 +5,8 @@
 
 - ``scenes/*.json`` 与 ``scenes/suite.txt`` 的默认策略仍是运行器的
   ``upstream`` + 影子盾开。研究开关 ``track_clearance``、``empty_brake``、
-  ``peer_sphere_enabled``、``swarm_penalty``、``swarm_segment_penalty``
-  没有在场景卡上以 JSON true 打开。
+  ``peer_sphere_enabled``、``swarm_penalty``、``swarm_segment_penalty``、
+  ``d435_depth`` 没有在场景卡上以 JSON true 打开。
 - ``docs/results/SUMMARY.md``、``docs/results/SUMMARY.json``、
   ``docs/results/videos.md``、``docs/LIMITATIONS.md`` 里的场景卡哈希和相对链接。
   哈希与当前卡不一致、或 commit 仍停在旧提交（例如 ``f5985e4``），记入待刷新。
@@ -37,16 +37,11 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from yopo_l0.experiment import RESEARCH_SWITCHES
+
 SCHEMA = "yopo-restart/phase1-closeout/1"
 STALE_EXAMPLE_PREFIX = "f5985e4"
 UPSTREAM_SAFE_RADIUS_M = 0.05
-RESEARCH_SWITCHES = (
-    "track_clearance",
-    "empty_brake",
-    "peer_sphere_enabled",
-    "swarm_penalty",
-    "swarm_segment_penalty",
-)
 # 套件里允许的任务策略。缺省（不写 @策略）等于批跑默认 upstream。
 # certified / student 不是第一期默认基线。
 SUITE_POLICIES = {"hover", "upstream", "formation", "crossing", "switch"}
@@ -526,9 +521,8 @@ def _check_scenes(root: Path, passed: list[dict], hard: list[dict], phase2: list
         passed.append(
             _item(
                 "research-switches-off",
-                "场景卡没有打开五个研究开关",
-                "track_clearance、empty_brake、peer_sphere_enabled、swarm_penalty、"
-                "swarm_segment_penalty 都不是 JSON true。影子盾没有被写成关。"
+                f"场景卡没有打开{len(RESEARCH_SWITCHES)}个研究开关",
+                "、".join(RESEARCH_SWITCHES) + " 都不是 JSON true。影子盾没有被写成关。"
                 "写了 safe_radius 的卡仍是 0.05 m，没写的沿用上游缺省。",
                 scene_json=len(list(scene_dir.glob("*.json"))),
                 flight_cards=len(flight),
@@ -578,7 +572,7 @@ def _check_scenes(root: Path, passed: list[dict], hard: list[dict], phase2: list
         )
     outside = [card for card in research_cards if not card["in_suite"]]
     detail = (
-        "这五个开关的打开态、student 蒸馏和 SITL 实飞都不进第一期默认套件。"
+        "这些研究开关的打开态、student 蒸馏和 SITL 实飞都不进第一期默认套件。"
         "后段或几何回退若只出现在套件外的研究卡上，不把它们当成默认基线。"
     )
     if outside:
