@@ -46,6 +46,8 @@
 | e-b5-sphere-sweep.md | e-b5 | E-B5：欧氏碰撞球参数扫描（只报数） | report-only |
 | e-b7-fault-and-swap8-sphere-runs.json | e-b7 | 只报数。report-only。peer_sphere_enabled 默认关，不改 swarm_penalty / swarm_segment_penalty 的语义。打开欧氏球即偏离上游 d5e1e60。未冻结，不进 scenes/suite.txt，不设 gates，不改已冻门。E-B4c 半径 0.85 m = 0.70 m 碰撞球 + 0.15 m 裕度，权重 8。E-B5 的 1.00 m / 权重 8，以及 0.85 m / 权重 16，同样只在本进程的卡上。这不是论文复现。 | report-only、冻结 |
 | e-b7-fault-and-swap8-sphere.md | e-b7 | E-B7：八机对向与 M4 六档通讯故障下的欧氏碰撞球 | report-only、冻结 |
+| e-b8-pillars-sphere-runs.json | e-b8 | 只报数。report-only / 偏离上游。不改 yopo_l0/、core/、scenes/、docs/tickets.md、README.md、scripts/premerge.sh、scripts/regress.sh，不进 scenes/suite.txt，不改已有门。后段可以独立打开。开后段或开球都标 report-only / 偏离上游（上游 d5e1e60 的场景卡没有打开后段，也没有这颗欧氏球）。基线是场景卡默认策略加影子盾。种子只有 crossing-pillars 的 3 与 6。0.85 m = 0.70 m 碰撞球 + 0.15 m 裕度。关障碍项只把求解器障碍铰链权重写成 0，不改接受检查。 | report-only、冻结 |
+| e-b8-pillars-sphere.md | e-b8 | E-B8：crossing-pillars 开欧氏球越已冻门两粒归因 | report-only、冻结 |
 | e-c4-density-l0-runs.json | e-c4 | 只报数，不改默认，不冻结。墙钟不参与轨迹。backend_budget_cuts 是后段 0.02 s 墙钟预算把迭代截断的次数。这是假设，不是论文复现（障碍半径 0.20 m，边长 20.0 m）。 | report-only、冻结 |
 | e-c4-density-l0.md | e-c4 | 票 E-C4 密度场 L0 seed 0，只报数 | report-only、冻结 |
 | e-c4-eight-swap-density.md | e-c4 | 票 E-C4：八机开阔对向，以及一张标明假设的密度场 | report-only、冻结 |
@@ -73,6 +75,8 @@
 | e-combo-swap8-seeds.md |  | 八机开阔对向补跑种子 1–9 | report-only、冻结 |
 | e-d435-depth-noise-runs.json | e-d435 | 只报数。report-only。``d435_depth`` 默认关，场景卡、``scenes/suite.txt``、已冻门都没改。打开即偏离上游：上游权重在真值深度上训练（右目关闭）。无效像素保持 NaN，网络侧用上游 NS inpaint；本表没有用 inpaint 预填，也没有填最大量程。飞点概率 0.3、掠射角阈值 75°、视差噪声相关长度 3 px、丢帧率 0.5%，以及约 21 ms 里 Orin 额外的约 5 ms，置信度低。仿真相机不是 848×480。噪声用该相机的 fx，米制 σ 比原生 D435 大。编队任务不读深度，轨迹不该因这只开关改变；影子盾仍会看着深度图。影子盾只记录 would_reject，不改批准的计划。墙钟不进结论。 | report-only、冻结 |
 | e-d435-depth-noise.md | e-d435 | 票 E-D435：D435 深度噪声与延迟下的 YOPO L0 | report-only、冻结 |
+| e-pg2-forest-gate-switch-runs.json |  | 整表 report-only。open 偏离当前场景卡（卡上 progress_gate=false，没有 leader_margin_m）。余量写在进程内的 task.leader_margin_m，不写回场景卡。墙钟不进门。 | report-only、冻结 |
+| e-pg2-forest-gate-switch.md |  | 票 E-PG2：六机林带进度门控的超前余量做成开关 | report-only、冻结 |
 | e-so3-dynamics-gap-runs.json |  | 只报数。report-only。SO3 两臂是偏离默认动力学（L0 点质量不变）。不改 yopo_l0/ 的默认动力学，不改 core/、scenes/、docs/tickets.md、README.md、scripts/premerge.sh、scripts/regress.sh。规划与策略保持场景卡默认：upstream（柱群和穿林由 CrossingFleet 走上游 YOPO），影子盾开。外环 kp/kd/a_max 与 PointMassLag 相同。τ_att、τ_thrust 和倾角是票面给定的假设，不是本仓库的 SITL 辨识。未冻结，不进 scenes/suite.txt，不设 gates，不改已冻门。 | report-only、冻结 |
 | e-so3-dynamics-gap.md |  | 票 E-SO3：L0 SO3 四旋翼滞后 vs 点质量，只报数 | report-only、冻结 |
 | ego-c2-swap3.md |  | 票 E-C2：三机开阔对向（只报数） | report-only、冻结 |
