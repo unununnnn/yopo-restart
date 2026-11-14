@@ -38,8 +38,8 @@ from .sensor import R_BODY_CAM, CameraConfig, DepthCamera, DepthFrame
 
 SCHEMA = "yopo-restart/s4-sitl-bridge/1"
 SCHEMA_LIVE = "yopo-restart/s4b-sitl-live/1"
-# 实飞结果里留下开头几拍，方便对世界系/本地系设定点和里程计。
-TRACE_SAMPLES = 16
+# 每个阶段留几拍。只留全局前 16 拍的话，全是 WARMUP，看不到规划方向。
+TRACE_PER_PHASE = 8
 # 与 scripts/sitl/fleet.py 的 SPAWN_SPACING_M 相同：S2 多机沿东向每隔 3 m 一架。
 SITL_LINE_SPACING_M = 3.0
 # ``--partial`` 只跑这么长的前缀，用来做离线校验，不等到达。
@@ -319,6 +319,11 @@ class YopoSitlBridge:
             yaw_ned=yaw_ned,
             acceleration_ned=acceleration_ned,
         )
+        # 实飞主循环一规划就要 1 s 以上，sample() 里的偏航只按 physics_dt=0.02 走一步。
+        # 机头因此一直朝东，网络的前向轨迹被转到 +x。间隔够大时先按同一限速把期望航向补到目标方向，
+        # 这一拍的机体旋转用补过的航向，位置设定点才朝目标而不是朝机头。
+        # 假动力学每拍 0.02 s，进不了这个分支。
+        yaw = self._catch_up_yaw(now_s, p, yaw)
         planned = False
         if self._due(now_s):
             self._deliver_neighbors()
@@ -356,6 +361,23 @@ class YopoSitlBridge:
         self._last_sample_s = now_s
         self._last_output = out
         return out
+
+    def _catch_up_yaw(self, now_s: float, position_enu, yaw_odom: float) -> float:
+        """时间跳变时把期望航向按限速转到目标。正常 0.02 s 节拍原样返回里程计航向。"""
+        last = self._last_sample_s
+        plan = self._plan
+        if last is None or plan is None or not hasattr(plan, "yaw"):
+            return float(yaw_odom)
+        dt = float(now_s) - float(last)
+        if dt < 0.5:
+            return float(yaw_odom)
+        from yopo_swarm_core.yaw import calculate_yaw
+
+        goal_dir = np.asarray(self.goal, dtype=float) - np.asarray(position_enu, dtype=float)
+        if float(np.linalg.norm(goal_dir)) <= 1e-6:
+            return float(yaw_odom)
+        plan.yaw = float(calculate_yaw(goal_dir, goal_dir, float(plan.yaw), dt)[0])
+        return float(plan.yaw)
 
 
 class FakePx4Vehicle:
@@ -1491,13 +1513,14 @@ class LiveFleetSession:
         return self._pack(slot, now_s, heartbeat=False, setpoint=None, commands=commands, planned=False, depth_source=slot.depth_source, roundtrip=0.0, position=slot.position)
 
     def _record_trace(self, slot: _LiveSlot, now_s: float, world_enu, setpoint_world: dict | None) -> None:
-        """记下开头几拍。世界系设定点是减偏置之前的 NED 转回 ENU。"""
-        if len(slot.trace) >= TRACE_SAMPLES:
+        """每个阶段留几拍。世界系设定点是减偏置之前的 NED 转回 ENU。"""
+        phase_n = sum(1 for row in slot.trace if row.get("phase") == slot.phase)
+        if phase_n >= TRACE_PER_PHASE:
             return
         now_s = float(now_s)
         if slot.trace and abs(float(slot.trace[-1]["t_s"]) - now_s) <= 1e-9:
             return
-        sample: dict = {"t_s": now_s, "phase": slot.phase}
+        sample: dict = {"t_s": now_s, "phase": slot.phase, "yaw_enu": float(slot.yaw)}
         if world_enu is None:
             sample["odometry_world_enu"] = None
             sample["odometry_local_enu"] = None
@@ -1516,6 +1539,8 @@ class LiveFleetSession:
             sample["setpoint_velocity_enu"] = _vec_list(px4.ned_to_enu(setpoint_world["velocity"]))
             sample["setpoint_velocity_ned"] = _vec_list(setpoint_world["velocity"])
             sample["setpoint_acceleration_ned"] = _vec_list(setpoint_world.get("acceleration", [0.0, 0.0, 0.0]))
+            yaw_sp = setpoint_world.get("yaw")
+            sample["setpoint_yaw_ned"] = None if yaw_sp is None or not math.isfinite(float(yaw_sp)) else float(yaw_sp)
             sample["setpoint_local_ned"] = None
         slot.trace.append(sample)
 

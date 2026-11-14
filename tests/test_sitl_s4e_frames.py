@@ -436,6 +436,36 @@ def test_local_setpoint_perfect_track_stays_in_the_world_frame():
     assert trace[0]["setpoint_world_enu"][2] == pytest.approx(1.5)
 
 
+def test_yaw_catches_up_toward_the_goal_when_the_loop_stalls():
+    """正常 0.02 s 节拍偏航几乎不动。间隔 1.5 s 时期望航向转到目标，下一拍的速度朝西而不是朝东。"""
+    from yopo_l0.sitl_bridge import SitlBridgeConfig, YopoSitlBridge
+
+    card = load_card(SWAP)
+    cfg = SitlBridgeConfig(
+        drone_id="uav0", seed=0, drone_index=0, n_drones=3,
+        goal_enu=(-8.0, 0.0, 1.5), hover_alt_m=1.5, planner_dt=1.0,
+    )
+
+    def run(times):
+        bridge = YopoSitlBridge(card, cfg)
+        vehicle = FakePx4Vehicle(np.array([8.0, 0.0, 1.5]), np.zeros(3), yaw_enu=0.0)
+        odom = vehicle.odometry()
+        last = None
+        for t in times:
+            last = bridge.command(
+                odom["position_ned"], odom["velocity_ned"], t,
+                q_ned_frd=odom["q_ned_frd"], acceleration_ned=odom["acceleration_ned"],
+            )
+        return last
+
+    fine = run([0.0, 0.02])
+    assert abs(fine.yaw_enu) < 0.2
+    # 1.5 s 处补航向并重规划，1.9 s 只采样、不再重规划，速度应朝西（目标在 -x）。
+    stalled = run([0.0, 1.5, 1.9])
+    assert abs(px4.wrap_pi(stalled.yaw_enu)) > 1.0
+    assert stalled.v_enu[0] < 0.0
+
+
 def test_yopo_poses_cli_rewrites_a_layout_file(tmp_path):
     fleet = _fleet()
     layout = tmp_path / "layout.txt"
