@@ -82,6 +82,7 @@ run_yopo_l0() {
       --scene "${YOPO_L0_SCENE:-scenes/g2-pillar.json}" \
       --n "$N" \
       --seed "${YOPO_L0_SEED:-0}" \
+      --policy "${YOPO_L0_POLICY:-upstream}" \
       --wall-timeout "${YOPO_SITL_WALL_TIMEOUT:-900}" \
       --positioning "$POSITIONING"
 }

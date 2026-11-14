@@ -15,6 +15,12 @@
 不订阅 ``vehicle_global_position``：本地里程计已经以生成点为原点，再引入一套
 WGS84 参考并不更可靠。三机场景卡起点和 S2 直线生成点不一致时，容器按场景卡
 起点生成（``fleet.py yopo-poses``），S2 的默认布局不动。
+
+票 S5a：``policy=formation`` 时，PLAN 阶段不再调用 ``UpstreamPolicy``。
+同一份 ``FormationFleet`` 在进程内 ``MessageBus`` 上交换提案 / ACK / COMMIT，
+设定点仍是这条已提交计划采样后的 NED。不发布协议话题。编队钟从全体进入
+PLAN 的那一拍记 0，起飞不计入 ``t_go``。心跳仍按仿真钟往前采样，到达截住
+沿用 0.4 m / 0.2 m/s / 保持 1 s。
 """
 
 from __future__ import annotations
@@ -30,7 +36,9 @@ import numpy as np
 
 from yopo_swarm_core import px4
 
+from .bus import BusFaults, MessageBus
 from .dynamics import State
+from .formation import FormationFleet
 from .inter_drone import samples_from_pva
 from .policy import Observation, PolicyContext, UpstreamPolicy
 from .scene import SceneCard
@@ -45,8 +53,13 @@ SITL_LINE_SPACING_M = 3.0
 # ``--partial`` 只跑这么长的前缀，用来做离线校验，不等到达。
 PARTIAL_PREFIX_S = 0.5
 POSITIONING_MODES = ("default", "rtk")
+LIVE_POLICIES = ("upstream", "formation")
 VEHICLE_CMD_NAV_LAND = 21  # MAV_CMD_NAV_LAND，与 offboard_mission 同一条命令号
 GCS_PORT_BASE = 18570
+# 与 yopo_l0.runner 的总线盐相同。零故障时这条随机流不被消耗。
+_BUS_SEED_SALT = 0xB05
+# 仿真钟一次跳很远时，按 physics_dt 补协议拍，避免整窗提案被跳过。80 s / 0.02 s。
+_FORMATION_SUBSTEPS = 4000
 _REPO = Path(__file__).resolve().parents[1]
 
 
@@ -68,6 +81,8 @@ class SitlBridgeConfig:
     kp: float = 4.0
     kd: float = 3.0
     px4_namespace: str = ""
+    # formation 不跑上游网络。缺省仍构造 UpstreamPolicy，已有闭环不变。
+    load_upstream: bool = True
 
     def __post_init__(self) -> None:
         if not self.physics_dt > 0.0 or not self.planner_dt > 0.0:
@@ -255,7 +270,7 @@ class YopoSitlBridge:
             obstacles=card.obstacles,
             a_max=float(self.cfg.a_max),
         )
-        self.policy = UpstreamPolicy(ctx)
+        self.policy = UpstreamPolicy(ctx) if self.cfg.load_upstream else None
         self.neighbors: tuple[NeighborEnu, ...] = ()
         self.neighbor_sample_deliveries = 0
         self._plan = None
@@ -308,6 +323,8 @@ class YopoSitlBridge:
         depth_frame: DepthFrame | None = None,
     ) -> BridgeOutput:
         now_s = float(now_s)
+        if self.policy is None:
+            raise RuntimeError(f"{self.drone_id} 没有上游策略，编队设定点不走 command()")
         if self._last_output is not None and self._last_sample_s is not None:
             if abs(now_s - self._last_sample_s) <= 1e-12:
                 return self._last_output
@@ -757,6 +774,19 @@ def normalize_positioning(value: str | None) -> str:
     if text not in POSITIONING_MODES:
         raise ValueError(f"positioning 只要 default 或 rtk，收到 {value!r}")
     return text
+
+
+def resolve_live_policy(card: SceneCard, policy: str | None) -> str:
+    """实飞策略。formation 只接 formation 卡，机间消息留在进程内总线。"""
+    name = "upstream" if policy is None or str(policy).strip() == "" else str(policy).strip().lower()
+    if name not in LIVE_POLICIES:
+        raise ValueError(f"policy 只要 {' 或 '.join(LIVE_POLICIES)}，收到 {policy!r}")
+    task = str((card.card.get("task") or {}).get("type") or "")
+    if name == "formation" and task != "formation":
+        raise ValueError("policy=formation 只适用于 task.type 为 formation 的场景卡")
+    if task == "formation" and name != "formation":
+        raise ValueError("formation 场景卡需要 policy=formation。机间消息走进程内 MessageBus，不走上游 YOPO")
+    return name
 
 
 def vehicle_identity(drone_index: int, n_drones: int) -> dict:
@@ -1292,20 +1322,55 @@ class _LiveSlot:
         self.land_give_up = False
         self.offset_enu = world_offset_enu(bridge.start_enu)
         self.trace: list[dict] = []
+        self.formation_sampler = None
+
+
+
+def _formation_plan_code(fleet, drone_id: str) -> str | None:
+    """还没 track 过的机在 result() 里没有 last_record，不能抛 KeyError。"""
+    if fleet is None:
+        return None
+    last = getattr(fleet, "_last_rec", None)
+    if not isinstance(last, dict) or drone_id not in last:
+        return None
+    return fleet.code(drone_id)
 
 
 class LiveFleetSession:
     """容器侧状态机：预热、解锁、起飞、按桥规划、全体到达后 NAV_LAND。
 
-    不写 PX4 参数。每架只读自己 namespace 的消息。规划设定点仍来自 ``YopoSitlBridge``。
+    不写 PX4 参数。每架只读自己 namespace 的消息。``upstream`` 的设定点来自
+    ``YopoSitlBridge``。``formation`` 的设定点来自 ``FormationFleet`` 已提交的计划，
+    机间消息只进构造时传入的进程内 ``MessageBus``。
     进来的里程计先加上该机场景卡起点的水平偏置；``_pack`` 把设定点减回去。
     """
 
-    def __init__(self, card: SceneCard, bridges: list[YopoSitlBridge], idents: list[dict], cfg: LiveFleetConfig):
+    def __init__(
+        self,
+        card: SceneCard,
+        bridges: list[YopoSitlBridge],
+        idents: list[dict],
+        cfg: LiveFleetConfig,
+        *,
+        fleet: FormationFleet | None = None,
+        bus: MessageBus | None = None,
+        policy: str = "upstream",
+    ):
         if len(bridges) != len(idents) or not bridges:
             raise ValueError("bridges 和 idents 必须非空且一一对应")
+        if policy not in LIVE_POLICIES:
+            raise ValueError(f"policy 只要 {' 或 '.join(LIVE_POLICIES)}，收到 {policy!r}")
+        if (fleet is None) != (policy != "formation"):
+            raise ValueError("formation 会话要带 FormationFleet，其他策略不带")
+        if policy == "formation" and bus is None:
+            raise ValueError("formation 会话要带 MessageBus")
         self.card = card
         self.cfg = cfg
+        self.policy = policy
+        self.fleet = fleet
+        self.bus = bus
+        self._plan_origin: float | None = None
+        self._formation_t: float | None = None
         self.slots = [_LiveSlot(bridge, ident, cfg.initial_phase) for bridge, ident in zip(bridges, idents)]
         self.goal_tol, self.goal_speed, self.goal_hold, self.body = _goal_limits(card)
         self.fail_reason = ""
@@ -1342,6 +1407,7 @@ class LiveFleetSession:
                 decoded[ns] = None
         self._exchange(decoded)
         self._note_separation(decoded, now_s)
+        self._formation_exchange(now_s)
         commands = [self._step_slot(slot, now_s, inbox_by_ns.get(slot.ident["namespace"]), decoded[slot.ident["namespace"]]) for slot in self.slots]
         if self.fail_reason == "" and all(slot.arrival is not None for slot in self.slots):
             for slot in self.slots:
@@ -1354,6 +1420,8 @@ class LiveFleetSession:
 
     def stream_local_setpoint(self, namespace: str, now_s: float) -> dict | None:
         """PLAN 阶段心跳：按仿真钟采样当前轨迹，减回本地 NED。其他阶段返回 None。"""
+        if self.fleet is not None:
+            return self._formation_stream(namespace, float(now_s))
         for slot in self.slots:
             if slot.ident["namespace"] != namespace or slot.phase != "PLAN":
                 continue
@@ -1365,7 +1433,58 @@ class LiveFleetSession:
             return setpoint_to_local(world, slot.offset_enu)
         return None
 
+    def _formation_exchange(self, now_s: float) -> None:
+        """全体进入 PLAN 之后才走协议。时钟从这一拍记 0，起飞不计入 t_go。
+
+        平时一拍一次。仿真钟跳过多个 physics_dt 时按步长补拍，窗口才不会被整段跳过。
+        补拍只推进协议，不改里程计。设定点仍只在本拍的编队钟上采样一次。
+        """
+        if self.fleet is None or self.bus is None:
+            return
+        if any(slot.phase != "PLAN" for slot in self.slots):
+            return
+        now_s = float(now_s)
+        if self._plan_origin is None:
+            self._plan_origin = now_s
+            self._formation_t = 0.0
+            self.fleet.exchange(self.bus, 0.0)
+            return
+        target = now_s - float(self._plan_origin)
+        if target < float(self._formation_t) - 1e-9:
+            return
+        dt = float(self.slots[0].bridge.cfg.physics_dt)
+        t = float(self._formation_t)
+        guard = 0
+        while t + dt < target - 1e-9 and guard < _FORMATION_SUBSTEPS:
+            t = round(t + dt, 10)
+            self.fleet.exchange(self.bus, t)
+            guard += 1
+        if target > t + 1e-12:
+            self.fleet.exchange(self.bus, target)
+            t = target
+        self._formation_t = t
+
+    def _formation_stream(self, namespace: str, now_s: float) -> dict | None:
+        """心跳只读已经提交的采样器。不调用 sample，也不再 exchange。"""
+        if self._plan_origin is None:
+            return None
+        t = float(now_s) - float(self._plan_origin)
+        if t < 0.0:
+            return None
+        for slot in self.slots:
+            if slot.ident["namespace"] != namespace or slot.phase != "PLAN":
+                continue
+            sampler = slot.formation_sampler
+            if sampler is None:
+                return None
+            p, v, a = sampler.pva(t)
+            world = trajectory_setpoint_ned(p, v, a, float(sampler.yaw), now_s)
+            return setpoint_to_local(world, slot.offset_enu)
+        return None
+
     def _exchange(self, decoded: dict[str, dict | None]) -> None:
+        if self.fleet is not None:
+            return
         for slot in self.slots:
             if slot.phase != "PLAN":
                 continue
@@ -1560,6 +1679,8 @@ class LiveFleetSession:
         if now_s - float(slot.t_phase) > self.cfg.plan_timeout_s and slot.arrival is None:
             self._fail(f"{slot.bridge.drone_id}:PLAN_TIMEOUT", now_s)
             return self._land_pack(slot, now_s, inbox)
+        if self.fleet is not None:
+            return self._plan_formation(slot, now_s, state)
         source, frame = resolve_depth_frame(
             slot.bridge,
             state,
@@ -1580,14 +1701,7 @@ class LiveFleetSession:
             acceleration_ned=state["acceleration_ned"],
             depth_frame=frame,
         )
-        err = float(np.linalg.norm(state["position_enu"] - slot.bridge.goal))
-        speed = float(np.linalg.norm(state["velocity_enu"]))
-        if err <= self.goal_tol and speed <= self.goal_speed:
-            slot.goal_since = now_s if slot.goal_since is None else slot.goal_since
-            if now_s - slot.goal_since >= self.goal_hold - 1e-9:
-                slot.arrival = slot.goal_since
-        else:
-            slot.goal_since = None
+        self._note_arrival(slot, now_s, state["position_enu"], state["velocity_enu"])
         return self._pack(
             slot,
             now_s,
@@ -1597,6 +1711,48 @@ class LiveFleetSession:
             planned=out.planned,
             depth_source=source,
             roundtrip=out.roundtrip_error_m,
+            position=state["position_enu"],
+        )
+
+    def _note_arrival(self, slot: _LiveSlot, now_s: float, position, velocity) -> None:
+        """场景卡到达口径：距目标 ≤ 容差且速度 ≤ 上限，连续保持 goal_hold。"""
+        err = float(np.linalg.norm(np.asarray(position, dtype=float) - slot.bridge.goal))
+        speed = float(np.linalg.norm(np.asarray(velocity, dtype=float)))
+        if err <= self.goal_tol and speed <= self.goal_speed:
+            slot.goal_since = now_s if slot.goal_since is None else slot.goal_since
+            if now_s - slot.goal_since >= self.goal_hold - 1e-9:
+                slot.arrival = slot.goal_since
+        else:
+            slot.goal_since = None
+
+    def _plan_formation(self, slot: _LiveSlot, now_s: float, state: dict) -> LiveCommand:
+        """已提交编队计划在编队钟上的一点。不渲染深度，不调用上游网络。"""
+        t = self._formation_t
+        if t is None:
+            setpoint, roundtrip = self._hold(slot.position, slot.yaw, now_s)
+            return self._pack(
+                slot, now_s, heartbeat=True, setpoint=setpoint, commands=[], planned=False,
+                depth_source="formation", roundtrip=roundtrip, position=slot.position,
+            )
+        did = slot.bridge.drone_id
+        self.fleet.observe(did, float(t), state["position_enu"])
+        sampler = self.fleet.track(did, float(t))
+        p, v, a, yaw = sampler.sample(float(t))
+        slot.formation_sampler = sampler
+        p = np.asarray(p, dtype=float).copy()
+        v = np.asarray(v, dtype=float).copy()
+        a = np.asarray(a, dtype=float).copy()
+        setpoint = trajectory_setpoint_ned(p, v, a, float(yaw), now_s)
+        self._note_arrival(slot, now_s, state["position_enu"], state["velocity_enu"])
+        return self._pack(
+            slot,
+            now_s,
+            heartbeat=True,
+            setpoint=setpoint,
+            commands=[],
+            planned=self.fleet.code(did) == "LOCAL_APPROVED",
+            depth_source="formation",
+            roundtrip=roundtrip_abs(p),
             position=state["position_enu"],
         )
 
@@ -1696,6 +1852,7 @@ class LiveFleetSession:
                     "position_enu": None if slot.position is None else _vec_list(slot.position),
                     "depth_source": slot.depth_source,
                     "plans": int(sum(slot.bridge.plan_counts.values())),
+                    "plan_code": _formation_plan_code(self.fleet, slot.bridge.drone_id),
                     "trace": list(slot.trace),
                 }
             )
@@ -1705,7 +1862,7 @@ class LiveFleetSession:
             sim_elapsed = float(self._sim1) - float(self._sim0)
             wall = time.perf_counter() - float(self._wall0)
         clear_out = None if self._min_clear is math.inf else float(self._min_clear)
-        return {
+        payload = {
             "schema": SCHEMA_LIVE,
             "report_only": True,
             "criteria_frozen": False,
@@ -1736,8 +1893,24 @@ class LiveFleetSession:
             "rtf": realtime_factor(sim_elapsed, wall),
             "enu_ned_roundtrip_max_error_m": float(self.max_roundtrip_m),
             "depth_sources": sorted({slot.depth_source for slot in self.slots if slot.depth_source}),
+            "policy": self.policy,
             "drones": drones,
         }
+        if self.fleet is not None and self.bus is not None:
+            block = self.fleet.summary(arrived, n)
+            payload["formation"] = block
+            payload["formation_error_p95_m"] = block["error_p95_m"]
+            payload["formation_t0_s"] = self._plan_origin
+            payload["formation_time_s"] = self._formation_t
+            payload["inter_drone_transport"] = "inprocess"
+            payload["bus"] = {
+                "drop": float(self.bus.faults.drop),
+                "duplicate": float(self.bus.faults.duplicate),
+                "delay_s": [float(self.bus.faults.delay[0]), float(self.bus.faults.delay[1])],
+                "reorder": float(self.bus.faults.reorder),
+                **self.bus.counts(),
+            }
+        return payload
 
 
 def make_live_session(
@@ -1747,19 +1920,38 @@ def make_live_session(
     physics_dt: float = 0.02,
     planner_dt: float = 0.1,
     live: LiveFleetConfig | None = None,
+    policy: str = "upstream",
 ) -> LiveFleetSession:
-    """按场景卡建一队桥。1 机 namespace 为空；多机是 ``px4_1`` 起。"""
+    """按场景卡建一队桥。1 机 namespace 为空；多机是 ``px4_1`` 起。
+
+    ``policy=formation`` 时目标取编队终点槽位，不加载上游网络。
+    机间总线与 ``runner.run`` 用同一盐，零故障时本拍投递。
+    """
+    name = resolve_live_policy(card, policy)
     cfg = live or LiveFleetConfig()
     drones = list(card.card["drones"])
     n = len(drones)
     dyn = card.card.get("dynamics") or {}
     params = dict(card.card.get("policy_params") or {})
+    fleet = None
+    bus = None
+    if name == "formation":
+        fleet = FormationFleet.from_card(card.card, float(physics_dt))
+        bus = MessageBus(
+            BusFaults.from_mapping(card.card.get("bus")),
+            rng=np.random.default_rng(np.random.SeedSequence([int(seed), _BUS_SEED_SALT])),
+        )
     bridges = []
     idents = []
     for i, drone in enumerate(drones):
         ident = vehicle_identity(i, n)
         idents.append(ident)
         start = drone["start_enu"]
+        if fleet is not None:
+            fleet.check_start(drone["id"], np.asarray(start, dtype=float))
+            goal = tuple(float(x) for x in fleet.goal_of(drone["id"]))
+        else:
+            goal = tuple(drone.get("goal_enu", drone.get("hover_enu", start)))
         bridges.append(
             YopoSitlBridge(
                 card,
@@ -1767,7 +1959,7 @@ def make_live_session(
                     physics_dt=physics_dt,
                     planner_dt=planner_dt,
                     hover_alt_m=float(start[2]),
-                    goal_enu=tuple(drone.get("goal_enu", drone.get("hover_enu", start))),
+                    goal_enu=goal,
                     policy_params=params,
                     drone_id=drone["id"],
                     seed=int(seed),
@@ -1778,18 +1970,30 @@ def make_live_session(
                     kp=float(dyn.get("kp", 4.0)),
                     kd=float(dyn.get("kd", 3.0)),
                     px4_namespace=ident["namespace"],
+                    load_upstream=fleet is None,
                 ),
             )
         )
-    return LiveFleetSession(card, bridges, idents, cfg)
+    return LiveFleetSession(card, bridges, idents, cfg, fleet=fleet, bus=bus, policy=name)
 
 
-def live_topic_plan(card: SceneCard, *, positioning: str = "default", seed: int = 0) -> dict:
-    """不起策略、不连 ROS。只列出每机话题、system id 和目标，给容器入口的 dry-run。"""
+def live_topic_plan(card: SceneCard, *, positioning: str = "default", seed: int = 0, policy: str = "upstream") -> dict:
+    """不起上游网络、不连 ROS。只列出每机话题、system id 和目标，给容器入口的 dry-run。
+
+    formation 会建一次 ``FormationFleet``，用来核对槽位并写出终点。不 exchange。
+    """
     positioning = normalize_positioning(positioning)
+    name = resolve_live_policy(card, policy)
     drones = list(card.card["drones"])
     n = len(drones)
     idents = [vehicle_identity(i, n) for i in range(n)]
+    fleet = FormationFleet.from_card(card.card, 0.02) if name == "formation" else None
+    goals = []
+    for drone in drones:
+        if fleet is not None:
+            goals.append(_vec_list(fleet.goal_of(drone["id"])))
+        else:
+            goals.append(_vec_list(drone.get("goal_enu", drone.get("hover_enu", drone["start_enu"]))))
     return {
         "schema": SCHEMA_LIVE,
         "report_only": True,
@@ -1800,6 +2004,8 @@ def live_topic_plan(card: SceneCard, *, positioning: str = "default", seed: int 
         "scene": card.name,
         "seed": int(seed),
         "n_drones": n,
+        "policy": name,
+        "inter_drone_transport": "inprocess" if name == "formation" else None,
         "positioning": positioning,
         "px4_parameters_written": [],
         "coordinate_conversion": "yopo_swarm_core.px4",
@@ -1808,9 +2014,7 @@ def live_topic_plan(card: SceneCard, *, positioning: str = "default", seed: int 
         "gcs_ports": [ident["gcs_port"] for ident in idents],
         "drone_ids": [drone["id"] for drone in drones],
         "topics": {ident["namespace"]: vehicle_topics(ident["namespace"]) for ident in idents},
-        "goals_enu": [
-            _vec_list(drone.get("goal_enu", drone.get("hover_enu", drone["start_enu"]))) for drone in drones
-        ],
+        "goals_enu": goals,
     }
 
 

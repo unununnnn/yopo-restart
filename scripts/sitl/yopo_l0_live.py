@@ -26,6 +26,7 @@ from yopo_l0.sitl_bridge import (
     make_live_session,
     normalize_positioning,
     outcome_exit_code,
+    resolve_live_policy,
     vehicle_topics,
 )
 
@@ -173,6 +174,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap.add_argument("--wall-timeout", type=float, default=900.0)
     ap.add_argument("--max-s", type=float, default=None, help="仿真时间上限，默认用场景卡 duration_s")
     ap.add_argument("--positioning", choices=("default", "rtk"), default=None)
+    ap.add_argument(
+        "--policy",
+        choices=("upstream", "formation"),
+        default="upstream",
+        help="upstream 走 YOPO。formation 只用于编队卡，机间消息留在进程内总线",
+    )
     ap.add_argument("--world", default="default")
     ap.add_argument("--preflight-timeout", type=float, default=240.0)
     ap.add_argument("--dry-run", action="store_true", help="只写话题和定位模式，不连 ROS")
@@ -196,11 +203,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.n is not None and int(args.n) != n:
         print(f"--n {args.n} 和场景 {card.name} 的飞机数 {n} 不一致", file=sys.stderr)
         return 2
+    try:
+        policy = resolve_live_policy(card, args.policy)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     if args.dry_run:
-        _write(args.out, live_topic_plan(card, positioning=positioning, seed=args.seed))
+        _write(args.out, live_topic_plan(card, positioning=positioning, seed=args.seed, policy=policy))
         return 0
     try:
-        return _run_ros(args, card, positioning)
+        return _run_ros(args, card, positioning, policy)
     except ModuleNotFoundError as exc:
         missing = exc.name or "依赖"
         print(f"实飞入口停住：当前解释器没有 {missing}。不写飞控参数。", file=sys.stderr)
@@ -213,7 +225,7 @@ def _fill(msg, fields: dict):
     return msg
 
 
-def _run_ros(args, card, positioning: str) -> int:  # pragma: no cover - 需要 rclpy / px4_msgs
+def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no cover - 需要 rclpy / px4_msgs
     import rclpy
     from px4_msgs.msg import (
         OffboardControlMode,
@@ -229,10 +241,18 @@ def _run_ros(args, card, positioning: str) -> int:  # pragma: no cover - 需要 
 
     task = card.card.get("task") or {}
     max_s = float(args.max_s) if args.max_s is not None else float(task.get("duration_s", 45.0))
+    # 编队飞行大约 20 s。45 s 的缺省 PLAN 超时留给上游。编队放宽到 60 s，仍不含起飞。
+    plan_timeout_s = 60.0 if policy == "formation" else 45.0
     session = make_live_session(
         card,
         seed=args.seed,
-        live=LiveFleetConfig(positioning=positioning, depth_source="auto", initial_phase="WARMUP"),
+        policy=policy,
+        live=LiveFleetConfig(
+            positioning=positioning,
+            depth_source="auto",
+            initial_phase="WARMUP",
+            plan_timeout_s=plan_timeout_s,
+        ),
     )
     ports = [int(slot.ident["gcs_port"]) for slot in session.slots]
     stop = threading.Event()

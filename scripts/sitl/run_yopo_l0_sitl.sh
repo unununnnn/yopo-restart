@@ -15,11 +15,12 @@ set -euo pipefail
 SCENE=""
 N="1"
 POSITIONING="${YOPO_POSITIONING:-default}"
+POLICY="${YOPO_L0_POLICY:-upstream}"
 SEED="0"
 DRY=0
 IMAGE_ARG=""
 usage() {
-  echo "用法：$0 [--scene 场景卡] [--n 1|2|3] [--positioning default|rtk] [--seed N] [--image 镜像] [--dry-run]"
+  echo "用法：$0 [--scene 场景卡] [--n 1|2|3] [--policy upstream|formation] [--positioning default|rtk] [--seed N] [--image 镜像] [--dry-run]"
 }
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -29,6 +30,8 @@ while [[ $# -gt 0 ]]; do
     --n=*) N="${1#*=}"; shift ;;
     --positioning) POSITIONING="${2:-}"; shift 2 ;;
     --positioning=*) POSITIONING="${1#*=}"; shift ;;
+    --policy) POLICY="${2:-}"; shift 2 ;;
+    --policy=*) POLICY="${1#*=}"; shift ;;
     --seed) SEED="${2:-}"; shift 2 ;;
     --seed=*) SEED="${1#*=}"; shift ;;
     --image)
@@ -54,6 +57,10 @@ while [[ $# -gt 0 ]]; do
 done
 if [[ "$POSITIONING" != "default" && "$POSITIONING" != "rtk" ]]; then
   echo "未知 --positioning=$POSITIONING（只要 default 或 rtk）" >&2
+  exit 2
+fi
+if [[ "$POLICY" != "upstream" && "$POLICY" != "formation" ]]; then
+  echo "未知 --policy=$POLICY（只要 upstream 或 formation）" >&2
   exit 2
 fi
 case "$N" in
@@ -89,8 +96,8 @@ choose_runtime_image() {
 }
 RUNTIME_IMAGE="$(choose_runtime_image)"
 if [[ "$DRY" == "1" ]]; then
-  printf 'planner=yopo-l0\nscene=%s\nn=%s\npositioning=%s\nseed=%s\nimage=%s\n' \
-    "$SCENE" "$N" "$POSITIONING" "$SEED" "$RUNTIME_IMAGE"
+  printf 'planner=yopo-l0\nscene=%s\nn=%s\npolicy=%s\npositioning=%s\nseed=%s\nimage=%s\n' \
+    "$SCENE" "$N" "$POLICY" "$POSITIONING" "$SEED" "$RUNTIME_IMAGE"
   exit 0
 fi
 python3 "$SITL_DIR/fleet.py" layout --n "$N" --format json >/dev/null
@@ -149,6 +156,7 @@ if "${DOCKER[@]}" ps -q -f "name=^${NAME}$" | grep -q .; then
   set +e
   "${DOCKER[@]}" exec \
     -e YOPO_SITL_N="$N" -e YOPO_SITL_PLANNER=yopo-l0 -e YOPO_L0_SCENE="$SCENE" \
+    -e YOPO_L0_POLICY="$POLICY" \
     -e YOPO_L0_SEED="$SEED" -e YOPO_POSITIONING="$POSITIONING" \
     -e YOPO_SITL_WALL_TIMEOUT="${YOPO_SITL_WALL_TIMEOUT:-900}" \
     "${cache_env[@]}" \
@@ -168,7 +176,8 @@ shm=1g
 set +e
 "${DOCKER[@]}" run --rm --name "$NAME" \
   -e ROS_DOMAIN_ID=0 -e YOPO_SITL_N="$N" -e YOPO_SITL_MISSION=1 \
-  -e YOPO_SITL_PLANNER=yopo-l0 -e YOPO_L0_SCENE="$SCENE" -e YOPO_L0_SEED="$SEED" \
+  -e YOPO_SITL_PLANNER=yopo-l0 -e YOPO_L0_SCENE="$SCENE" -e YOPO_L0_POLICY="$POLICY" \
+  -e YOPO_L0_SEED="$SEED" \
   -e YOPO_SITL_WALL_TIMEOUT="${YOPO_SITL_WALL_TIMEOUT:-900}" \
   -e YOPO_POSITIONING="$POSITIONING" \
   "${git_safe[@]}" \
