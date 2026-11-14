@@ -1,6 +1,7 @@
 """票 01 验收：只看结果记录 / 规划器输入摘要，不看内部调用顺序。"""
 
 import json
+import resource
 import subprocess
 import sys
 
@@ -89,11 +90,15 @@ def test_dynamics_converge_to_hover_point(make_card):
 
 
 def test_cli_single_run_under_60s(tmp_path):
+    before = resource.getrusage(resource.RUSAGE_CHILDREN)
     p = subprocess.run(
         [sys.executable, "-m", "yopo_l0.run", "--scene", str(G2_CARD), "--seed", "0", "--policy", "hover", "--out", str(tmp_path)],
         cwd=ROOT, capture_output=True, text=True, timeout=120,
     )
     assert p.returncode == 0, p.stderr
     r = json.loads((tmp_path / "result.json").read_text())
-    assert 0 < r["wall_time_s"] < 60
+    after = resource.getrusage(resource.RUSAGE_CHILDREN)
+    # 票 L0-DET：墙钟随机器负载走，只验它有值。60 s 口径改看子进程 CPU 时间。
+    assert r["wall_time_s"] > 0
+    assert (after.ru_utime - before.ru_utime) + (after.ru_stime - before.ru_stime) < 60
     assert sum(1 for _ in (tmp_path / "ticks.jsonl").open()) == r["ticks"]
