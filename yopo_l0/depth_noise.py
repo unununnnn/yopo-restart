@@ -1,8 +1,11 @@
 """D435 深度噪声、结构化空洞和延迟队列。默认关。
 
 视差域轴向噪声 ``σ_Z = Z² · s / (fx · B)``，``s = 0.08`` px，``B = 0.05`` m。
-``fx`` 用调用方传入的相机内参（仿真相机不是 848×480 时，米制噪声按该焦距放大）。
-848×480、HFOV 90° 时 ``fx ≈ 426`` px，2 m 处 ``σ ≈ 15`` mm。
+``profile`` 缺省 ``scene``：``fx`` 用调用方传入的相机内参。仿真相机不是
+848×480 时，米制噪声和按像素计的空洞（块状洞、相关长度）按该焦距放大。
+``profile=native`` 用原生 D435 的角分辨率（848×480、``fx ≈ 426`` px，2 m 处
+``σ ≈ 15`` mm）：把真值最近邻抬到这个网格，在视差域加噪并挖空洞，再按视差
+平均重采样回原来的分辨率。缺省 ``scene`` 不走这条路径。
 
 无效像素：模型内部用 0。交给策略之前按 ``invalid`` 处理。
 
@@ -23,6 +26,7 @@ Orin 额外的约 5 ms。
 
 from __future__ import annotations
 
+import functools
 from collections import deque
 from dataclasses import dataclass
 
@@ -52,6 +56,15 @@ DEF = dict(
 )
 
 INVALID_MODES = ("nan", "inpaint", "max_range")
+# gt 不进 fill_invalid：它要用同一像素的真值，不能只看深度图。
+FILL_MODES = INVALID_MODES + ("gt",)
+PROFILES = ("scene", "native")
+# 原生 D435 深度：848×480，fx=fy≈426。像素角 1/426 rad。profile=native 用这个角分辨率。
+NATIVE_FX = 426.0
+NATIVE_WIDTH = 848
+NATIVE_HEIGHT = 480
+# 重采样时，一个网络像素里有效原生像素不足这一比例就仍算空洞。
+NATIVE_VALID_FRACTION = 0.5
 # 本研究和运行器接线用 nan。另外两种留着，方便对照「先填再送给网络」。
 WIRED_INVALID = "nan"
 INVALID_NOTE = (
@@ -60,6 +73,11 @@ INVALID_NOTE = (
     "（YOPO test_yopo_ros）。安全证据和影子盾仍把 NaN 当未知。"
     "可选 invalid=inpaint（4 邻域均值，最多 8 轮，剩余填 max_range）"
     "或 invalid=max_range（无效像素填相机最大量程）。本开关接线用的是 nan。"
+)
+GT_INVALID_NOTE = (
+    "空洞像素用这一帧的真值深度填上，再交给策略。"
+    "这些像素是有限深度，network_depth 不会把它们当洞做 NS inpaint。"
+    "真值本身无效的像素仍是 NaN。假近点不在这次填补里。这是对照，不是 D435 的输出。"
 )
 INPAINT_ROUNDS = 8
 
@@ -108,6 +126,7 @@ class D435Config:
     subpix: float = DEF["subpix"]
     latency_ms: float | None = None
     invalid: str = WIRED_INVALID
+    profile: str = "scene"
     p_flying: float = DEF["p_flying"]
     p_hole: float = DEF["p_hole"]
     grazing_deg: float = DEF["grazing_deg"]
@@ -125,8 +144,9 @@ class D435Config:
             "latency": self.latency,
             "subpix": self.subpix,
             "latency_ms": self.latency_ms,
+            "profile": self.profile,
             "invalid_fill": self.invalid,
-            "invalid_fill_note": INVALID_NOTE,
+            "invalid_fill_note": GT_INVALID_NOTE if self.invalid == "gt" else INVALID_NOTE,
             "p_flying": self.p_flying,
             "grazing_deg": self.grazing_deg,
             "p_drop": self.p_drop,
@@ -149,8 +169,14 @@ def d435_from_value(raw) -> D435Config:
         raise ValueError(f"task.d435_depth 必须是布尔或对象，收到 {raw!r}")
     enabled = _flag(raw, "enabled", False)
     invalid = raw.get("invalid", WIRED_INVALID)
-    if invalid not in INVALID_MODES:
-        raise ValueError(f"task.d435_depth.invalid 必须是 {INVALID_MODES} 之一，收到 {invalid!r}")
+    if invalid not in FILL_MODES:
+        raise ValueError(f"task.d435_depth.invalid 必须是 {FILL_MODES} 之一，收到 {invalid!r}")
+    if "profile" not in raw or raw["profile"] is None:
+        profile = "scene"
+    else:
+        profile = raw["profile"]
+        if profile not in PROFILES:
+            raise ValueError(f"task.d435_depth.profile 必须是 {PROFILES} 之一，收到 {profile!r}")
     latency_ms = None
     if "latency_ms" in raw and raw["latency_ms"] is not None:
         latency_ms = _finite(raw, "latency_ms", 0.0, lower=0.0)
@@ -168,6 +194,7 @@ def d435_from_value(raw) -> D435Config:
         subpix=_finite(raw, "subpix", DEF["subpix"], lower=0.0),
         latency_ms=latency_ms,
         invalid=str(invalid),
+        profile=str(profile),
         p_flying=_finite(raw, "p_flying", DEF["p_flying"], lower=0.0),
         p_hole=_finite(raw, "p_hole", DEF["p_hole"], lower=0.0),
         grazing_deg=grazing,
@@ -202,33 +229,72 @@ def _corr_noise(shape, sigma: float, corr_px: float, rng: np.random.Generator) -
     return field / (field.std() + 1e-9) * sigma
 
 
+@functools.lru_cache(maxsize=8)
+def _ray_scales(height: int, width: int, fx_u: int, fy_u: int, cx_u: int, cy_u: int):
+    """像素射线的 x/z、y/z。只读，同一相机会反复用。"""
+    fx = fx_u / 1_000_000.0
+    fy = fy_u / 1_000_000.0
+    cx = cx_u / 1_000_000.0
+    cy = cy_u / 1_000_000.0
+    horizontal = np.ascontiguousarray((np.arange(width) + 0.5 - cx) / fx)
+    vertical = np.ascontiguousarray((np.arange(height) + 0.5 - cy) / fy)
+    horizontal.setflags(write=False)
+    vertical.setflags(write=False)
+    return horizontal, vertical
+
+
 def incidence_cos(z_m: np.ndarray, fx: float, fy: float, cx: float, cy: float) -> np.ndarray:
     """由真值深度估计入射角余弦。未知或退化的像素记 1（不额外挖洞）。
 
     掠射角系数没有 D435 的公开实测，置信度低。平壁正对相机时余弦接近 1。
+    手写叉乘和模长，结果与按点堆叠再 ``np.cross`` 相同，原生分辨率上少做几次大数组拷贝。
     """
     z = np.asarray(z_m, dtype=np.float64)
     finite = np.isfinite(z) & (z > 0)
     height, width = z.shape
-    uu, vv = np.meshgrid(np.arange(width) + 0.5, np.arange(height) + 0.5)
+    horizontal, vertical = _ray_scales(
+        height,
+        width,
+        int(round(float(fx) * 1_000_000.0)),
+        int(round(float(fy) * 1_000_000.0)),
+        int(round(float(cx) * 1_000_000.0)),
+        int(round(float(cy) * 1_000_000.0)),
+    )
     depth = np.where(finite, z, np.nan)
-    points = np.stack([(uu - cx) / fx * depth, (vv - cy) / fy * depth, depth], axis=-1)
-    du = np.zeros_like(points)
-    dv = np.zeros_like(points)
+    x = horizontal * depth
+    y = vertical[:, None] * depth
+    dx = np.zeros_like(depth)
+    dy = np.zeros_like(depth)
+    dz = np.zeros_like(depth)
+    ex = np.zeros_like(depth)
+    ey = np.zeros_like(depth)
+    ez = np.zeros_like(depth)
     if width >= 3:
-        du[:, 1:-1] = points[:, 2:] - points[:, :-2]
+        dx[:, 1:-1] = x[:, 2:] - x[:, :-2]
+        dy[:, 1:-1] = y[:, 2:] - y[:, :-2]
+        dz[:, 1:-1] = depth[:, 2:] - depth[:, :-2]
     if height >= 3:
-        dv[1:-1] = points[2:] - points[:-2]
-    normal = np.cross(dv, du)
-    norm = np.linalg.norm(normal, axis=-1, keepdims=True)
-    normal = normal / np.maximum(norm, 1e-12)
-    ray_norm = np.linalg.norm(points, axis=-1, keepdims=True)
-    ray = points / np.maximum(ray_norm, 1e-12)
-    cosine = np.abs(np.sum(normal * ray, axis=-1))
-    # 差分在图像边上是 0，法向长度也是 0。那不是掠射，不能挖洞。
-    unknown = (~finite) | (norm[..., 0] < 1e-6) | ~np.isfinite(cosine)
-    cosine[unknown] = 1.0
+        ex[1:-1] = x[2:] - x[:-2]
+        ey[1:-1] = y[2:] - y[:-2]
+        ez[1:-1] = depth[2:] - depth[:-2]
+    # normal = dv × du。边上差分是 0，法向长度也是 0，那不是掠射。
+    nx = ey * dz - ez * dy
+    ny = ez * dx - ex * dz
+    nz = ex * dy - ey * dx
+    norm = np.sqrt(nx * nx + ny * ny + nz * nz)
+    ray = np.sqrt(x * x + y * y + depth * depth)
+    cosine = np.abs(nx * x + ny * y + nz * depth) / np.maximum(norm, 1e-12) / np.maximum(ray, 1e-12)
+    unknown = (~finite) | (norm < 1e-6) | ~np.isfinite(cosine)
+    cosine = np.where(unknown, 1.0, cosine)
     return np.clip(cosine, 0.0, 1.0).astype(np.float32)
+
+
+@functools.lru_cache(maxsize=8)
+def _blob_axes(height: int, width: int):
+    yy, xx = np.mgrid[0:height, 0:width]
+    yy.setflags(write=False)
+    xx.setflags(write=False)
+    return yy, xx
 
 
 def d435_depth(
@@ -261,8 +327,8 @@ def d435_depth(
     measured = disp
     if noise:
         shift = rng.normal(0.0, float(spec["lateral_px"]), (height, width))
-        columns = np.clip(np.round(np.arange(width)[None, :] + shift), 0, width - 1).astype(int)
-        disp_j = disp[np.arange(height)[:, None], columns]
+        columns = np.clip(np.round(np.arange(width) + shift), 0, width - 1).astype(np.intp)
+        disp_j = np.take_along_axis(disp, columns, axis=1)
         jump = np.abs(np.diff(disp_j, axis=1, prepend=disp_j[:, :1]))
         edge = jump > 0.08 * np.maximum(disp_j, 1e-6) + 1.0
         edge = edge | np.roll(edge, 1, axis=1)
@@ -297,7 +363,7 @@ def d435_depth(
             probability = np.clip((angle - float(spec["grazing_deg"])) / span, 0.0, 1.0) if span > 0 else (angle >= 90.0)
             depth[hole_rng.random((height, width)) < probability] = 0.0
         depth[hole_rng.random((height, width)) < float(spec["p_hole"])] = 0.0
-        yy, xx = np.mgrid[0:height, 0:width]
+        yy, xx = _blob_axes(height, width)
         for _ in range(int(hole_rng.poisson(float(spec["blob_holes"])))):
             cy = int(hole_rng.integers(0, height))
             cx = int(hole_rng.integers(0, width))
@@ -311,6 +377,144 @@ def d435_depth(
         unit = float(spec["depth_unit"])
         depth = np.round(depth / unit) * unit
     return depth.astype(np.float32)
+
+
+def native_sensor() -> dict:
+    """名义 D435 深度相机。``profile=native`` 用它的像素角，不把每张图都裁成这块画幅。"""
+    return {
+        "width": NATIVE_WIDTH,
+        "height": NATIVE_HEIGHT,
+        "fx": NATIVE_FX,
+        "baseline_m": float(DEF["baseline"]),
+        "subpix": float(DEF["subpix"]),
+    }
+
+
+def _key_u(value: float) -> int:
+    return int(round(float(value) * 1_000_000.0))
+
+
+@functools.lru_cache(maxsize=8)
+def _native_grid(height: int, width: int, fx_u: int, fy_u: int, cx_u: int, cy_u: int):
+    """同一视场、原生 D435 角分辨率。返回的数组只读。"""
+    fx = fx_u / 1_000_000.0
+    fy = fy_u / 1_000_000.0
+    cx = cx_u / 1_000_000.0
+    cy = cy_u / 1_000_000.0
+    native_w = max(1, int(round(width * NATIVE_FX / fx)))
+    native_h = max(1, int(round(height * NATIVE_FX / fy)))
+    native_fx = fx * native_w / float(width)
+    native_fy = fy * native_h / float(height)
+    native_cx = cx * native_w / float(width)
+    native_cy = cy * native_h / float(height)
+    rows = np.arange(native_h)
+    cols = np.arange(native_w)
+    ys = np.minimum(np.floor(rows * (height / native_h)).astype(np.intp), height - 1)
+    xs = np.minimum(np.floor(cols * (width / native_w)).astype(np.intp), width - 1)
+    flat = np.ascontiguousarray((ys[:, None] * width + xs[None, :]).astype(np.intp).ravel())
+    expect = np.bincount(flat, minlength=height * width).reshape(height, width).astype(np.float64)
+    for array in (ys, xs, flat, expect):
+        array.setflags(write=False)
+    return (native_h, native_w, native_fx, native_fy, native_cx, native_cy, ys, xs, flat, expect)
+
+
+def _resample_disparity(
+    depth: np.ndarray,
+    flat: np.ndarray,
+    expect: np.ndarray,
+    native_fx: float,
+    baseline: float,
+    height: int,
+    width: int,
+    *,
+    quantize: bool,
+    unit: float,
+) -> np.ndarray:
+    """原生视差平均回网络分辨率。有效像素不足一半的格子仍是 0。"""
+    fb = float(native_fx) * float(baseline)
+    valid = np.isfinite(depth) & (depth > 0)
+    disparity = np.zeros(depth.shape, np.float64)
+    disparity[valid] = fb / np.asarray(depth, dtype=np.float64)[valid]
+    total = np.bincount(flat, weights=disparity.ravel(), minlength=height * width)
+    count = np.bincount(flat, weights=valid.reshape(-1).astype(np.float64), minlength=height * width)
+    out = np.zeros(height * width, np.float64)
+    good = (count >= NATIVE_VALID_FRACTION * expect.reshape(-1)) & (count > 0)
+    out[good] = fb / (total[good] / count[good])
+    if quantize and unit > 0:
+        out[good] = np.round(out[good] / unit) * unit
+    return out.reshape(height, width).astype(np.float32)
+
+
+def native_d435_depth(
+    z_gt: np.ndarray,
+    intrinsics: tuple[float, float, float, float],
+    rng: np.random.Generator,
+    *,
+    holes_rng: np.random.Generator | None = None,
+    params: dict | None = None,
+    noise: bool = True,
+    holes: bool = True,
+) -> np.ndarray:
+    """在原生 D435 网格上加噪，再重采样回 ``z_gt`` 的分辨率。0 表示无效。
+
+    网格已经是 848×480、fx=426 时不再重采样，和 ``d435_depth`` 同一条路径。
+    调用方传入的法向是粗分辨率的，这里不用；空洞打开时在原生网格上重算。
+    """
+    spec = dict(DEF)
+    if params:
+        spec.update(params)
+    height, width = z_gt.shape
+    fx, fy, cx, cy = (float(v) for v in intrinsics)
+    native_h, native_w, native_fx, native_fy, native_cx, native_cy, ys, xs, flat, expect = _native_grid(
+        height, width, _key_u(fx), _key_u(fy), _key_u(cx), _key_u(cy),
+    )
+    if native_h == height and native_w == width:
+        normals = incidence_cos(z_gt, fx, fy, cx, cy) if holes else None
+        return d435_depth(
+            z_gt,
+            intrinsics,
+            rng,
+            holes_rng=holes_rng,
+            params=spec,
+            noise=noise,
+            holes=holes,
+            normals_cos=normals,
+        )
+    lifted = np.asarray(z_gt)[np.ix_(ys, xs)]
+    normals = incidence_cos(lifted, native_fx, native_fy, native_cx, native_cy) if holes else None
+    raw = d435_depth(
+        lifted,
+        (native_fx, native_fy, native_cx, native_cy),
+        rng,
+        holes_rng=holes_rng,
+        params=spec,
+        noise=noise,
+        holes=holes,
+        normals_cos=normals,
+    )
+    return _resample_disparity(
+        raw,
+        flat,
+        expect,
+        native_fx,
+        float(spec["baseline"]),
+        height,
+        width,
+        quantize=bool(noise),
+        unit=float(spec["depth_unit"]),
+    )
+
+
+def fill_holes_with_gt(depth: np.ndarray, z_gt: np.ndarray) -> np.ndarray:
+    """无效像素改成同一位置的真值。真值也无效的仍留 0。不抽随机数。"""
+    out = np.array(depth, dtype=np.float32, copy=True)
+    gt = np.asarray(z_gt, dtype=np.float32)
+    if gt.shape != out.shape:
+        raise ValueError(f"真值深度形状 {gt.shape} 与加噪深度 {out.shape} 不一致")
+    invalid = (~np.isfinite(out)) | (out <= 0)
+    usable = np.isfinite(gt) & (gt > 0) & ~np.isinf(gt)
+    out[invalid & usable] = gt[invalid & usable]
+    return out
 
 
 def fill_invalid(depth: np.ndarray, mode: str, max_range_m: float) -> np.ndarray:
@@ -370,19 +574,37 @@ def apply_d435_depth(
     max_range_m: float = 20.0,
     normals_cos: np.ndarray | None = None,
     holes_rng: np.random.Generator | None = None,
+    profile: str = "scene",
 ) -> np.ndarray:
     """真值深度 + 内参 + rng → 加噪深度。无效像素按 ``invalid``。"""
-    raw = d435_depth(
-        z_gt,
-        intrinsics,
-        rng,
-        holes_rng=holes_rng,
-        params=params,
-        noise=noise,
-        holes=holes,
-        normals_cos=normals_cos,
-    )
-    return finalize_depth(raw, invalid, min_range_m, max_range_m)
+    if profile not in PROFILES:
+        raise ValueError(f"profile 必须是 {PROFILES} 之一，收到 {profile!r}")
+    if profile == "native":
+        raw = native_d435_depth(
+            z_gt,
+            intrinsics,
+            rng,
+            holes_rng=holes_rng,
+            params=params,
+            noise=noise,
+            holes=holes,
+        )
+    else:
+        raw = d435_depth(
+            z_gt,
+            intrinsics,
+            rng,
+            holes_rng=holes_rng,
+            params=params,
+            noise=noise,
+            holes=holes,
+            normals_cos=normals_cos,
+        )
+    mode = invalid
+    if mode == "gt":
+        raw = fill_holes_with_gt(raw, z_gt)
+        mode = "nan"
+    return finalize_depth(raw, mode, min_range_m, max_range_m)
 
 
 class LatencyQueue:
@@ -485,18 +707,33 @@ class D435Rig:
         """返回 ``(depth, stamp)``。延迟打开时 stamp 是更早那一帧的捕获时刻。"""
         if self.cfg.noise or self.cfg.holes:
             ground = np.where(np.isfinite(best) & (best > 0), best, np.inf)
-            normals = incidence_cos(ground, *cfg.intrinsics) if self.cfg.holes else None
-            raw = d435_depth(
-                ground,
-                cfg.intrinsics,
-                self.noise_rng,
-                holes_rng=self.holes_rng,
-                params=self.params,
-                noise=self.cfg.noise,
-                holes=self.cfg.holes,
-                normals_cos=normals,
-            )
-            depth = finalize_depth(raw, self.cfg.invalid, cfg.min_range_m, cfg.max_range_m)
+            if self.cfg.profile == "native":
+                raw = native_d435_depth(
+                    ground,
+                    cfg.intrinsics,
+                    self.noise_rng,
+                    holes_rng=self.holes_rng,
+                    params=self.params,
+                    noise=self.cfg.noise,
+                    holes=self.cfg.holes,
+                )
+            else:
+                normals = incidence_cos(ground, *cfg.intrinsics) if self.cfg.holes else None
+                raw = d435_depth(
+                    ground,
+                    cfg.intrinsics,
+                    self.noise_rng,
+                    holes_rng=self.holes_rng,
+                    params=self.params,
+                    noise=self.cfg.noise,
+                    holes=self.cfg.holes,
+                    normals_cos=normals,
+                )
+            mode = self.cfg.invalid
+            if mode == "gt":
+                raw = fill_holes_with_gt(raw, ground)
+                mode = "nan"
+            depth = finalize_depth(raw, mode, cfg.min_range_m, cfg.max_range_m)
             out_stamp = float(stamp)
         else:
             depth = _classic_depth(best, cfg, rng)

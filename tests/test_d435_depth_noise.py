@@ -9,6 +9,7 @@ import pytest
 from yopo_l0.depth_noise import (
     DEF,
     INVALID_NOTE,
+    NATIVE_FX,
     WIRED_INVALID,
     D435Rig,
     LatencyQueue,
@@ -16,8 +17,11 @@ from yopo_l0.depth_noise import (
     apply_d435_depth,
     d435_depth,
     d435_from_task,
+    fill_holes_with_gt,
     fill_invalid,
     incidence_cos,
+    native_d435_depth,
+    native_sensor,
 )
 from yopo_l0.runner import WALL_FIELDS, RunConfig, run
 from yopo_l0.scene import Box, SceneCard, load_card
@@ -297,3 +301,161 @@ def test_switch_on_marks_upstream_deviation_and_changes_depth(tmp_path):
     assert block["noise"] is True and block["holes"] is False and block["invalid_fill"] == "nan"
     assert "NaN" in block["invalid_fill_note"]
     assert off.planner_inputs != on.planner_inputs
+    assert block["profile"] == "scene"
+
+
+def _center_std(depth: np.ndarray, margin: int = 8) -> float:
+    center = depth[margin:-margin, margin:-margin]
+    center = center[np.isfinite(center) & (center > 0)]
+    return float(center.std())
+
+
+def test_omitted_profile_is_scene_and_native_is_opt_in():
+    sensor = native_sensor()
+    assert sensor["width"] == 848 and sensor["height"] == 480
+    assert sensor["fx"] == pytest.approx(NATIVE_FX)
+    plain = d435_from_task({"d435_depth": {"enabled": True, "holes": False, "latency": False}})
+    assert plain.profile == "scene" and plain.invalid == "nan"
+    native = d435_from_task({"d435_depth": {"enabled": True, "profile": "native"}})
+    assert native.profile == "native" and native.active
+    assert d435_from_task({"d435_depth": {"enabled": False, "profile": "native"}}).active is False
+    with pytest.raises(ValueError):
+        d435_from_task({"d435_depth": {"enabled": True, "profile": "d455"}})
+    gt = d435_from_task({"d435_depth": {"enabled": True, "invalid": "gt", "latency": False}})
+    assert gt.invalid == "gt"
+    assert "真值" in gt.public_dict()["invalid_fill_note"]
+    assert "NaN" in plain.public_dict()["invalid_fill_note"]
+
+
+def test_native_on_d435_grid_matches_scene_profile():
+    """画幅和焦距已经是原生 D435 时，native 不再重采样，和 scene 逐元素相同。"""
+    image = np.full((32, 40), 2.0)
+    intrinsics = (NATIVE_FX, NATIVE_FX, 20.0, 16.0)
+    params = _flat_params()
+    scene = d435_depth(image, intrinsics, np.random.default_rng(7), params=params, noise=True, holes=False)
+    native = native_d435_depth(image, intrinsics, np.random.default_rng(7), params=params, noise=True, holes=False)
+    assert np.array_equal(scene, native)
+
+
+def test_native_sigma_on_scene_camera_is_near_15mm_not_80mm():
+    """160×96、fx=80。scene 在 2 m 约 80 mm；native 重采样后仍靠近 15 mm，而不是 80 mm。"""
+    image = np.full((96, 160), 2.0)
+    intrinsics = (80.0, 80.0, 80.0, 48.0)
+    params = _flat_params()
+    scene = d435_depth(image, intrinsics, np.random.default_rng(0), params=params, noise=True, holes=False)
+    native = native_d435_depth(image, intrinsics, np.random.default_rng(0), params=params, noise=True, holes=False)
+    scene_sigma = _center_std(scene)
+    native_sigma = _center_std(native)
+    theory_scene = (2.0 ** 2) * 0.08 / (80.0 * 0.05)
+    theory_native = (2.0 ** 2) * 0.08 / (NATIVE_FX * 0.05)
+    assert abs(scene_sigma - theory_scene) / theory_scene < 0.20
+    assert native_sigma < 0.025
+    assert native_sigma > 0.004
+    assert native_sigma < theory_native * 1.5
+    assert native_sigma < scene_sigma * 0.35
+
+
+def test_native_occlusion_shadow_stays_about_two_coarse_pixels():
+    """遮挡阴影的角宽由基线决定。160 宽、fx=80 时 scene 和 native 都大约 2 px，不是 10 px。"""
+    height, width = 96, 160
+    ground = np.full((height, width), 6.0)
+    ground[:, 80:100] = 1.5
+    intrinsics = (80.0, 80.0, 80.0, 48.0)
+    params = _flat_params()
+    scene = d435_depth(
+        ground, intrinsics, np.random.default_rng(1), params=params, noise=False, holes=True,
+        normals_cos=np.ones(ground.shape, np.float32),
+    )
+    native = native_d435_depth(
+        ground, intrinsics, np.random.default_rng(1), params=params, noise=False, holes=True,
+    )
+    theory = 80.0 * 0.05 * (1 / 1.5 - 1 / 6.0)
+    scene_shadow = int((scene[48, 60:80] <= 0).sum())
+    native_shadow = int((native[48, 60:80] <= 0).sum())
+    assert abs(scene_shadow - theory) <= 2
+    assert abs(native_shadow - theory) <= 2
+    assert native_shadow < 6
+
+
+def test_native_blob_holes_cover_a_smaller_fraction_than_scene_pixels():
+    """块状洞半径按像素计。scene 在 160 宽上是大洞，native 先在 426 px 焦距上挖再缩回来。"""
+    ground = np.full((96, 160), 2.0)
+    intrinsics = (80.0, 80.0, 80.0, 48.0)
+    params = _flat_params(
+        p_hole=0.0,
+        p_outlier=0.0,
+        blob_holes=8,
+        grazing_deg=90.0,
+        lateral_px=0.0,
+        p_flying=0.0,
+    )
+    scene = d435_depth(
+        ground, intrinsics, np.random.default_rng(2), holes_rng=np.random.default_rng(2),
+        params=params, noise=False, holes=True, normals_cos=np.ones(ground.shape, np.float32),
+    )
+    native = native_d435_depth(
+        ground, intrinsics, np.random.default_rng(2), holes_rng=np.random.default_rng(2),
+        params=params, noise=False, holes=True,
+    )
+    scene_frac = float((scene <= 0).mean())
+    native_frac = float((native <= 0).mean())
+    assert scene_frac > 0.02
+    assert native_frac < scene_frac * 0.5
+
+
+def test_gt_fill_keeps_true_depth_out_of_network_inpaint():
+    depth = np.full((96, 160), 6.0, np.float32)
+    depth[40:50, 70:90] = 0.0
+    gt = np.full(depth.shape, 6.0, np.float32)
+    gt[40:50, 70:90] = 1.5
+    filled = fill_holes_with_gt(depth, gt)
+    assert filled[45, 80] == pytest.approx(1.5)
+    assert np.isfinite(filled).all()
+    nan = fill_invalid(depth, "nan", 20.0)
+    via_nan = network_depth(nan)
+    via_gt = network_depth(filled)
+    assert not np.allclose(via_nan, via_gt)
+    wired = apply_d435_depth(
+        gt,
+        (80.0, 80.0, 80.0, 48.0),
+        np.random.default_rng(3),
+        params=_flat_params(p_outlier=0.0),
+        noise=False,
+        holes=True,
+        invalid="gt",
+        normals_cos=np.ones(gt.shape, np.float32),
+    )
+    assert np.isfinite(wired).all()
+    assert float(np.nanmin(wired)) > 0.2
+
+
+def test_scene_profile_key_matches_omitted_profile_bitwise():
+    card = load_card(ROOT / "scenes/g2-pillar.json")
+    cfg = RunConfig(seed=1, policy="upstream", shadow=False, duration_s=0.2, record_planner_inputs=True)
+    omitted = run(_enabled(card, {"enabled": True, "noise": True, "holes": True, "latency": False}), cfg)
+    scene = run(_enabled(card, {
+        "enabled": True, "noise": True, "holes": True, "latency": False, "profile": "scene",
+    }), cfg)
+    assert omitted.planner_inputs == scene.planner_inputs
+    assert _tick_hash(omitted.ticks) == _tick_hash(scene.ticks)
+    native = run(_enabled(card, {
+        "enabled": True, "noise": True, "holes": True, "latency": False, "profile": "native",
+    }), cfg)
+    assert native.result["d435_depth"]["profile"] == "native"
+    assert native.result["upstream_deviation"] is True
+    assert native.planner_inputs != omitted.planner_inputs
+
+
+def test_e_d435b_script_check():
+    import subprocess
+    import sys
+
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "e-d435b-native.py"), "--check"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr + proc.stdout
+    assert "check ok" in proc.stdout
