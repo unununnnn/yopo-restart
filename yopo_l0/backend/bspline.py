@@ -22,7 +22,8 @@ E-B4c（``peer_sphere_enabled``，默认关）是另一条线，不改椭球开�
 论文用的是 {p, v} 平面距离和另一组权重，数值对不上，所以权重写在下面，
 不假装是论文表里的 λ。椭球的 C、c 是假设，正文只写 c > 1、C 由用户定。
 
-求解器用 scipy 的 L-BFGS-B，迭代上限和时间预算都是硬的。失败、超时后没有更安全的点、
+求解器用 scipy 的 L-BFGS-B，迭代上限和时间预算都是硬的。时间预算缺省按评估次数算
+（票 L0-DET，见 ``_eval_cap``），不看墙钟；``budget="wall"`` 才按真墙钟截断。失败、超时后没有更安全的点、
 或运动学守不住时，交回原来的多项式对象。
 """
 
@@ -58,6 +59,10 @@ _MIN_DURATION_S = 0.6
 _MIN_SPANS = 6
 _MAX_SPANS = 12
 _TARGET_DT_S = 0.22
+# 票 L0-DET。空闲 box 上一次代价评估（含梯度）约 2 ms：线程 CPU 计时下 0.020 s 预算
+# 被截断的调用停在 8–10 次评估（中位 9），没被截断的跑满 8 次迭代停在 10–11 次。
+# 仿真里按这个折算，结果只取决于 (场景卡, seed, 配置)，不取决于机器忙不忙。
+_IDLE_EVAL_COST_S = 0.002
 # 拟合把五次多项式换成三次样条，净空允许掉这么多仍算「没有更差」。
 _CLEARANCE_TOL_M = 0.01
 # 计划契约的速度、急动度。加速度用场景 a_max。后段自己的速度软上限是 v_max=6。
@@ -757,9 +762,18 @@ def _minimize(x0, q_fit, free, cost_grad, cfg: BackendConfig, t0: float):
         "cut": False,
     }
     deadline = t0 + float(cfg.time_budget_s)
+    wall = cfg.budget == "wall"
+    cap = _eval_cap(cfg)
+
+    def over_budget() -> bool:
+        if state["evals"] == 0:
+            return False
+        if wall:
+            return time.perf_counter() > deadline
+        return state["evals"] >= cap
 
     def fun(x):
-        if state["evals"] > 0 and time.perf_counter() > deadline:
+        if over_budget():
             state["cut"] = True
             fill = 0.0 if state["best_c"] is None else state["best_c"]
             return fill, np.zeros_like(x)
@@ -788,6 +802,11 @@ def _minimize(x0, q_fit, free, cost_grad, cfg: BackendConfig, t0: float):
     )
     iterations = int(info.get("nit", 0) or 0)
     return state["best_x"], iterations, bool(state["cut"])
+
+
+def _eval_cap(cfg: BackendConfig) -> int:
+    """仿真里的时间预算：空闲机器上这份预算能做几次代价评估。至少 1 次。"""
+    return max(1, int(round(float(cfg.time_budget_s) / _IDLE_EVAL_COST_S)))
 
 
 def _to_traj(q: np.ndarray, t_start: float, dt: float, n_span: int):
