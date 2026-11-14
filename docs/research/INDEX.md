@@ -79,6 +79,8 @@
 | e-combo-swap8-seeds.md |  | 八机开阔对向补跑种子 1–9 | report-only、冻结 |
 | e-d435-depth-noise-runs.json | e-d435 | 只报数。report-only。``d435_depth`` 默认关，场景卡、``scenes/suite.txt``、已冻门都没改。打开即偏离上游：上游权重在真值深度上训练（右目关闭）。无效像素保持 NaN，网络侧用上游 NS inpaint；本表没有用 inpaint 预填，也没有填最大量程。飞点概率 0.3、掠射角阈值 75°、视差噪声相关长度 3 px、丢帧率 0.5%，以及约 21 ms 里 Orin 额外的约 5 ms，置信度低。仿真相机不是 848×480。噪声用该相机的 fx，米制 σ 比原生 D435 大。编队任务不读深度，轨迹不该因这只开关改变；影子盾仍会看着深度图。影子盾只记录 would_reject，不改批准的计划。墙钟不进结论。 | report-only、冻结 |
 | e-d435-depth-noise.md | e-d435 | 票 E-D435：D435 深度噪声与延迟下的 YOPO L0 | report-only、冻结 |
+| e-d435b-native-runs.json | e-d435b | 只报数。report-only。``d435_depth`` 默认关，``profile`` 缺省 ``scene``。场景卡、``scenes/suite.txt``、已冻门都没改。打开即偏离上游：上游权重在真值深度上训练（右目关闭）。``profile=native`` 按原生 D435（848×480，fx≈426 px，B=0.05 m，s=0.08）在视差域加噪，再重采样到场景相机分辨率。无效像素默认仍是 NaN，网络侧走上游 NS inpaint。真值填是对照：空洞像素写成这一帧的真值，网络不再把这些像素当洞。假近点两种填法都留着。飞点概率 0.3、掠射角阈值 75°、相关长度 3 px、丢帧率 0.5%，以及约 21 ms 里 Orin 额外的约 5 ms，置信度低。影子盾只记录 would_reject，不改批准的计划。墙钟不进结论。 | report-only、冻结 |
+| e-d435b-native.md | e-d435b | 票 E-D435b：原生 D435 焦距下的深度噪声 | report-only、冻结 |
 | e-forest-gate-ablation-runs.json |  | 整表 report-only。arm1–arm5 偏离当前场景卡（卡上 progress_gate=false）。margin 只改进程内全局，不写进场景卡。墙钟不进门。 | report-only |
 | e-forest-gate-ablation.md |  | 票 E-PG1：六机林带进度门控的 `_LEADER_MARGIN_M` 与分位数 | report-only、冻结 |
 | e-so3-dynamics-gap-runs.json |  | 只报数。report-only。SO3 两臂是偏离默认动力学（L0 点质量不变）。不改 yopo_l0/ 的默认动力学，不改 core/、scenes/、docs/tickets.md、README.md、scripts/premerge.sh、scripts/regress.sh。规划与策略保持场景卡默认：upstream（柱群和穿林由 CrossingFleet 走上游 YOPO），影子盾开。外环 kp/kd/a_max 与 PointMassLag 相同。τ_att、τ_thrust 和倾角是票面给定的假设，不是本仓库的 SITL 辨识。未冻结，不进 scenes/suite.txt，不设 gates，不改已冻门。 | report-only、冻结 |

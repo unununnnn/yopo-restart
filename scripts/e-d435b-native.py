@@ -639,8 +639,57 @@ def conclusion(groups: dict, ref: dict, geom: list[dict]) -> list[str]:
     scene_ns = pooled_rate(groups, YOPO_SCENES, "scene_holes")
     scene_gt = pooled_rate(groups, YOPO_SCENES, "scene_holes_gt")
     native_gt = pooled_rate(groups, YOPO_SCENES, "holes_gt")
-    lines.append(_fill_sentence(scene_ns, scene_gt, ref_noise, "scene（E-D435 那套焦距，本分支重跑）"))
-    lines.append(_fill_sentence(nat_holes, native_gt, nat_noise, "native"))
+    lines.append(_fill_sentence(scene_ns, scene_gt, ref_noise, "scene 合计（E-D435 那套焦距，本分支重跑）"))
+    lines.append(_fill_sentence(nat_holes, native_gt, nat_noise, "native 合计"))
+    card_bits = []
+    for meta in SCENES:
+        ns_block = groups.get(meta["id"], {}).get("scene_holes")
+        gt_block = groups.get(meta["id"], {}).get("scene_holes_gt")
+        if ns_block is None or gt_block is None:
+            continue
+        card_bits.append(
+            f"{meta['label']} NS {_rate_cell(ns_block)}、障碍碰撞 {_runs_cell(ns_block, 'obstacle_runs')}，"
+            f"真值填 {_rate_cell(gt_block)}、障碍碰撞 {_runs_cell(gt_block, 'obstacle_runs')}"
+        )
+    if card_bits:
+        lines.append("scene 按卡：" + "；".join(card_bits) + "。")
+        d_ns = groups.get("d014-solo", {}).get("scene_holes")
+        d_gt = groups.get("d014-solo", {}).get("scene_holes_gt")
+        c_ns = groups.get("crossing-pillars", {}).get("scene_holes")
+        c_gt = groups.get("crossing-pillars", {}).get("scene_holes_gt")
+        s_ns = groups.get("six-sparse", {}).get("scene_holes")
+        s_gt = groups.get("six-sparse", {}).get("scene_holes_gt")
+        bits = []
+        if d_ns and d_gt and d_ns["arrival_rate"] == 0 and d_gt["arrival_rate"] == 0:
+            bits.append(
+                f"密度 0.14 两种填法都是 {_rate_cell(d_gt)}，障碍碰撞都是 {_runs_cell(d_gt, 'obstacle_runs')}。"
+                "这张卡的掉点不来自 NS 和真值这两种填法的差别。两种填法都留下假近点，本票没有再把假近点单独关掉。"
+            )
+        if c_ns and c_gt and c_gt["arrived_drones"] > c_ns["arrived_drones"] and c_gt["obstacle_runs"] < c_ns["obstacle_runs"]:
+            bits.append(
+                f"crossing-pillars 从 {_rate_cell(c_ns)}、障碍碰撞 {_runs_cell(c_ns, 'obstacle_runs')} "
+                f"回到 {_rate_cell(c_gt)}、障碍碰撞 {_runs_cell(c_gt, 'obstacle_runs')}。"
+            )
+        if s_ns and s_gt and s_gt["arrived_drones"] > s_ns["arrived_drones"] and s_gt["obstacle_runs"] == 0:
+            missed = int(s_gt["drones"]) - int(s_gt["arrived_drones"])
+            bits.append(
+                f"六机林带从 {_rate_cell(s_ns)}、障碍碰撞 {_runs_cell(s_ns, 'obstacle_runs')} "
+                f"回到 {_rate_cell(s_gt)}、障碍碰撞 {_runs_cell(s_gt, 'obstacle_runs')}。"
+                + (f"没到达的 {missed} 架没有记成障碍碰撞。" if missed else "")
+            )
+        if bits:
+            lines.append("".join(bits) + "crossing 和六机上，E-D435 的空洞掉点主要是网络侧 NS 填进空洞的深度。")
+    native_bits = []
+    for meta in SCENES:
+        ns_block = groups.get(meta["id"], {}).get("holes")
+        gt_block = groups.get(meta["id"], {}).get("holes_gt")
+        if ns_block is None or gt_block is None:
+            continue
+        native_bits.append(
+            f"{meta['label']} NS {_rate_cell(ns_block)}，真值填 {_rate_cell(gt_block)}"
+        )
+    if native_bits:
+        lines.append("native 按卡：" + "；".join(native_bits) + "。")
     if scene_ns is not None and ref_holes is not None:
         same = True
         for scene in YOPO_SCENES:
