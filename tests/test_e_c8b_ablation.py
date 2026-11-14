@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import subprocess
 import sys
 
 import numpy as np
@@ -71,8 +72,10 @@ def test_swap6_reuses_swap3_geometry_and_ec6_placement():
     mod.assert_endpoints_clear(card)
 
 
-def test_six_arms_only_touch_the_in_memory_card():
+def test_six_arms_only_touch_the_in_memory_card(monkeypatch):
     mod = _script()
+    for key in ("YOPO_PEER_SPHERE", "YOPO_PEER_SPHERE_RADIUS_M", "YOPO_PEER_SPHERE_WEIGHT"):
+        monkeypatch.delenv(key, raising=False)
     before = {path: path.read_bytes() for path in _watched()}
     for arm in mod.ARMS:
         card = mod.build_card(arm)
@@ -299,13 +302,52 @@ def test_check_grid_does_not_touch_upstream_files():
     assert mod.main(["--check"]) == 0
     with pytest.raises(SystemExit):
         mod.main(["--jobs", "5", "--seeds", "0"])
-    mod.install_peer_delivery()
-    mod.install_escape()
-    after = {path: path.read_bytes() for path in before}
-    assert after == before
+    import yopo_l0.runner as runner_mod
+    from yopo_l0.backend.config import swarm_penalty_enabled as real_swarm
+    from yopo_l0.policy import UpstreamPolicy
+
+    plan_before = UpstreamPolicy.plan
+    try:
+        mod.install_peer_delivery()
+        mod.install_escape()
+        sphere = {"backend": {"enabled": True, "peer_sphere_enabled": True}}
+        assert runner_mod.swarm_penalty_enabled(sphere) is True
+        assert real_swarm(sphere) is False
+        after = {path: path.read_bytes() for path in before}
+        assert after == before
+    finally:
+        mod.uninstall_peer_delivery()
+        mod.uninstall_escape()
+    assert UpstreamPolicy.plan is plan_before
+    assert runner_mod.swarm_penalty_enabled is real_swarm
     tickets = (ROOT / "docs/tickets.md").read_text(encoding="utf-8")
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "E-C8b" not in tickets and "E-C8b" not in readme
+
+
+def test_import_does_not_pin_blas_threads():
+    code = """
+import importlib.util
+import os
+import sys
+from pathlib import Path
+for key in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+    os.environ.pop(key, None)
+path = Path("scripts/e-c8b-ablation.py")
+spec = importlib.util.spec_from_file_location("e_c8b_fresh", path)
+mod = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = mod
+spec.loader.exec_module(mod)
+assert os.environ.get("OMP_NUM_THREADS") is None, os.environ.get("OMP_NUM_THREADS")
+"""
+    proc = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
 
 
 def test_committed_runs_match_tables_when_present():

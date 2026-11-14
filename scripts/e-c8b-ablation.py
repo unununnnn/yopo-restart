@@ -44,12 +44,21 @@ import sys
 import time
 from pathlib import Path
 
-os.environ.setdefault("OMP_NUM_THREADS", "1")
-os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
-os.environ.setdefault("MKL_NUM_THREADS", "1")
-os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
-
 import numpy as np
+
+def _limit_blas_threads() -> None:
+    """只在真正开跑时限制 BLAS 线程。被 pytest import 时不改进程环境。"""
+    os.environ.setdefault("OMP_NUM_THREADS", "1")
+    os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+    os.environ.setdefault("MKL_NUM_THREADS", "1")
+    os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
+
+
+def _clear_sphere_env() -> None:
+    """半径和权重以本票的卡为准，不吃进程里残留的 YOPO_PEER_SPHERE*。"""
+    for key in ("YOPO_PEER_SPHERE", "YOPO_PEER_SPHERE_RADIUS_M", "YOPO_PEER_SPHERE_WEIGHT"):
+        os.environ.pop(key, None)
+
 
 ROOT = Path(__file__).resolve().parents[1]
 PARTIAL = ROOT / "out" / "e-c8b-ablation" / "partial"
@@ -86,6 +95,7 @@ MAX_JOBS = 2
 _ESCAPE_INSTALLED = False
 _PEER_INSTALLED = False
 _ORIG_PLAN = None
+_PEER_SAVED = None
 _ESCAPE_STATS: dict[str, dict] = {}
 
 DISCLAIMER = (
@@ -616,13 +626,25 @@ def install_escape() -> None:
     _ESCAPE_INSTALLED = True
 
 
+def uninstall_escape() -> None:
+    """把 plan 还回包装之前。pytest 里装过之后必须拆掉，避免影响后面的用例。"""
+    global _ESCAPE_INSTALLED, _ORIG_PLAN
+    if not _ESCAPE_INSTALLED:
+        return
+    import yopo_l0.policy as policy_mod
+
+    policy_mod.UpstreamPolicy.plan = _ORIG_PLAN
+    _ORIG_PLAN = None
+    _ESCAPE_INSTALLED = False
+
+
 def install_peer_delivery() -> None:
     """欧氏球打开时把邻机采样送进后段。椭球项仍只看 swarm_penalty。
 
     与 scripts/e-b4c-sphere-avoid.py 同一层包装。policy.py 不改。
     两个开关都关时，传进 refine_yopo 的邻机仍是 None。
     """
-    global _PEER_INSTALLED
+    global _PEER_INSTALLED, _PEER_SAVED
     if _PEER_INSTALLED:
         return
     import yopo_l0.crossing as crossing_mod
@@ -631,6 +653,10 @@ def install_peer_delivery() -> None:
     from yopo_l0.backend.config import peer_sphere_enabled as sphere_on
 
     orig_enabled = runner_mod.swarm_penalty_enabled
+    orig_keep = policy_mod.UpstreamPolicy._keep_neighbor_samples
+    orig_apply = policy_mod.UpstreamPolicy._apply_backend
+    orig_cross = crossing_mod.CrossingFleet._apply_backend
+    _PEER_SAVED = (orig_enabled, orig_keep, orig_apply, orig_cross)
 
     def enabled(params, **kwargs):
         if orig_enabled(params, **kwargs):
@@ -638,8 +664,6 @@ def install_peer_delivery() -> None:
         return bool(sphere_on(params, **kwargs))
 
     runner_mod.swarm_penalty_enabled = enabled
-
-    orig_keep = policy_mod.UpstreamPolicy._keep_neighbor_samples
 
     def keep(self):
         if orig_keep(self):
@@ -676,6 +700,24 @@ def install_peer_delivery() -> None:
 
     crossing_mod.CrossingFleet._apply_backend = cross_apply
     _PEER_INSTALLED = True
+
+
+def uninstall_peer_delivery() -> None:
+    """把邻机采样包装还回。pytest 里装过之后必须拆掉。"""
+    global _PEER_INSTALLED, _PEER_SAVED
+    if not _PEER_INSTALLED or _PEER_SAVED is None:
+        return
+    import yopo_l0.crossing as crossing_mod
+    import yopo_l0.policy as policy_mod
+    import yopo_l0.runner as runner_mod
+
+    enabled, keep, apply, cross = _PEER_SAVED
+    runner_mod.swarm_penalty_enabled = enabled
+    policy_mod.UpstreamPolicy._keep_neighbor_samples = keep
+    policy_mod.UpstreamPolicy._apply_backend = apply
+    crossing_mod.CrossingFleet._apply_backend = cross
+    _PEER_SAVED = None
+    _PEER_INSTALLED = False
 
 
 def _budget_wrap():
@@ -1022,6 +1064,8 @@ def run_one(arm: str, seed: int, *, resume: bool) -> dict:
 
 
 def _worker(spec: tuple) -> dict:
+    _limit_blas_threads()
+    _clear_sphere_env()
     try:
         os.nice(10)
     except OSError:
@@ -1303,6 +1347,8 @@ def main(argv: list[str] | None = None) -> int:
         print("check ok", flush=True)
         return 0
 
+    _limit_blas_threads()
+    _clear_sphere_env()
     from yopo_swarm_core.baseline import fetch_upstream
 
     fetch_upstream()
