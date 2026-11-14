@@ -109,3 +109,20 @@ scripts/sitl/run_yopo_l0_sitl.sh --dry-run --n 3 --positioning rtk
 `--positioning rtk` 仍只走原来的 `positioning-rtk.env` 白名单，规划桥本身不写飞控参数。
 离线假 PX4 仍是 `scripts/sitl/run_yopo_l0.py`（`--fake-px4` 与缺省相同）。说明和实测数字在 `docs/research/s4b-sitl-live.md`。
 
+## 票 S4c：YOPO L0 运行时分层镜像（report-only）
+
+`scripts/sitl/Dockerfile` 仍然只有 ROS 2 Humble、PX4、Gazebo、Micro-XRCE-DDS-Agent 和 `px4_msgs`。
+不往那份文件里加 `torch`，S1/S1b 的镜像哈希不变。YOPO 运行时在第二层，基础镜像要先由 `up.sh` 准备好：
+
+```bash
+scripts/sitl/build_yopo_image.sh --print-image
+scripts/sitl/build_yopo_image.sh --status
+scripts/sitl/build_yopo_image.sh            # 基础镜像没有就退出，提示先跑 up.sh，不重编 PX4
+scripts/sitl/build_yopo_image.sh --bg       # setsid 后台构建，PID 和日志在 $SITL_STATE
+```
+
+标签是 `yopo-restart-sitl:yopo-<Dockerfile 与 Dockerfile.yopo 拼接后的哈希>`。
+`run_yopo_l0_sitl.sh` 在这层镜像已经存在时改用它。`--image` 或 `YOPO_SITL_IMAGE` 显式指定时用指定标签。
+`docker run` 之前检查这个标签在不在。`--dry-run` 仍打印原来的 planner、场景、机数、定位和种子，并多一行 `image=`。
+`up.sh` / `smoke.sh` 不读这层镜像。说明在 [s4c-sitl-yopo-image.md](../../docs/research/s4c-sitl-yopo-image.md)。
+

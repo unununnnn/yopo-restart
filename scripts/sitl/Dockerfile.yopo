@@ -1,0 +1,22 @@
+# syntax=docker/dockerfile:1
+# 票 S4c：在 S1/S1b 镜像上再铺一层 YOPO L0 运行时。
+# 不改 scripts/sitl/Dockerfile，因此 yopo-restart-sitl:s1b-<哈希> 的缓存键不变。
+# Jammy / ROS 2 Humble 的系统解释器是 Python 3.10，rclpy 在 /opt/ros 里。
+# 本层只用 pip 往 /usr/local 装包，不 apt 安装或卸载 python3-*，不覆盖 rclpy。
+#
+# 票面举例的 numpy 上界是 >=1.26,<2.3（2.3 起不再提供 Python 3.10 轮子）。
+# 安装行收到 numpy>=1.26,<2：Humble 的 rclpy 扩展按 NumPy 1.x ABI 编译，
+# /usr/local 里的 NumPy 2 会挡住同一个 python3 的 import rclpy。
+# 1.26 仍支持 Python 3.10，也能和 torch==2.4.1+cpu 一起解析。
+ARG BASE_IMAGE=yopo-restart-sitl:s1b-placeholder
+FROM ${BASE_IMAGE}
+
+RUN pip3 install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu \
+      "torch==2.4.1+cpu" \
+      "numpy>=1.26,<2.3" \
+      "numpy>=1.26,<2" \
+      "scipy>=1.10,<1.16" \
+      "ruamel.yaml>=0.17" \
+      "matplotlib>=3.9"
+
+RUN python3 -c "import torch, numpy, scipy, ruamel.yaml; print(torch.__version__)"

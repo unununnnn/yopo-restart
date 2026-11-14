@@ -6,6 +6,8 @@
 #   scripts/sitl/run_yopo_l0_sitl.sh --scene scenes/g2-pillar.json --n 1 --dry-run
 # 1 机默认 scenes/g2-pillar.json（空 namespace）。3 机默认 scenes/swap-3-open.json（px4_1..px4_3）。
 # 容器已经由 up.sh 拉起时，在里面补跑；否则自己起一趟仿真，任务段只跑 yopo_l0_live.py。
+# 镜像：--image 优先，其次 YOPO_SITL_IMAGE，再其次本机已有的 YOPO 分层标签，否则 S1b 基础镜像。
+# 真正 docker run 之前检查选中的标签在不在。--dry-run 不要求镜像存在。
 set -euo pipefail
 # shellcheck disable=SC1091
 . "$(dirname "$0")/common.sh"
@@ -15,6 +17,10 @@ N="1"
 POSITIONING="${YOPO_POSITIONING:-default}"
 SEED="0"
 DRY=0
+IMAGE_ARG=""
+usage() {
+  echo "用法：$0 [--scene 场景卡] [--n 1|2|3] [--positioning default|rtk] [--seed N] [--image 镜像] [--dry-run]"
+}
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --scene) SCENE="${2:-}"; shift 2 ;;
@@ -25,12 +31,25 @@ while [[ $# -gt 0 ]]; do
     --positioning=*) POSITIONING="${1#*=}"; shift ;;
     --seed) SEED="${2:-}"; shift 2 ;;
     --seed=*) SEED="${1#*=}"; shift ;;
-    --dry-run) DRY=1; shift ;;
-    -h|--help)
-      echo "用法：$0 [--scene 场景卡] [--n 1|2|3] [--positioning default|rtk] [--seed N] [--dry-run]"
-      exit 0
+    --image)
+      IMAGE_ARG="${2:-}"
+      if [[ -z "$IMAGE_ARG" || "$IMAGE_ARG" == --* ]]; then
+        echo "--image 需要镜像标签" >&2
+        exit 2
+      fi
+      shift 2
       ;;
-    *) echo "用法：$0 [--scene 场景卡] [--n 1|2|3] [--positioning default|rtk] [--seed N] [--dry-run]" >&2; exit 2 ;;
+    --image=*)
+      IMAGE_ARG="${1#*=}"
+      if [[ -z "$IMAGE_ARG" ]]; then
+        echo "--image 需要镜像标签" >&2
+        exit 2
+      fi
+      shift
+      ;;
+    --dry-run) DRY=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) usage >&2; exit 2 ;;
   esac
 done
 if [[ "$POSITIONING" != "default" && "$POSITIONING" != "rtk" ]]; then
@@ -51,13 +70,38 @@ if [[ -z "$SCENE" ]]; then
     exit 2
   fi
 fi
+SITL_YOPO_IMAGE="$(bash "$SITL_DIR/build_yopo_image.sh" --print-image)"
+tag_exists() { "${DOCKER[@]}" image inspect "$1" >/dev/null 2>&1; }
+choose_runtime_image() {
+  if [[ -n "$IMAGE_ARG" ]]; then
+    printf '%s\n' "$IMAGE_ARG"
+    return 0
+  fi
+  if [[ -n "${YOPO_SITL_IMAGE:-}" ]]; then
+    printf '%s\n' "$SITL_IMAGE"
+    return 0
+  fi
+  if tag_exists "$SITL_YOPO_IMAGE"; then
+    printf '%s\n' "$SITL_YOPO_IMAGE"
+    return 0
+  fi
+  printf '%s\n' "$SITL_IMAGE"
+}
+RUNTIME_IMAGE="$(choose_runtime_image)"
 if [[ "$DRY" == "1" ]]; then
-  printf 'planner=yopo-l0\nscene=%s\nn=%s\npositioning=%s\nseed=%s\n' "$SCENE" "$N" "$POSITIONING" "$SEED"
+  printf 'planner=yopo-l0\nscene=%s\nn=%s\npositioning=%s\nseed=%s\nimage=%s\n' \
+    "$SCENE" "$N" "$POSITIONING" "$SEED" "$RUNTIME_IMAGE"
   exit 0
 fi
 python3 "$SITL_DIR/fleet.py" layout --n "$N" --format json >/dev/null
-if ! image_exists; then
-  echo "镜像 $SITL_IMAGE 不存在：先跑 scripts/sitl/up.sh" >&2
+if ! tag_exists "$RUNTIME_IMAGE"; then
+  if [[ "$RUNTIME_IMAGE" == "$SITL_YOPO_IMAGE" ]]; then
+    echo "分层镜像 $RUNTIME_IMAGE 不存在：先跑 scripts/sitl/build_yopo_image.sh" >&2
+  elif [[ -z "$IMAGE_ARG" && -z "${YOPO_SITL_IMAGE:-}" ]]; then
+    echo "镜像 $RUNTIME_IMAGE 不存在：先跑 scripts/sitl/up.sh" >&2
+  else
+    echo "镜像 $RUNTIME_IMAGE 不存在：先准备该标签（基础镜像用 scripts/sitl/up.sh，分层镜像用 scripts/sitl/build_yopo_image.sh）" >&2
+  fi
   exit 2
 fi
 
@@ -103,7 +147,7 @@ set +e
   -e YOPO_POSITIONING="$POSITIONING" \
   "${cache_args[@]}" \
   -v "$REPO_ROOT:/repo:ro" -v "$RUN:/out" --shm-size "$shm" \
-  "$SITL_IMAGE" nice -n "$SITL_NICE" bash /repo/scripts/sitl/in_container.sh
+  "$RUNTIME_IMAGE" nice -n "$SITL_NICE" bash /repo/scripts/sitl/in_container.sh
 rc=$?
 set -e
 echo "run_dir $RUN rc=$rc"
