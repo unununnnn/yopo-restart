@@ -4,7 +4,7 @@
 扫描多个教师根目录里已经写完的 ``yopo-teacher-record/1``。成功场转成每场一个 ``.npz``，
 可中断后续跑。训练走 ``yopo_l0.student_fit.train_from_paths``，不改它的默认。
 ``knots`` / ``yaw_source`` / ``accel_source`` / ``vertical`` 是闭环接口，写进检查点，
-本脚本不改 ``StudentPolicy.DEFAULTS``。
+本脚本不改 ``StudentPolicy.DEFAULTS``。``--drop-start-still`` 默认关；关时窗口与不传逐位相同。
 
     .venv/bin/python scripts/distill/d6/pipeline.py all \\
         --teacher-dirs /workspace/yopo-teacher-data/d2b/runs \\
@@ -36,7 +36,12 @@ ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from yopo_l0.distill import TEACHER_SCHEMA, DistillError, parse_run_id  # noqa: E402
+from yopo_l0.distill import (  # noqa: E402
+    START_STILL_SPEED_MPS,
+    TEACHER_SCHEMA,
+    DistillError,
+    parse_run_id,
+)
 
 # 与 scripts/distill/d5b/train_r4.py、scripts/distill/d6/feasibility.py 的 FitConfig 相同。
 # 闭环四项不进 FitConfig，评测脚本按同一组打开，库默认仍是 D5。
@@ -62,6 +67,13 @@ MANIFEST_NAME = "convert-manifest.json"
 STATUS_NAME = "convert-status.jsonl"
 SCHEMA = "yopo-student-d6b-convert/1"
 ASSUMPTION = "地图边长和障碍半径是假设，不是论文复现。"
+START_STILL_RULE = (
+    "关（默认）：不按起步速度删窗，窗口与不传这个开关逐位相同。"
+    "开：丢掉速度模长 < start_still_speed_mps、且早于该架起步结点的窗。"
+    "起步结点是该架速度第一次达到阈值的轨迹样本。阈值默认 0.05 m/s。"
+    "结点之后再慢下来的窗保留。教师样本上这段零位移大约 1.2–1.6 s，"
+    "盖住 t=0 前 1 s 位置结点位移为 0 的那些窗。"
+)
 
 
 def sha256_file(path: Path) -> str:
@@ -279,10 +291,14 @@ def _convert_one(spec: dict) -> dict:
 
     started = time.perf_counter()
     run_id = spec["id"]
+    still = _still_fields(spec)
     try:
         kwargs = {}
         if spec.get("max_windows") is not None:
             kwargs["max_windows"] = int(spec["max_windows"])
+        if still["drop_start_still"]:
+            kwargs["drop_start_still"] = True
+            kwargs["start_still_speed_mps"] = float(still["start_still_speed_mps"])
         batch = convert_run(Path(spec["run_dir"]), **kwargs)
     except DistillError as exc:
         return {
@@ -291,6 +307,7 @@ def _convert_one(spec: dict) -> dict:
             "error": str(exc),
             "wall_s": time.perf_counter() - started,
             "max_windows": spec.get("max_windows"),
+            **still,
         }
     if batch.n == 0:
         return {
@@ -298,26 +315,60 @@ def _convert_one(spec: dict) -> dict:
             "ok": False,
             "error": batch.skipped or "no_windows",
             "n": 0,
+            "n_start_still_dropped": int(batch.n_start_still_dropped),
             "wall_s": time.perf_counter() - started,
             "max_windows": spec.get("max_windows"),
+            **still,
         }
     path = save_batch(batch, Path(spec["out_path"]))
     return {
         "id": run_id,
         "ok": True,
         "n": int(batch.n),
+        "n_start_still_dropped": int(batch.n_start_still_dropped),
         "path": str(Path(path).resolve()),
         "sha256": sha256_file(path),
         "bytes": Path(path).stat().st_size,
         "wall_s": time.perf_counter() - started,
         "max_windows": spec.get("max_windows"),
+        **still,
     }
 
 
-def _reusable(record: dict, windows: Path, max_windows: int | None) -> bool:
+def _still_fields(spec: dict) -> dict:
+    """状态行里的开关。关时不写速度，续跑才能和旧状态行对上。"""
+    enabled = bool(spec.get("drop_start_still", False))
+    if not enabled:
+        return {"drop_start_still": False}
+    return {
+        "drop_start_still": True,
+        "start_still_speed_mps": float(spec["start_still_speed_mps"]),
+    }
+
+
+def _still_token(record: dict) -> tuple:
+    """旧状态行没有这个键时当作关。"""
+    if not bool(record.get("drop_start_still", False)):
+        return (False, None)
+    speed = record.get("start_still_speed_mps")
+    return (True, None if speed is None else float(speed))
+
+
+def _reusable(
+    record: dict,
+    windows: Path,
+    max_windows: int | None,
+    drop_start_still: bool,
+    start_still_speed_mps: float | None,
+) -> bool:
     if not record.get("ok") or not record.get("id"):
         return False
     if record.get("max_windows") != max_windows:
+        return False
+    requested = (False, None)
+    if drop_start_still:
+        requested = (True, float(start_still_speed_mps))
+    if _still_token(record) != requested:
         return False
     target = windows / f"{record['id']}.npz"
     if not target.is_file():
@@ -360,8 +411,14 @@ def convert_records(
     limit: int | None,
     min_clearance_m: float | None,
     teacher_dirs: list[Path],
+    drop_start_still: bool = False,
+    start_still_speed_mps: float = START_STILL_SPEED_MPS,
 ) -> dict:
-    """把合格场写成窗口，并写出 manifest。已有且 sha 对得上的场次跳过。"""
+    """把合格场写成窗口，并写出 manifest。已有且 sha 对得上的场次跳过。
+
+    ``drop_start_still`` 默认关。关时不把速度阈值传进 ``convert_run``，窗口与改前逐位相同。
+    开时续跑还要比对阈值，避免把没滤的 npz 当成已经滤过。
+    """
     from yopo_l0.distill import split_runs_by_seed
 
     out_dir = Path(out_dir)
@@ -380,7 +437,9 @@ def convert_records(
     todo = []
     for row in eligible:
         previous = done.get(row["id"])
-        if previous is not None and _reusable(previous, windows, max_windows):
+        if previous is not None and _reusable(
+            previous, windows, max_windows, bool(drop_start_still), start_still_speed_mps,
+        ):
             reused[row["id"]] = previous
             continue
         todo.append({
@@ -388,6 +447,8 @@ def convert_records(
             "run_dir": row["run_dir"],
             "out_path": str(windows / f"{row['id']}.npz"),
             "max_windows": max_windows,
+            "drop_start_still": bool(drop_start_still),
+            "start_still_speed_mps": float(start_still_speed_mps),
         })
     print(
         f"扫描 {len(rows)} 场，合格 {len(eligible)}，续跑 {len(reused)}，待转 {len(todo)}，jobs={max(1, int(jobs))}",
@@ -417,6 +478,7 @@ def convert_records(
             "path": str(Path(record["path"]).resolve()),
             "sha256": record["sha256"],
             "n": int(record["n"]),
+            "n_start_still_dropped": int(record.get("n_start_still_dropped") or 0),
             "flight_z_m": row["flight_z_m"],
             "flight_z_source": row["flight_z_source"],
             "z_mismatch": bool(row["z_mismatch"]),
@@ -477,6 +539,10 @@ def convert_records(
             "为 true 时再要求 metrics.min_obstacle_clearance_m >= min_clearance_m。"
         ),
         "max_windows": max_windows,
+        "drop_start_still": bool(drop_start_still),
+        "start_still_speed_mps": float(start_still_speed_mps) if drop_start_still else None,
+        "start_still_rule": START_STILL_RULE,
+        "n_start_still_dropped": sum(int(item.get("n_start_still_dropped") or 0) for item in files.values()),
         "sharding": "每场一个 npz，文件名是场次编号。sha 没变就跳过，可以断点续跑。",
         "hold_seed_mod": 5,
         "hold_rule": "seed % 5 == 0 进留出，其余进训练。1.0 m 和 1.5 m 同一颗种子一起进同一边。",
@@ -596,6 +662,9 @@ def manifest_summary(manifest: dict) -> dict:
         "clearance_filter",
         "teacher_dirs",
         "hold_rule",
+        "drop_start_still",
+        "start_still_speed_mps",
+        "n_start_still_dropped",
     )
     return {key: manifest.get(key) for key in keys}
 
@@ -775,6 +844,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="0 或 off：不按净空再过滤。正数：成功场还要 min_obstacle_clearance_m >= 该值",
     )
     parser.add_argument("--max-windows", type=int, default=None, help="每场最多留多少窗。缺省全留")
+    parser.add_argument(
+        "--drop-start-still",
+        action="store_true",
+        help="丢掉起步结点之前的低速窗。默认关，关时窗口与不传逐位相同",
+    )
+    parser.add_argument(
+        "--start-still-speed-mps",
+        type=float,
+        default=START_STILL_SPEED_MPS,
+        help="起步结点的速度阈值（m/s）。只在 --drop-start-still 时生效，默认 0.05",
+    )
     parser.add_argument("--limit", type=int, default=None, help="最多转换多少场合格记录，按编号排序截断")
     parser.add_argument("--balance", choices=("full", "altitude"), default="full")
     parser.add_argument("--epochs", type=int, default=None, help="缺省 5，与 D5b r4 相同")
@@ -793,6 +873,10 @@ def main(argv: list[str] | None = None) -> int:
     if int(args.jobs) < 1:
         raise SystemExit("--jobs 至少为 1")
     clearance = parse_min_clearance(str(args.min_clearance_m))
+    drop_start_still = bool(args.drop_start_still)
+    start_still_speed = float(args.start_still_speed_mps)
+    if drop_start_still and (not np.isfinite(start_still_speed) or start_still_speed < 0.0):
+        raise SystemExit(f"--start-still-speed-mps 必须是非负有限数，收到 {args.start_still_speed_mps}")
     out_dir = Path(args.out)
     manifest = None
     if mode in ("convert", "all"):
@@ -807,6 +891,8 @@ def main(argv: list[str] | None = None) -> int:
             limit=None if args.limit is None else int(args.limit),
             min_clearance_m=clearance,
             teacher_dirs=[Path(path) for path in args.teacher_dirs],
+            drop_start_still=drop_start_still,
+            start_still_speed_mps=start_still_speed,
         )
     if mode in ("train", "all"):
         if manifest is None:

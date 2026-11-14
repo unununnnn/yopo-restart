@@ -244,6 +244,68 @@ def _waypoint_dicts(plans: list[VehiclePlan]) -> list[dict]:
     ]
 
 
+def pose_xy(x: float, y: float) -> str:
+    """PX4_GZ_MODEL_POSE 的 ``x,y``。九位小数够用，整数不带小数点。"""
+
+    def one(value: float) -> str:
+        text = f"{float(value):.9f}".rstrip("0").rstrip(".")
+        if text in ("", "-0"):
+            return "0"
+        return text
+
+    return f"{one(x)},{one(y)}"
+
+
+def scene_start_xy(scene_path: str | Path) -> list[tuple[float, float]]:
+    """场景卡 ``start_enu`` 的水平坐标。相对路径按仓库根解析。"""
+    path = Path(scene_path)
+    if not path.is_file():
+        alt = Path(__file__).resolve().parents[2] / scene_path
+        if alt.is_file():
+            path = alt
+        else:
+            raise ValueError(f"找不到场景卡：{scene_path}")
+    data = json.loads(path.read_text())
+    drones = data.get("drones") or []
+    if not drones:
+        raise ValueError(f"{path} 没有飞机")
+    starts = []
+    for drone in drones:
+        start = drone.get("start_enu")
+        if not isinstance(start, (list, tuple)) or len(start) < 2:
+            raise ValueError(f"{drone.get('id', '?')} 缺少 start_enu")
+        starts.append((float(start[0]), float(start[1])))
+    return starts
+
+
+def apply_scene_spawn_poses(layout_text: str, scene_path: str | Path, n: int) -> str:
+    """把 shell 布局里的 ``pose=`` 换成场景卡起点。
+
+    S2 默认仍是沿 y 轴 0/3/6 m。三机场景卡（swap-3-open）的起点在半径 8 m 的圆上，
+    和这条直线不是同一套点。YOPO 实飞以场景卡为准生成；不改 ``format_shell`` 的默认输出。
+    """
+    starts = scene_start_xy(scene_path)
+    if len(starts) != int(n):
+        raise ValueError(f"场景卡有 {len(starts)} 架，--n 是 {n}")
+    poses = [pose_xy(x, y) for x, y in starts]
+    index = 0
+    out = []
+    for line in layout_text.splitlines():
+        if line.startswith("pose="):
+            if index >= len(poses):
+                raise ValueError("布局里的 pose 行比场景卡飞机多")
+            out.append(f"pose={poses[index]}")
+            index += 1
+        else:
+            out.append(line)
+    if index != len(poses):
+        raise ValueError(f"布局里有 {index} 行 pose，场景卡有 {len(poses)} 架")
+    text = "\n".join(out)
+    if layout_text.endswith("\n"):
+        text += "\n"
+    return text
+
+
 def format_shell(n: int) -> str:
     data = layout_dict(n)
     lines = [
@@ -735,12 +797,20 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--world", default="default")
     run.add_argument("--preflight-timeout", type=float, default=240.0)
     run.add_argument("--mission", choices=MISSION_MODES, default=None)
+    poses = sub.add_parser("yopo-poses", help="按场景卡起点改写 shell 布局的 pose，不改 S2 默认生成点")
+    poses.add_argument("--scene", required=True)
+    poses.add_argument("--n", type=int, required=True)
+    poses.add_argument("--layout", required=True)
     # 兼容：`fleet.py --n 3 --format shell`（up.sh / in_container.sh 用这个）
     ap.add_argument("--n", type=int)
     ap.add_argument("--format", choices=("shell", "json"), default="json")
     ap.add_argument("--mission", choices=MISSION_MODES, default=None)
     args = ap.parse_args(argv)
     try:
+        if args.cmd == "yopo-poses":
+            text = Path(args.layout).read_text()
+            sys.stdout.write(apply_scene_spawn_poses(text, args.scene, args.n))
+            return 0
         mode = resolve_mission(args.mission)
         if args.cmd == "run":
             return run_ros(args.n, args.out, args.wall_timeout, args.world, args.preflight_timeout, mode)

@@ -107,6 +107,10 @@ scripts/sitl/run_yopo_l0_sitl.sh --dry-run --n 3 --positioning rtk
 
 1 机默认 `scenes/g2-pillar.json`，话题在 `/fmu/...`。3 机默认 `scenes/swap-3-open.json`，namespace 是 `px4_1`、`px4_2`、`px4_3`。
 `--positioning rtk` 仍只走原来的 `positioning-rtk.env` 白名单，规划桥本身不写飞控参数。
+宿主机缓存 `~/.cache/yopo-swarm` 若已存在，只读挂到容器 `/yopo-cache`。容器以 root 跑，
+`docker run` 设置 `safe.directory=*`，避免 git 把这份缓存当成 dubious ownership 后再往只读挂载写 `.partial`。
+预检只在第一次全体通过时锁存；着陆上锁后 PX4 拉低 `pre_flight_checks_pass` 不会停 step，也不记成启动预检失败。
+任务结束时把 `/out` 的属主改回调用者，和 `smoke.sh` 一样。
 离线假 PX4 仍是 `scripts/sitl/run_yopo_l0.py`（`--fake-px4` 与缺省相同）。说明和实测数字在 `docs/research/s4b-sitl-live.md`。
 
 ## 票 S4c：YOPO L0 运行时分层镜像（report-only）

@@ -6,6 +6,7 @@ import json
 import math
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -187,11 +188,14 @@ def test_namespaces_do_not_share_odometry_or_commands():
     inbox = {}
     expected = {}
     for slot in session.slots:
-        start = slot.bridge.start_enu.copy()
+        # 假里程计在各机本地系。世界系 = 本地 + 场景卡起点的水平偏置。
+        start = slot.bridge.start_enu
+        local = np.array([0.0, 0.0, float(start[2])])
         if slot.ident["namespace"] == "px4_1":
-            start = start + np.array([3.0, 0.0, 0.0])
-        expected[slot.ident["namespace"]] = start
-        msg, _ = _odom_message(start, timestamp_us=0)
+            local = local + np.array([0.4, -0.1, 0.0])
+        offset = np.array([float(start[0]), float(start[1]), 0.0])
+        expected[slot.ident["namespace"]] = local + offset
+        msg, _ = _odom_message(local, timestamp_us=0)
         inbox[slot.ident["namespace"]] = VehicleInbox(odometry=msg, armed=True, offboard=True, landed=False)
     inbox["px4_9"] = inbox["px4_1"]
     commands = session.step(0.0, inbox)
@@ -273,15 +277,13 @@ def test_arm_commands_use_each_vehicle_sys_id():
     )
     inbox = {}
     for slot in session.slots:
-        msg, _ = _odom_message(np.array([slot.bridge.start_enu[0], slot.bridge.start_enu[1], 0.0]), timestamp_us=0)
+        msg, _ = _odom_message(np.zeros(3), timestamp_us=0)
         inbox[slot.ident["namespace"]] = VehicleInbox(odometry=msg, armed=False, offboard=False, landed=True)
     seen = {}
     t = 0.0
-    index = {slot.ident["namespace"]: slot for slot in session.slots}
     for _ in range(8):
         for ns, box in inbox.items():
-            ground = index[ns].bridge.start_enu * np.array([1.0, 1.0, 0.0])
-            msg, _ = _odom_message(ground, timestamp_us=int(round(t * 1e6)))
+            msg, _ = _odom_message(np.zeros(3), timestamp_us=int(round(t * 1e6)))
             box.odometry = msg
         commands = session.step(t, inbox)
         for command in commands:
@@ -416,6 +418,63 @@ def test_live_script_dry_run_lists_swap_namespaces(tmp_path, capsys):
     assert data["drone_ids"] == ["uav0", "uav1", "uav2"]
     bad = mod.main(["--dry-run", "--scene", "scenes/g2-pillar.json", "--n", "3", "--out", str(tmp_path / "bad.json")])
     assert bad == 2
+
+
+def _box(ok):
+    return SimpleNamespace(preflight_ok=ok)
+
+
+def test_preflight_latch_waits_for_every_vehicle_then_keeps_stepping():
+    """假样本，不连 PX4。锁存前任一架没过就不 step；锁存后着陆拉低标志仍 step。"""
+    gate = _load("yopo_l0_live.py").PreflightLatch(10.0)
+    assert gate.state == "WAIT"
+    assert gate.allow_step({"": None, "px4_2": None}, 0.2) is False
+    assert gate.state == "WAIT"
+    assert gate.failure == ""
+    partial = {"px4_1": _box(True), "px4_2": _box(False), "px4_3": _box(True)}
+    assert gate.allow_step(partial, 1.0) is False
+    assert gate.state == "WAIT"
+    partial["px4_2"] = _box(True)
+    assert gate.allow_step(partial, 1.1) is True
+    assert gate.state == "LATCHED"
+    assert gate.failure == ""
+    # 着陆上锁后 PX4 把 pre_flight_checks_pass 拉低，墙钟已经超过启动预检时限。
+    disarmed = {ns: _box(False) for ns in partial}
+    assert gate.allow_step(disarmed, 400.0) is True
+    assert gate.state == "LATCHED"
+    assert gate.failure == ""
+    dropped = {"px4_1": None, "px4_2": _box(False), "px4_3": _box(False)}
+    assert gate.allow_step(dropped, 400.0) is True
+    assert gate.state == "LATCHED"
+    assert gate.failure == ""
+
+
+def test_live_loop_steps_through_the_latch():
+    live = (SITL / "yopo_l0_live.py").read_text()
+    assert "PreflightLatch(args.preflight_timeout)" in live
+    assert "preflight.allow_step(boxes, wall)" in live
+    assert "not box.preflight_ok" not in live
+
+
+def test_preflight_latch_timeout_is_only_the_startup_failure():
+    gate = _load("yopo_l0_live.py").PreflightLatch(10.0)
+    assert gate.allow_step({"": _box(False)}, 10.0) is False
+    assert gate.state == "WAIT"
+    assert gate.failure == ""
+    assert gate.allow_step({"": _box(False)}, 10.01) is False
+    assert gate.state == "FAIL"
+    assert gate.failure == "PREFLIGHT checks"
+    assert gate.allow_step({"": _box(True)}, 10.2) is False
+    assert gate.state == "FAIL"
+
+    missing = _load("yopo_l0_live.py").PreflightLatch(5.0)
+    assert missing.allow_step({"": None, "px4_2": _box(False)}, 5.1) is False
+    assert missing.state == "FAIL"
+    assert missing.failure == "PREFLIGHT /"
+
+    fleet = _load("yopo_l0_live.py").PreflightLatch(5.0)
+    assert fleet.allow_step({"px4_1": None, "px4_3": _box(True)}, 5.2) is False
+    assert fleet.failure == "PREFLIGHT px4_1"
 
 
 def test_shell_entry_is_opt_in_and_leaves_offboard_default():

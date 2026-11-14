@@ -49,6 +49,7 @@ from .policy import (
     track_clearance_wants_neighbors,
 )
 from .scene import SceneCard
+from .depth_noise import D435Rig, d435_from_task
 from .sensor import CameraConfig, DepthCamera
 from .shadow import DroneShadow, aggregate, aggregate_drones, approved_pva, gate_status
 
@@ -186,6 +187,8 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         tol = float(crit["hover_tolerance_m"])
     model = make_model(c["dynamics"])
     cam_cfg = CameraConfig.from_card(c["camera"])
+    # 缺省关。关时不建 D435Rig，也不从相机的 SeedSequence 再 spawn，深度随机流与以前相同。
+    d435_cfg = d435_from_task(tuned.get("task"))
 
     root = np.random.SeedSequence(cfg.seed)
     drones = []
@@ -211,7 +214,12 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
             "id": d["id"],
             "goal": goal,  # goto / formation：目标点；hover：悬停点，默认 = 起点
             "state": State(0.0, start.copy(), np.zeros(3), np.zeros(3), 0.0),
-            "camera": DepthCamera(cam_cfg, card.obstacles, np.random.default_rng(ss)),
+            "camera": DepthCamera(
+                cam_cfg,
+                card.obstacles,
+                np.random.default_rng(ss),
+                d435=D435Rig.from_seed(d435_cfg, ss),
+            ),
             "policy": policy,
             "codes": {}, "goal_since": None, "arrival": None,
             "frame": None, "plan": None, "approved": None,
@@ -517,6 +525,11 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
     rep = _inter_drone_report(fleet, drones)
     if rep is not None:
         result["inter_drone_filter"] = rep
+
+    if d435_cfg.active:
+        # 打开即偏离上游：上游权重是在真值深度（右目关闭）上训练的。关时不加这几个字段。
+        result["d435_depth"] = d435_cfg.public_dict()
+        result["upstream_deviation"] = True
 
     if cfg.policy == "student":
         result["network"] = _student_provenance(drones)

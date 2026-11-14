@@ -61,6 +61,8 @@ class WindowBatch:
     n_neighbors: int
     # 0 表示不平移。非 0 时位置和目标的世界系 z 加了这么多米，深度按 L0 相机重渲。
     altitude_shift_m: float = 0.0
+    # 0 表示没开起步静止过滤，或开了但一窗都没丢掉。meta 里因此不写这个键。
+    n_start_still_dropped: int = 0
 
     @property
     def n(self) -> int:
@@ -100,7 +102,66 @@ class WindowBatch:
                 "位置和目标的世界系 z 平移了这么多米，再按 L0 相机重渲深度。"
                 "速度、加速度、偏航不改。障碍和地面不平移。"
             )
+        if self.n_start_still_dropped:
+            out["n_start_still_dropped"] = int(self.n_start_still_dropped)
+            out["start_still_note"] = (
+                "丢掉了起步结点之前、速度低于阈值的窗。"
+                "起步结点是该架速度第一次达到阈值的轨迹样本。"
+            )
         return out
+
+
+# 样本里速度从 0 直接跳过 0.02 与 0.05，几乎同一拍。0.05 低于到点判据 0.2。
+START_STILL_SPEED_MPS = 0.05
+
+
+def startup_motion_index(speed: np.ndarray, speed_mps: float) -> int | None:
+    """该架速度模长第一次 ≥ ``speed_mps`` 的下标。始终没达到则返回 None。"""
+    hit = np.flatnonzero(np.asarray(speed, dtype=np.float64) >= float(speed_mps))
+    if hit.size == 0:
+        return None
+    return int(hit[0])
+
+
+def keep_after_startup_still(
+    pairs: np.ndarray,
+    time_s: np.ndarray,
+    velocity: np.ndarray,
+    speed_mps: float,
+) -> tuple[np.ndarray, int]:
+    """丢掉起步结点之前的低速窗。保留行的相对顺序不变。
+
+    起步结点是该架速度模长第一次 ≥ ``speed_mps`` 的轨迹样本。丢掉的窗同时满足：
+    该拍速度 < ``speed_mps``，且样本下标早于起步结点。该架始终没达到阈值时，
+    低速窗全部丢掉。起步结点之后再慢下来的窗（到点、避让）保留。
+
+    ``pairs`` 形状是 (N, 2)，列是 (time index, drone)。``time_s`` 只用来核对长度。
+    返回 ``(保留的 pairs, 丢掉的数量)``。
+    """
+    speed_mps = float(speed_mps)
+    if not np.isfinite(speed_mps) or speed_mps < 0.0:
+        raise DistillError(f"start_still_speed_mps 必须是非负有限数，收到 {speed_mps}")
+    if pairs.ndim != 2 or pairs.shape[1] != 2:
+        raise DistillError(f"pairs 应为 (N, 2)，收到 {pairs.shape}")
+    if time_s.ndim != 1 or velocity.ndim != 3 or velocity.shape[0] != time_s.shape[0]:
+        raise DistillError("time_s 与 velocity 对不齐，不能判起步静止段")
+    if pairs.shape[0] == 0:
+        return pairs, 0
+    speed = np.linalg.norm(np.asarray(velocity, dtype=np.float64), axis=2)
+    onset = np.empty(speed.shape[1], dtype=np.int64)
+    for drone in range(speed.shape[1]):
+        node = startup_motion_index(speed[:, drone], speed_mps)
+        onset[drone] = speed.shape[0] if node is None else node
+    index = pairs[:, 0]
+    drone = pairs[:, 1]
+    if int(index.min()) < 0 or int(index.max()) >= speed.shape[0]:
+        raise DistillError("pairs 的时刻下标超出轨迹")
+    if int(drone.min()) < 0 or int(drone.max()) >= speed.shape[1]:
+        raise DistillError("pairs 的机号超出轨迹")
+    slow = speed[index, drone] < speed_mps
+    before = index < onset[drone]
+    kept = pairs[~(slow & before)]
+    return kept, int(pairs.shape[0] - kept.shape[0])
 
 
 def _empty(
@@ -110,6 +171,7 @@ def _empty(
     max_range: float,
     *,
     n_neighbors: int = NEIGHBOR_K,
+    n_start_still_dropped: int = 0,
 ) -> WindowBatch:
     k = HORIZON_STEPS
     nk = int(n_neighbors)
@@ -129,6 +191,7 @@ def _empty(
         horizon_dt_s=dt,
         max_range_m=max_range,
         n_neighbors=nk,
+        n_start_still_dropped=int(n_start_still_dropped),
     )
 
 
@@ -202,12 +265,20 @@ def convert_run(
     max_windows: int | None = None,
     cfg: StudentConfig | None = None,
     altitude_shift_m: float = 0.0,
+    drop_start_still: bool = False,
+    start_still_speed_mps: float = START_STILL_SPEED_MPS,
 ) -> WindowBatch:
     """成功记录 → 窗口。每一架都是一个视点。``metrics.success`` 不是 true 时返回空批次，不渲染。
 
     ``altitude_shift_m`` 默认 0。为 0 时不改数组，输出与不传这个参数逐位相同。
     非 0 时把位置和目标的世界系 z 加上这个数，深度按平移后的位姿用 L0 相机重渲。
     速度、加速度、偏航、障碍和地面都不改。机体坐标里的相对量因此不变，变的是深度。
+
+    ``drop_start_still`` 默认关。关时不看速度，候选窗和输出与不传这个参数逐位相同。
+    开时在抽样之前丢掉起步结点之前的低速窗：该拍速度模长 < ``start_still_speed_mps``
+    （默认 0.05 m/s），且早于该架速度第一次达到这个阈值的样本。教师样本上这段大约
+    1.2–1.6 s，t = 0 的前 1 s 位置结点位移是 0。只砍结点前最后 1 s 会留下 t = 0
+    的同一批悬停标签，所以删的是整段起步静止。结点之后再慢下来的窗保留。
     """
     cfg = cfg or StudentConfig()
     shift = float(altitude_shift_m)
@@ -295,6 +366,16 @@ def convert_run(
             n_neighbors=cfg.n_neighbors,
         )
     pairs = np.array([(int(i), d) for i in valid for d in range(n_drones)], dtype=np.int64)
+    n_start_still_dropped = 0
+    if drop_start_still:
+        pairs, n_start_still_dropped = keep_after_startup_still(
+            pairs, time_s, velocity, float(start_still_speed_mps),
+        )
+        if pairs.shape[0] == 0:
+            return _empty(
+                scenario_id, "start_still", cfg.horizon_dt_s, camera_cfg.max_range_m,
+                n_neighbors=cfg.n_neighbors, n_start_still_dropped=n_start_still_dropped,
+            )
     chosen = pairs[_pick(int(pairs.shape[0]), max_windows)]
 
     for d in range(n_drones):
@@ -386,6 +467,7 @@ def convert_run(
         max_range_m=float(camera_cfg.max_range_m),
         n_neighbors=n_k,
         altitude_shift_m=shift,
+        n_start_still_dropped=n_start_still_dropped,
     )
 
 
@@ -432,6 +514,7 @@ def load_batch(path: Path | str) -> WindowBatch:
             max_range_m=float(meta["max_range_m"]),
             n_neighbors=int(meta.get("n_neighbors", NEIGHBOR_K)),
             altitude_shift_m=float(meta.get("altitude_shift_m", 0.0)),
+            n_start_still_dropped=int(meta.get("n_start_still_dropped") or 0),
         )
 
 

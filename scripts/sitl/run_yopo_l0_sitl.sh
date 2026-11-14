@@ -15,11 +15,12 @@ set -euo pipefail
 SCENE=""
 N="1"
 POSITIONING="${YOPO_POSITIONING:-default}"
+POLICY="${YOPO_L0_POLICY:-upstream}"
 SEED="0"
 DRY=0
 IMAGE_ARG=""
 usage() {
-  echo "用法：$0 [--scene 场景卡] [--n 1|2|3] [--positioning default|rtk] [--seed N] [--image 镜像] [--dry-run]"
+  echo "用法：$0 [--scene 场景卡] [--n 1|2|3] [--policy upstream|formation] [--positioning default|rtk] [--seed N] [--image 镜像] [--dry-run]"
 }
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -29,6 +30,8 @@ while [[ $# -gt 0 ]]; do
     --n=*) N="${1#*=}"; shift ;;
     --positioning) POSITIONING="${2:-}"; shift 2 ;;
     --positioning=*) POSITIONING="${1#*=}"; shift ;;
+    --policy) POLICY="${2:-}"; shift 2 ;;
+    --policy=*) POLICY="${1#*=}"; shift ;;
     --seed) SEED="${2:-}"; shift 2 ;;
     --seed=*) SEED="${1#*=}"; shift ;;
     --image)
@@ -54,6 +57,10 @@ while [[ $# -gt 0 ]]; do
 done
 if [[ "$POSITIONING" != "default" && "$POSITIONING" != "rtk" ]]; then
   echo "未知 --positioning=$POSITIONING（只要 default 或 rtk）" >&2
+  exit 2
+fi
+if [[ "$POLICY" != "upstream" && "$POLICY" != "formation" ]]; then
+  echo "未知 --policy=$POLICY（只要 upstream 或 formation）" >&2
   exit 2
 fi
 case "$N" in
@@ -89,8 +96,8 @@ choose_runtime_image() {
 }
 RUNTIME_IMAGE="$(choose_runtime_image)"
 if [[ "$DRY" == "1" ]]; then
-  printf 'planner=yopo-l0\nscene=%s\nn=%s\npositioning=%s\nseed=%s\nimage=%s\n' \
-    "$SCENE" "$N" "$POSITIONING" "$SEED" "$RUNTIME_IMAGE"
+  printf 'planner=yopo-l0\nscene=%s\nn=%s\npolicy=%s\npositioning=%s\nseed=%s\nimage=%s\n' \
+    "$SCENE" "$N" "$POLICY" "$POSITIONING" "$SEED" "$RUNTIME_IMAGE"
   exit 0
 fi
 python3 "$SITL_DIR/fleet.py" layout --n "$N" --format json >/dev/null
@@ -113,10 +120,31 @@ if [[ -n "$others" ]]; then
 fi
 
 CACHE="${YOPO_SWARM_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/yopo-swarm}"
-cache_args=()
+cache_env=()
+cache_mount=()
 if [[ -d "$CACHE" ]]; then
-  cache_args=(-e YOPO_SWARM_CACHE=/yopo-cache -v "$CACHE:/yopo-cache:ro")
+  # 只读挂进容器。属主是宿主机用户，容器以 root 跑。
+  cache_env=(-e YOPO_SWARM_CACHE=/yopo-cache)
+  cache_mount=(-v "$CACHE:/yopo-cache:ro")
 fi
+# git 把「root 访问别人的仓库」当成 dubious ownership，rev-parse 失败。
+# fetch_upstream 就以为上游没取到，去写 <sha>.partial，只读挂载上是 Errno 30。
+# safe.directory=* 只放宽这次容器里的目录检查，不改缓存内容。
+git_safe=(
+  -e GIT_CONFIG_COUNT=1
+  -e GIT_CONFIG_KEY_0=safe.directory
+  -e GIT_CONFIG_VALUE_0='*'
+)
+
+chown_out() {
+  # 容器里的 root 写出 /out。和 smoke.sh 一样，结束时把属主还给调用者。
+  local run=$1
+  if "${DOCKER[@]}" ps -q -f "name=^${NAME}$" | grep -q .; then
+    "${DOCKER[@]}" exec "$NAME" chown -R "$(id -u):$(id -g)" /out >/dev/null 2>&1 || true
+  elif [[ -n "$run" && -d "$run" ]]; then
+    "${DOCKER[@]}" run --rm -v "$run:/out" "$RUNTIME_IMAGE" chown -R "$(id -u):$(id -g)" /out >/dev/null 2>&1 || true
+  fi
+}
 
 if "${DOCKER[@]}" ps -q -f "name=^${NAME}$" | grep -q .; then
   stack="$(printf '%s\n' "$SITL_STATE/stack-n${N}.txt")"
@@ -125,13 +153,19 @@ if "${DOCKER[@]}" ps -q -f "name=^${NAME}$" | grep -q .; then
     exit 3
   fi
   RUN="$(cat "$stack")"
+  set +e
   "${DOCKER[@]}" exec \
     -e YOPO_SITL_N="$N" -e YOPO_SITL_PLANNER=yopo-l0 -e YOPO_L0_SCENE="$SCENE" \
+    -e YOPO_L0_POLICY="$POLICY" \
     -e YOPO_L0_SEED="$SEED" -e YOPO_POSITIONING="$POSITIONING" \
     -e YOPO_SITL_WALL_TIMEOUT="${YOPO_SITL_WALL_TIMEOUT:-900}" \
-    "${cache_args[@]}" \
+    "${cache_env[@]}" \
+    "${git_safe[@]}" \
     "$NAME" nice -n "$SITL_NICE" bash /repo/scripts/sitl/exec_mission.sh
-  exit $?
+  rc=$?
+  set -e
+  chown_out "$RUN"
+  exit "$rc"
 fi
 
 RUN="$SITL_STATE/runs/$(date +%Y%m%dT%H%M%S)-yopo-n${N}"
@@ -142,13 +176,17 @@ shm=1g
 set +e
 "${DOCKER[@]}" run --rm --name "$NAME" \
   -e ROS_DOMAIN_ID=0 -e YOPO_SITL_N="$N" -e YOPO_SITL_MISSION=1 \
-  -e YOPO_SITL_PLANNER=yopo-l0 -e YOPO_L0_SCENE="$SCENE" -e YOPO_L0_SEED="$SEED" \
+  -e YOPO_SITL_PLANNER=yopo-l0 -e YOPO_L0_SCENE="$SCENE" -e YOPO_L0_POLICY="$POLICY" \
+  -e YOPO_L0_SEED="$SEED" \
   -e YOPO_SITL_WALL_TIMEOUT="${YOPO_SITL_WALL_TIMEOUT:-900}" \
   -e YOPO_POSITIONING="$POSITIONING" \
-  "${cache_args[@]}" \
+  "${git_safe[@]}" \
+  "${cache_env[@]}" \
+  "${cache_mount[@]}" \
   -v "$REPO_ROOT:/repo:ro" -v "$RUN:/out" --shm-size "$shm" \
   "$RUNTIME_IMAGE" nice -n "$SITL_NICE" bash /repo/scripts/sitl/in_container.sh
 rc=$?
 set -e
+chown_out "$RUN"
 echo "run_dir $RUN rc=$rc"
 exit "$rc"

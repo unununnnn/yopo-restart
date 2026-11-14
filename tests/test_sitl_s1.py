@@ -151,10 +151,13 @@ PARAM_WHITELIST = {
 }
 
 
+_PARAM_ENVS = {"positioning-rtk.env", "sitl-battery.env"}
+
+
 def test_sitl_scripts_never_set_px4_params():
-    """默认路径脚本不许改参数；只有 positioning-rtk.env 可写白名单 PX4_PARAM_*。"""
+    """默认路径脚本不许改参数。PX4_PARAM_* 只允许出现在两份白名单 env 里。"""
     for p in _iter_sitl_scripts():
-        if p.name == "positioning-rtk.env":
+        if p.name in _PARAM_ENVS:
             continue
         code = _code_lines(p)
         assert not re.search(r"PX4_PARAM_[A-Z]", code), p
@@ -171,6 +174,20 @@ def test_rtk_positioning_env_is_localization_whitelist():
     assert set(names) <= PARAM_WHITELIST, set(names) - PARAM_WHITELIST
     # 安全参数不得出现
     assert not re.search(r"PX4_PARAM_(NAV_DLL_ACT|NAV_RCL_ACT|COM_|GF_)", text)
+
+
+def test_sitl_battery_env_only_slows_the_simulator():
+    """SITL 电池仿真参数。不写会带到真机的 COM_ / NAV_ / BAT_ 安全默认值。"""
+    env = SITL / "sitl-battery.env"
+    text = _code_lines(env)
+    names = re.findall(r"PX4_PARAM_([A-Z0-9_]+)", text)
+    assert set(names) == {"SIM_BAT_DRAIN", "SIM_BAT_MIN_PCT"}
+    assert "86400" in text
+    assert re.search(r"PX4_PARAM_SIM_BAT_MIN_PCT=100\b", text)
+    assert not re.search(r"PX4_PARAM_(NAV_|COM_|GF_|BAT_)", text)
+    container = _code_lines(SITL / "in_container.sh")
+    assert "sitl-battery.env" in container
+    assert "PX4_PARAM_" not in container
 
 
 def test_dockerfile_applies_gz_gps_patch():
