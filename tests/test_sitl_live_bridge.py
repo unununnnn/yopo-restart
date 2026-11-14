@@ -6,6 +6,7 @@ import json
 import math
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -417,6 +418,63 @@ def test_live_script_dry_run_lists_swap_namespaces(tmp_path, capsys):
     assert data["drone_ids"] == ["uav0", "uav1", "uav2"]
     bad = mod.main(["--dry-run", "--scene", "scenes/g2-pillar.json", "--n", "3", "--out", str(tmp_path / "bad.json")])
     assert bad == 2
+
+
+def _box(ok):
+    return SimpleNamespace(preflight_ok=ok)
+
+
+def test_preflight_latch_waits_for_every_vehicle_then_keeps_stepping():
+    """假样本，不连 PX4。锁存前任一架没过就不 step；锁存后着陆拉低标志仍 step。"""
+    gate = _load("yopo_l0_live.py").PreflightLatch(10.0)
+    assert gate.state == "WAIT"
+    assert gate.allow_step({"": None, "px4_2": None}, 0.2) is False
+    assert gate.state == "WAIT"
+    assert gate.failure == ""
+    partial = {"px4_1": _box(True), "px4_2": _box(False), "px4_3": _box(True)}
+    assert gate.allow_step(partial, 1.0) is False
+    assert gate.state == "WAIT"
+    partial["px4_2"] = _box(True)
+    assert gate.allow_step(partial, 1.1) is True
+    assert gate.state == "LATCHED"
+    assert gate.failure == ""
+    # 着陆上锁后 PX4 把 pre_flight_checks_pass 拉低，墙钟已经超过启动预检时限。
+    disarmed = {ns: _box(False) for ns in partial}
+    assert gate.allow_step(disarmed, 400.0) is True
+    assert gate.state == "LATCHED"
+    assert gate.failure == ""
+    dropped = {"px4_1": None, "px4_2": _box(False), "px4_3": _box(False)}
+    assert gate.allow_step(dropped, 400.0) is True
+    assert gate.state == "LATCHED"
+    assert gate.failure == ""
+
+
+def test_live_loop_steps_through_the_latch():
+    live = (SITL / "yopo_l0_live.py").read_text()
+    assert "PreflightLatch(args.preflight_timeout)" in live
+    assert "preflight.allow_step(boxes, wall)" in live
+    assert "not box.preflight_ok" not in live
+
+
+def test_preflight_latch_timeout_is_only_the_startup_failure():
+    gate = _load("yopo_l0_live.py").PreflightLatch(10.0)
+    assert gate.allow_step({"": _box(False)}, 10.0) is False
+    assert gate.state == "WAIT"
+    assert gate.failure == ""
+    assert gate.allow_step({"": _box(False)}, 10.01) is False
+    assert gate.state == "FAIL"
+    assert gate.failure == "PREFLIGHT checks"
+    assert gate.allow_step({"": _box(True)}, 10.2) is False
+    assert gate.state == "FAIL"
+
+    missing = _load("yopo_l0_live.py").PreflightLatch(5.0)
+    assert missing.allow_step({"": None, "px4_2": _box(False)}, 5.1) is False
+    assert missing.state == "FAIL"
+    assert missing.failure == "PREFLIGHT /"
+
+    fleet = _load("yopo_l0_live.py").PreflightLatch(5.0)
+    assert fleet.allow_step({"px4_1": None, "px4_3": _box(True)}, 5.2) is False
+    assert fleet.failure == "PREFLIGHT px4_1"
 
 
 def test_shell_entry_is_opt_in_and_leaves_offboard_default():
