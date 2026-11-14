@@ -1,0 +1,286 @@
+# E-B5：欧氏碰撞球参数扫描（只报数）
+
+只报数。report-only。没有改 `yopo_l0/`、`core/`、`scenes/`、`docs/tickets.md`、`README.md`、`scripts/premerge.sh`、`scripts/regress.sh`。`peer_sphere_enabled` 仍默认关。打开欧氏球、加大半径或权重、`track_clearance`、`empty_brake`，或使用下面的脚本内末端放行，都标「偏离上游」。`off` 不打开这些开关。未冻结，不进 `scenes/suite.txt`，不设 gates。
+
+这不是论文复现。默认半径 0.85 m = 0.70 m 碰撞球 + 0.15 m 裕度，权重 8，与已合入的 E-B4c 相同。1.00 m 是 0.70 m 再加 0.30 m 裕度。权重 16 是默认的两倍。`track_margin` 0.08 m 沿用 E-C5 的假设，用来盖已观测的跟踪差。
+
+数字来自 `scripts/e-b5-sphere-sweep.py`，跑数时的代码 `0354adc478ed8e9f2276db358197576d2b019385`。逐粒记录在 [e-b5-sphere-sweep-runs.json](e-b5-sphere-sweep-runs.json)。
+
+## seed 1 的 0.694 m
+
+E-B4c 在 `scenes/ego-density-014-swap3.json` seed 1、默认欧氏球上记下机间碰撞，最小机间 0.694 m。运行器在第一次中心距 ≤ 0.70 m 的那一拍停下，所以这个数是越线那一拍的采样，不是全程最小。
+
+默认 E-B4c（半径 0.85 m，权重 8）在 `ego-density-014-swap3` seed 1 上仍是机间碰撞（`uav1-uav2:INTER_DRONE`，最小机间 0.694 m）。E-B4c 记下的 0.694 m 没有消除。这次记下的距离仍是 0.694 m。同一粒其余各臂：全关：仍是机间碰撞（`uav1-uav2:INTER_DRONE`），最小机间 0.639 m；半径 1.00 m，权重 8：到达，机间没有越线，最小机间 0.786 m；半径 0.85 m，权重 16：到达，机间没有越线，最小机间 0.943 m；半径 1.00 m，权重 16：到达，机间没有越线，最小机间 1.087 m；默认球 + geom_multi 0.08 m：仍是机间碰撞（`uav1-uav2:INTER_DRONE`），最小机间 0.692 m；默认球 + empty_brake：仍是机间碰撞（`uav1-uav2:INTER_DRONE`），最小机间 0.694 m；默认球 + geom_multi + empty_brake：仍是机间碰撞（`uav1-uav2:INTER_DRONE`），最小机间 0.694 m；默认球 + 脚本内末端放行：机间没有越线，但是障碍碰撞（`uav0:TRUTH_POSITION`），最小机间 0.904 m。
+
+### seed 1 · 默认 E-B4c（0.85 m，权重 8）
+
+续飞在越线前的距离和正式跑相差不超过 0.02 m。越线之后 1 s 的点来自这次续飞。表上的结果列仍是正式跑，运行器在第一次 ≤ 0.70 m 时停下。续飞里越线之后的第一档距离高于该帧，中心距在回升。运行器仍把这一拍记成碰撞。
+
+一对是 `uav1-uav2`，该帧 t = 2.64 s，距离 0.694 m，接近速度 4.57 m/s。接近速度为正表示中心距在减小，用相邻两拍的 −Δd/Δt。
+
+| 相对该帧 s | 距离 m | 接近速度 m/s | uav1 速率 m/s | uav2 速率 m/s |
+|---|---|---|---|---|
+| -1.00 | 10.954 | 9.26 | 5.70 | 5.59 |
+| -0.50 | 5.807 | 10.86 | 5.78 | 6.22 |
+| -0.20 | 2.543 | 10.76 | 5.90 | 6.16 |
+| -0.10 | 1.496 | 10.07 | 5.92 | 6.13 |
+| -0.05 | 1.026 | 8.78 | 5.91 | 6.10 |
+| -0.01 | 0.739 | 5.84 | 5.89 | 6.06 |
+| +0.00 | 0.694 | 4.57 | 5.89 | 6.05 |
+| +0.05 | 0.716 | -3.85 | 5.85 | 5.98 |
+| +0.10 | 1.062 | -8.24 | 5.81 | 5.89 |
+| +0.20 | 1.997 | -9.70 | 5.70 | 5.64 |
+| +0.50 | 4.791 | -8.76 | 5.41 | 4.56 |
+| +1.00 | 8.809 | -7.64 | 5.19 | 3.03 |
+
+### seed 1 · 全关
+
+续飞在越线前的距离和正式跑相差不超过 0.02 m。越线之后 1 s 的点来自这次续飞。表上的结果列仍是正式跑，运行器在第一次 ≤ 0.70 m 时停下。续飞里越线之后距离继续下降。
+
+一对是 `uav1-uav2`，该帧 t = 2.61 s，距离 0.639 m，接近速度 8.42 m/s。接近速度为正表示中心距在减小，用相邻两拍的 −Δd/Δt。
+
+| 相对该帧 s | 距离 m | 接近速度 m/s | uav1 速率 m/s | uav2 速率 m/s |
+|---|---|---|---|---|
+| -1.00 | 10.983 | 9.28 | 5.79 | 5.63 |
+| -0.50 | 5.896 | 10.64 | 5.74 | 6.07 |
+| -0.20 | 2.677 | 10.74 | 5.83 | 5.99 |
+| -0.10 | 1.614 | 10.48 | 5.86 | 5.91 |
+| -0.05 | 1.101 | 10.04 | 5.87 | 5.85 |
+| -0.01 | 0.723 | 8.97 | 5.87 | 5.79 |
+| +0.00 | 0.639 | 8.42 | 5.86 | 5.78 |
+| +0.05 | 0.420 | 0.12 | 5.85 | 5.70 |
+| +0.10 | 0.709 | -8.14 | 5.84 | 5.61 |
+| +0.20 | 1.655 | -9.80 | 5.81 | 5.41 |
+| +0.50 | 4.516 | -9.17 | 5.77 | 4.60 |
+| +1.00 | 8.774 | -7.54 | 5.10 | 3.74 |
+
+### seed 1 · 默认球 + geom_multi 0.08 m
+
+越线的那一对、时刻和距离与默认球这一粒相同（差小于 0.002 m）。曲线不另附。
+
+### seed 1 · 默认球 + empty_brake
+
+越线的那一对、时刻和距离与默认球这一粒相同（差小于 0.002 m）。曲线不另附。
+
+### seed 1 · 默认球 + geom_multi + empty_brake
+
+越线的那一对、时刻和距离与默认球这一粒相同（差小于 0.002 m）。曲线不另附。
+
+## 臂
+
+半径和权重写在 `policy_params.backend`，与 `BackendConfig.peer_sphere_radius_m` / `peer_sphere_weight` 相同。`geom` / `geom_multi` 是已合入的 `track_clearance`，`empty_brake` 是已合入的无解刹停。场景卡上不写 `swarm_penalty`。邻机采样仍由脚本在进程里送进后段，和 E-B4c 的对照脚本同一层包装：默认运行器只在椭球开关打开时送采样。
+
+末端放行包装做两件事，都只在本进程里：把这次 refine 的配置换成 swarm_penalty 与 swarm_segment_penalty 都为真，从而放开末端三个控制点、不再钉死末端 PVA；同时把段内椭球代价和梯度换成 0，欧氏球改成连最后一跨一起采样。场景卡上仍只有 peer_sphere，没有椭球开关。库里的 peer_sphere 仍不放开末端，最后一跨仍不进球。
+
+| 臂 | 进程里多出来的 | 偏离上游 |
+|---|---|---|
+| 全关 | 没有 | 否 |
+| 默认 E-B4c（0.85 m，权重 8） | `peer_sphere_enabled`，半径 0.85 m，权重 8 | 偏离上游 |
+| 半径 1.00 m，权重 8 | 同上，半径 1.00 m | 偏离上游 |
+| 半径 0.85 m，权重 16 | 同上，权重 16 | 偏离上游 |
+| 半径 1.00 m，权重 16 | 半径 1.00 m，权重 16 | 偏离上游 |
+| 默认球 + geom_multi 0.08 m | 默认球，再加 `track_clearance` mode=`geom_multi`，margin 0.08 m | 偏离上游 |
+| 默认球 + empty_brake | 默认球，再加 `empty_brake=true` | 偏离上游 |
+| 默认球 + geom_multi + empty_brake | 上面两样一起 | 偏离上游 |
+| 默认球 + 脚本内末端放行 | 卡上仍是默认球。进程内放开末端，椭球代价为 0，最后一跨也进球 | 偏离上游 |
+| 默认球 + geom 0.08 m | 默认球，再加 `track_clearance` mode=`geom`，margin 0.08 m。只用于六机 | 偏离上游 |
+
+014 三机对向用前九臂，seeds 0–9。六机开阔和 014 六机对向用全关、默认球、默认球 + geom，seeds 0–4。六机不跑末端放行，也不跑 geom_multi：这一问只看球单独和叠 `geom`。
+
+## 场景
+
+014 三机对向是磁盘上的 `scenes/ego-density-014-swap3.json`。另外两张卡只在进程内存里。
+
+六机开阔的名义圆半径 8.0 m，方位间隔 60°，目标是起点的对径。开阔场没有柱子，起终点留在 8 m 圆上。
+
+| 飞机 | 起点 | 目标 |
+|---|---|---|
+| uav0 | 8.000, 0.000, 1.500 | -8.000, 0.000, 1.500 |
+| uav1 | 4.000, 6.928, 1.500 | -4.000, -6.928, 1.500 |
+| uav2 | -4.000, 6.928, 1.500 | 4.000, -6.928, 1.500 |
+| uav3 | -8.000, 0.000, 1.500 | 8.000, 0.000, 1.500 |
+| uav4 | -4.000, -6.928, 1.500 | 4.000, 6.928, 1.500 |
+| uav5 | 4.000, -6.928, 1.500 | -4.000, 6.928, 1.500 |
+
+014 六机对向的起终点与 [E-C6](e-c6-six-density.md) 同一条规则：轴距低于 0.70 m 就沿射线推到 20 m 正方形外。
+
+| 飞机 | 半径 m | 推出正方形 | 起点 | 目标 |
+|---|---:|---|---|---|
+| uav0 | 8.000 | 否 | 8.000, 0.000, 1.500 | -8.000, 0.000, 1.500 |
+| uav1 | 8.000 | 否 | 4.000, 6.928, 1.500 | -4.000, -6.928, 1.500 |
+| uav2 | 11.597 | 是 | -5.799, 10.043, 1.500 | 5.799, -10.043, 1.500 |
+| uav3 | 8.000 | 否 | -8.000, 0.000, 1.500 | 8.000, 0.000, 1.500 |
+| uav4 | 8.000 | 否 | -4.000, -6.928, 1.500 | 4.000, 6.928, 1.500 |
+| uav5 | 11.597 | 是 | 5.799, -10.043, 1.500 | -5.799, 10.043, 1.500 |
+
+影子盾开。仿真时长用场景卡（40 s）。后段预算仍是墙钟 0.02 s、最多 8 次迭代。全关臂可以多个进程；带后段的臂两个进程，避免预算把迭代截短。
+
+到达按架次。撞障碍是 `TRUTH_POSITION`，机间是 `INTER_DRONE`，仿真在第一次碰撞停下，所以一次运行最多记 1 次碰撞。超时是 `TIMEOUT`。最小机间：没撞时是全程采样最小；撞了则是越线那一拍的采样。到达时间是全部飞机都进到达判据时的 `arrival_time_s`。
+
+## 结果
+
+014 三机对向 seeds 0–9。默认球：到达 18/30，障碍 0，机间 4，超时 0，最小机间 0.654–0.964 m。seed 1 的 0.694 m 还在。加大半径或权重：半径 1.00 m，权重 8：到达 28/30，障碍 2，机间 0，seed 1 的机间碰撞没有了；半径 0.85 m，权重 16：到达 28/30，障碍 2，机间 0，seed 1 的机间碰撞没有了；半径 1.00 m，权重 16：到达 28/30，障碍 2，机间 0，seed 1 的机间碰撞没有了。
+
+脚本内末端放行在 seed 1 上不再记机间碰撞，换成障碍碰撞（`uav0:TRUTH_POSITION`），最小机间 0.904 m。放开末端能把 0.694 m 的擦线推开，这一粒改去撞障碍。
+
+seed 1 上，默认球 + geom_multi 0.08 m 仍是 0.692 m；默认球 + empty_brake 仍是 0.694 m；默认球 + geom_multi + empty_brake 仍是 0.694 m。叠 geom_multi 或 empty_brake 没有去掉这次擦线。
+
+六机开阔，seeds 0–4。全关：到达 0/30，障碍 0，机间 5，超时 0，最小机间 0.670–0.671 m。默认球：到达 30/30，障碍 0，机间 0，超时 0，最小机间 0.704–0.782 m。叠 geom：到达 30/30，障碍 0，机间 0，超时 0，最小机间 0.723–0.782 m。
+
+014 六机对向，seeds 0–4。全关：到达 0/30，障碍 0，机间 5，超时 0，最小机间 0.660–0.688 m。默认球单独：到达 30/30，障碍 0，机间 0，超时 0，最小机间 0.857–0.943 m。叠 geom：到达 5/30，障碍 1，机间 3，超时 1，最小机间 0.677–0.960 m。
+
+| 场景 | 臂 | 偏离上游 | 到达 | 障碍碰撞 | 机间碰撞 | 超时 | 最小机间 m | 到达时间 s | 预算截断 |
+|---|---|---|---|---|---|---|---|---|---|
+| 014 三机对向 | 全关 | 否 | 0/30 | 0 | 10 | 0 | 0.622–0.698 | — | 0/0 |
+| 014 三机对向 | 默认 E-B4c（0.85 m，权重 8） | 偏离上游 | 18/30 | 0 | 4 | 0 | 0.654–0.964 | 7.57–15.29 | 3/1364 |
+| 014 三机对向 | 半径 1.00 m，权重 8 | 偏离上游 | 28/30 | 2 | 0 | 0 | 0.786–1.048 | 7.65–16.48 | 2/2087 |
+| 014 三机对向 | 半径 0.85 m，权重 16 | 偏离上游 | 28/30 | 2 | 0 | 0 | 0.838–0.976 | 7.42–16.37 | 1/1828 |
+| 014 三机对向 | 半径 1.00 m，权重 16 | 偏离上游 | 28/30 | 2 | 0 | 0 | 0.992–1.093 | 7.50–16.51 | 2/1804 |
+| 014 三机对向 | 默认球 + geom_multi 0.08 m | 偏离上游 | 21/30 | 0 | 3 | 0 | 0.654–0.966 | 8.20–18.52 | 2/1562 |
+| 014 三机对向 | 默认球 + empty_brake | 偏离上游 | 21/30 | 0 | 3 | 0 | 0.654–0.964 | 7.63–16.54 | 2/1600 |
+| 014 三机对向 | 默认球 + geom_multi + empty_brake | 偏离上游 | 21/30 | 0 | 3 | 0 | 0.654–0.966 | 8.19–10.06 | 1/1358 |
+| 014 三机对向 | 默认球 + 脚本内末端放行 | 偏离上游 | 29/30 | 1 | 0 | 0 | 0.737–0.946 | 7.48–16.08 | 1/1833 |
+| 六机开阔 | 全关 | 否 | 0/30 | 0 | 5 | 0 | 0.670–0.671 | — | 0/0 |
+| 六机开阔 | 默认 E-B4c（0.85 m，权重 8） | 偏离上游 | 30/30 | 0 | 0 | 0 | 0.704–0.782 | 6.86–6.87 | 1/1183 |
+| 六机开阔 | 默认球 + geom 0.08 m | 偏离上游 | 30/30 | 0 | 0 | 0 | 0.723–0.782 | 6.86–6.87 | 0/1182 |
+| 014 六机对向 | 全关 | 否 | 0/30 | 0 | 5 | 0 | 0.660–0.688 | — | 0/0 |
+| 014 六机对向 | 默认 E-B4c（0.85 m，权重 8） | 偏离上游 | 30/30 | 0 | 0 | 0 | 0.857–0.943 | 12.88–16.91 | 0/2328 |
+| 014 六机对向 | 默认球 + geom 0.08 m | 偏离上游 | 5/30 | 1 | 3 | 1 | 0.677–0.960 | — | 0/1200 |
+
+
+## 分种子
+
+| 场景 | 臂 | seed | 结果 | 原因 | 到达 | 障碍 | 机间 | 超时 | 最小机间 m | 到达时间 s |
+|---|---|---:|---|---|---:|---:|---:|---:|---:|---:|
+| 014 三机对向 | 全关 | 0 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.634 | — |
+| 014 三机对向 | 全关 | 1 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.639 | — |
+| 014 三机对向 | 全关 | 2 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.629 | — |
+| 014 三机对向 | 全关 | 3 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.698 | — |
+| 014 三机对向 | 全关 | 4 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.622 | — |
+| 014 三机对向 | 全关 | 5 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.684 | — |
+| 014 三机对向 | 全关 | 6 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.683 | — |
+| 014 三机对向 | 全关 | 7 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.658 | — |
+| 014 三机对向 | 全关 | 8 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.666 | — |
+| 014 三机对向 | 全关 | 9 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.629 | — |
+| 014 三机对向 | 默认 E-B4c（0.85 m，权重 8） | 0 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.842 | 7.63 |
+| 014 三机对向 | 默认 E-B4c（0.85 m，权重 8） | 1 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.694 | — |
+| 014 三机对向 | 默认 E-B4c（0.85 m，权重 8） | 2 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.690 | — |
+| 014 三机对向 | 默认 E-B4c（0.85 m，权重 8） | 3 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.940 | 8.08 |
+| 014 三机对向 | 默认 E-B4c（0.85 m，权重 8） | 4 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.845 | 15.29 |
+| 014 三机对向 | 默认 E-B4c（0.85 m，权重 8） | 5 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.964 | 7.78 |
+| 014 三机对向 | 默认 E-B4c（0.85 m，权重 8） | 6 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.669 | — |
+| 014 三机对向 | 默认 E-B4c（0.85 m，权重 8） | 7 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.882 | 14.98 |
+| 014 三机对向 | 默认 E-B4c（0.85 m，权重 8） | 8 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.654 | — |
+| 014 三机对向 | 默认 E-B4c（0.85 m，权重 8） | 9 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.877 | 7.57 |
+| 014 三机对向 | 半径 1.00 m，权重 8 | 0 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.971 | 7.91 |
+| 014 三机对向 | 半径 1.00 m，权重 8 | 1 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.786 | 7.73 |
+| 014 三机对向 | 半径 1.00 m，权重 8 | 2 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.993 | 16.48 |
+| 014 三机对向 | 半径 1.00 m，权重 8 | 3 | COLLISION | `uav0:TRUTH_POSITION` | 2/3 | 1 | 0 | 0 | 1.048 | — |
+| 014 三机对向 | 半径 1.00 m，权重 8 | 4 | COLLISION | `uav0:TRUTH_POSITION` | 2/3 | 1 | 0 | 0 | 0.877 | — |
+| 014 三机对向 | 半径 1.00 m，权重 8 | 5 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 1.001 | 7.65 |
+| 014 三机对向 | 半径 1.00 m，权重 8 | 6 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 1.033 | 15.15 |
+| 014 三机对向 | 半径 1.00 m，权重 8 | 7 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.972 | 16.22 |
+| 014 三机对向 | 半径 1.00 m，权重 8 | 8 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 1.023 | 15.05 |
+| 014 三机对向 | 半径 1.00 m，权重 8 | 9 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 1.040 | 16.48 |
+| 014 三机对向 | 半径 0.85 m，权重 16 | 0 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.838 | 7.76 |
+| 014 三机对向 | 半径 0.85 m，权重 16 | 1 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.943 | 7.50 |
+| 014 三机对向 | 半径 0.85 m，权重 16 | 2 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.896 | 16.29 |
+| 014 三机对向 | 半径 0.85 m，权重 16 | 3 | COLLISION | `uav0:TRUTH_POSITION` | 2/3 | 1 | 0 | 0 | 0.962 | — |
+| 014 三机对向 | 半径 0.85 m，权重 16 | 4 | COLLISION | `uav0:TRUTH_POSITION` | 2/3 | 1 | 0 | 0 | 0.971 | — |
+| 014 三机对向 | 半径 0.85 m，权重 16 | 5 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.976 | 16.37 |
+| 014 三机对向 | 半径 0.85 m，权重 16 | 6 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.918 | 8.05 |
+| 014 三机对向 | 半径 0.85 m，权重 16 | 7 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.926 | 7.42 |
+| 014 三机对向 | 半径 0.85 m，权重 16 | 8 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.895 | 7.96 |
+| 014 三机对向 | 半径 0.85 m，权重 16 | 9 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.900 | 14.66 |
+| 014 三机对向 | 半径 1.00 m，权重 16 | 0 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.997 | 7.50 |
+| 014 三机对向 | 半径 1.00 m，权重 16 | 1 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 1.087 | 15.01 |
+| 014 三机对向 | 半径 1.00 m，权重 16 | 2 | COLLISION | `uav0:TRUTH_POSITION` | 2/3 | 1 | 0 | 0 | 1.066 | — |
+| 014 三机对向 | 半径 1.00 m，权重 16 | 3 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 1.089 | 7.55 |
+| 014 三机对向 | 半径 1.00 m，权重 16 | 4 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 1.093 | 7.65 |
+| 014 三机对向 | 半径 1.00 m，权重 16 | 5 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 1.000 | 16.51 |
+| 014 三机对向 | 半径 1.00 m，权重 16 | 6 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 1.071 | 7.69 |
+| 014 三机对向 | 半径 1.00 m，权重 16 | 7 | COLLISION | `uav0:TRUTH_POSITION` | 2/3 | 1 | 0 | 0 | 0.992 | — |
+| 014 三机对向 | 半径 1.00 m，权重 16 | 8 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 1.040 | 15.05 |
+| 014 三机对向 | 半径 1.00 m，权重 16 | 9 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 1.045 | 7.52 |
+| 014 三机对向 | 默认球 + geom_multi 0.08 m | 0 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.943 | 8.62 |
+| 014 三机对向 | 默认球 + geom_multi 0.08 m | 1 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.692 | — |
+| 014 三机对向 | 默认球 + geom_multi 0.08 m | 2 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.839 | 10.06 |
+| 014 三机对向 | 默认球 + geom_multi 0.08 m | 3 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.937 | 10.25 |
+| 014 三机对向 | 默认球 + geom_multi 0.08 m | 4 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.845 | 17.81 |
+| 014 三机对向 | 默认球 + geom_multi 0.08 m | 5 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.966 | 18.52 |
+| 014 三机对向 | 默认球 + geom_multi 0.08 m | 6 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.669 | — |
+| 014 三机对向 | 默认球 + geom_multi 0.08 m | 7 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.943 | 8.20 |
+| 014 三机对向 | 默认球 + geom_multi 0.08 m | 8 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.654 | — |
+| 014 三机对向 | 默认球 + geom_multi 0.08 m | 9 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.712 | 8.78 |
+| 014 三机对向 | 默认球 + empty_brake | 0 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.842 | 7.63 |
+| 014 三机对向 | 默认球 + empty_brake | 1 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.694 | — |
+| 014 三机对向 | 默认球 + empty_brake | 2 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.962 | 16.54 |
+| 014 三机对向 | 默认球 + empty_brake | 3 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.834 | 15.27 |
+| 014 三机对向 | 默认球 + empty_brake | 4 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.845 | 15.29 |
+| 014 三机对向 | 默认球 + empty_brake | 5 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.964 | 7.78 |
+| 014 三机对向 | 默认球 + empty_brake | 6 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.669 | — |
+| 014 三机对向 | 默认球 + empty_brake | 7 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.882 | 14.98 |
+| 014 三机对向 | 默认球 + empty_brake | 8 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.654 | — |
+| 014 三机对向 | 默认球 + empty_brake | 9 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.712 | 7.93 |
+| 014 三机对向 | 默认球 + geom_multi + empty_brake | 0 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.943 | 8.19 |
+| 014 三机对向 | 默认球 + geom_multi + empty_brake | 1 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.694 | — |
+| 014 三机对向 | 默认球 + geom_multi + empty_brake | 2 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.839 | 10.06 |
+| 014 三机对向 | 默认球 + geom_multi + empty_brake | 3 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.937 | 8.28 |
+| 014 三机对向 | 默认球 + geom_multi + empty_brake | 4 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.845 | 8.21 |
+| 014 三机对向 | 默认球 + geom_multi + empty_brake | 5 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.966 | 8.72 |
+| 014 三机对向 | 默认球 + geom_multi + empty_brake | 6 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.669 | — |
+| 014 三机对向 | 默认球 + geom_multi + empty_brake | 7 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.943 | 8.20 |
+| 014 三机对向 | 默认球 + geom_multi + empty_brake | 8 | COLLISION | `uav1-uav2:INTER_DRONE` | 0/3 | 0 | 1 | 0 | 0.654 | — |
+| 014 三机对向 | 默认球 + geom_multi + empty_brake | 9 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.712 | 8.26 |
+| 014 三机对向 | 默认球 + 脚本内末端放行 | 0 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.737 | 7.74 |
+| 014 三机对向 | 默认球 + 脚本内末端放行 | 1 | COLLISION | `uav0:TRUTH_POSITION` | 2/3 | 1 | 0 | 0 | 0.904 | — |
+| 014 三机对向 | 默认球 + 脚本内末端放行 | 2 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.913 | 7.52 |
+| 014 三机对向 | 默认球 + 脚本内末端放行 | 3 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.901 | 15.19 |
+| 014 三机对向 | 默认球 + 脚本内末端放行 | 4 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.860 | 14.10 |
+| 014 三机对向 | 默认球 + 脚本内末端放行 | 5 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.898 | 16.08 |
+| 014 三机对向 | 默认球 + 脚本内末端放行 | 6 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.816 | 7.48 |
+| 014 三机对向 | 默认球 + 脚本内末端放行 | 7 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.915 | 15.97 |
+| 014 三机对向 | 默认球 + 脚本内末端放行 | 8 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.880 | 7.86 |
+| 014 三机对向 | 默认球 + 脚本内末端放行 | 9 | SUCCESS | `GOAL_REACHED_AND_HELD` | 3/3 | 0 | 0 | 0 | 0.946 | 7.52 |
+| 六机开阔 | 全关 | 0 | COLLISION | `uav2-uav3:INTER_DRONE` | 0/6 | 0 | 1 | 0 | 0.671 | — |
+| 六机开阔 | 全关 | 1 | COLLISION | `uav2-uav3:INTER_DRONE` | 0/6 | 0 | 1 | 0 | 0.671 | — |
+| 六机开阔 | 全关 | 2 | COLLISION | `uav2-uav3:INTER_DRONE` | 0/6 | 0 | 1 | 0 | 0.670 | — |
+| 六机开阔 | 全关 | 3 | COLLISION | `uav2-uav3:INTER_DRONE` | 0/6 | 0 | 1 | 0 | 0.670 | — |
+| 六机开阔 | 全关 | 4 | COLLISION | `uav2-uav3:INTER_DRONE` | 0/6 | 0 | 1 | 0 | 0.671 | — |
+| 六机开阔 | 默认 E-B4c（0.85 m，权重 8） | 0 | SUCCESS | `GOAL_REACHED_AND_HELD` | 6/6 | 0 | 0 | 0 | 0.764 | 6.87 |
+| 六机开阔 | 默认 E-B4c（0.85 m，权重 8） | 1 | SUCCESS | `GOAL_REACHED_AND_HELD` | 6/6 | 0 | 0 | 0 | 0.782 | 6.87 |
+| 六机开阔 | 默认 E-B4c（0.85 m，权重 8） | 2 | SUCCESS | `GOAL_REACHED_AND_HELD` | 6/6 | 0 | 0 | 0 | 0.760 | 6.87 |
+| 六机开阔 | 默认 E-B4c（0.85 m，权重 8） | 3 | SUCCESS | `GOAL_REACHED_AND_HELD` | 6/6 | 0 | 0 | 0 | 0.704 | 6.86 |
+| 六机开阔 | 默认 E-B4c（0.85 m，权重 8） | 4 | SUCCESS | `GOAL_REACHED_AND_HELD` | 6/6 | 0 | 0 | 0 | 0.734 | 6.86 |
+| 六机开阔 | 默认球 + geom 0.08 m | 0 | SUCCESS | `GOAL_REACHED_AND_HELD` | 6/6 | 0 | 0 | 0 | 0.764 | 6.87 |
+| 六机开阔 | 默认球 + geom 0.08 m | 1 | SUCCESS | `GOAL_REACHED_AND_HELD` | 6/6 | 0 | 0 | 0 | 0.782 | 6.87 |
+| 六机开阔 | 默认球 + geom 0.08 m | 2 | SUCCESS | `GOAL_REACHED_AND_HELD` | 6/6 | 0 | 0 | 0 | 0.760 | 6.87 |
+| 六机开阔 | 默认球 + geom 0.08 m | 3 | SUCCESS | `GOAL_REACHED_AND_HELD` | 6/6 | 0 | 0 | 0 | 0.723 | 6.87 |
+| 六机开阔 | 默认球 + geom 0.08 m | 4 | SUCCESS | `GOAL_REACHED_AND_HELD` | 6/6 | 0 | 0 | 0 | 0.734 | 6.86 |
+| 014 六机对向 | 全关 | 0 | COLLISION | `uav2-uav3:INTER_DRONE` | 0/6 | 0 | 1 | 0 | 0.688 | — |
+| 014 六机对向 | 全关 | 1 | COLLISION | `uav2-uav3:INTER_DRONE` | 0/6 | 0 | 1 | 0 | 0.667 | — |
+| 014 六机对向 | 全关 | 2 | COLLISION | `uav2-uav4:INTER_DRONE` | 0/6 | 0 | 1 | 0 | 0.660 | — |
+| 014 六机对向 | 全关 | 3 | COLLISION | `uav2-uav3:INTER_DRONE` | 0/6 | 0 | 1 | 0 | 0.675 | — |
+| 014 六机对向 | 全关 | 4 | COLLISION | `uav2-uav3:INTER_DRONE` | 0/6 | 0 | 1 | 0 | 0.682 | — |
+| 014 六机对向 | 默认 E-B4c（0.85 m，权重 8） | 0 | SUCCESS | `GOAL_REACHED_AND_HELD` | 6/6 | 0 | 0 | 0 | 0.857 | 16.91 |
+| 014 六机对向 | 默认 E-B4c（0.85 m，权重 8） | 1 | SUCCESS | `GOAL_REACHED_AND_HELD` | 6/6 | 0 | 0 | 0 | 0.929 | 12.88 |
+| 014 六机对向 | 默认 E-B4c（0.85 m，权重 8） | 2 | SUCCESS | `GOAL_REACHED_AND_HELD` | 6/6 | 0 | 0 | 0 | 0.874 | 13.28 |
+| 014 六机对向 | 默认 E-B4c（0.85 m，权重 8） | 3 | SUCCESS | `GOAL_REACHED_AND_HELD` | 6/6 | 0 | 0 | 0 | 0.905 | 14.94 |
+| 014 六机对向 | 默认 E-B4c（0.85 m，权重 8） | 4 | SUCCESS | `GOAL_REACHED_AND_HELD` | 6/6 | 0 | 0 | 0 | 0.943 | 14.73 |
+| 014 六机对向 | 默认球 + geom 0.08 m | 0 | COLLISION | `uav0-uav5:INTER_DRONE` | 0/6 | 0 | 1 | 0 | 0.692 | — |
+| 014 六机对向 | 默认球 + geom 0.08 m | 1 | COLLISION | `uav0-uav5:INTER_DRONE` | 0/6 | 0 | 1 | 0 | 0.698 | — |
+| 014 六机对向 | 默认球 + geom 0.08 m | 2 | COLLISION | `uav0:TRUTH_POSITION` | 0/6 | 1 | 0 | 0 | 0.960 | — |
+| 014 六机对向 | 默认球 + geom 0.08 m | 3 | COLLISION | `uav0-uav5:INTER_DRONE` | 0/6 | 0 | 1 | 0 | 0.677 | — |
+| 014 六机对向 | 默认球 + geom 0.08 m | 4 | TIMEOUT | `GOAL_NOT_REACHED` | 5/6 | 0 | 0 | 1 | 0.750 | — |
+
+## 复现
+
+```bash
+.venv/bin/python scripts/e-b5-sphere-sweep.py
+```
+
+每粒落在 `out/e-b5-sphere-sweep/partial/`，缺省续跑。`--no-resume` 忽略已有 partial。`--scenes`、`--arms`、`--seeds` 可以只跑一部分。单测不跑这 120 粒：
+
+```bash
+.venv/bin/python -m pytest -q tests/test_e_b5_sphere_sweep.py
+```

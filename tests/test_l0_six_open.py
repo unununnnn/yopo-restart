@@ -5,6 +5,7 @@
 """
 
 import json
+import time
 
 import numpy as np
 
@@ -67,7 +68,9 @@ def test_tier_list_matches_bus_faults():
 
 def test_open_six_none_reaches_and_is_deterministic():
     card = load_card(CARD)
+    cpu0 = time.process_time()
     out = run(card, RunConfig(seed=0, policy="formation"))
+    cpu_s = time.process_time() - cpu0
     again = run(card, RunConfig(seed=0, policy="formation"))
     r = out.result
     assert r["outcome"] == "SUCCESS", r
@@ -79,7 +82,10 @@ def test_open_six_none_reaches_and_is_deterministic():
     assert r["formation"]["local_commits"] == {f"uav{i}": 1 for i in range(6)}
     assert r["formation"]["adjudicator"] is None
     assert isinstance(r["shadow_reject_rate"], float)
-    assert r["wall_time_s"] < 60.0
+    # 票 L0-DET：60 s 是进 regress 的耗时口径，不是结果判据。墙钟随机器负载走，
+    # PR #113 合入前回归（-n 4，同时有 SITL 三机在跑）挂在这条用例上；钉核加压复现为 wall_time_s 68.6 s。
+    # 改量本进程 CPU 时间，负载不改它。
+    assert cpu_s < 60.0
     assert _strip(r) == _strip(again.result)
     assert out.ticks == again.ticks
 
