@@ -80,7 +80,8 @@ HORIZON_MARGIN_S = 0.25
 _PLAN_V_MAX = 20.0
 _PLAN_J_MAX = 20000.0
 # 超前超过这一截才改提悬停或短前缀。落后机仍走原来的 YOPO。
-# 缺省 1.0。场景卡 task.leader_margin_m 可改；缺这个字段时与改前逐位相同。
+# 缺省 1.0。场景卡写了 task.leader_margin_m 就用卡上的值。没写这个字段时，
+# 判断和摘要仍读当前这个常量，缺省飞行与改前相同，消融脚本也能在进程里改它。
 _LEADER_MARGIN_M = 1.0
 _LEADER_PREFIX_S = 0.3
 
@@ -390,7 +391,8 @@ class CrossingFleet:
         self.progress_gate, self.progress_percentile = read_progress_settings(
             task, default_gate=self.in_forest
         )
-        # 与门控同一处读。缺省不写进 task_hash：多一个键会改协议摘要，缺省飞行就不再与改前相同。
+        # 与门控同一处读。卡上没写时不进 task_hash，缺省飞行与改前相同。
+        self._leader_margin_from_card = "leader_margin_m" in task
         self.leader_margin_m = read_leader_margin_m(task, default=_LEADER_MARGIN_M)
         # 超前机悬停/短前缀用场景加速度。13a 之后计划契约已经是同一组限幅。
         self.gentle_limits = plan_limits_for_dynamics(card.get("dynamics"))
@@ -415,7 +417,7 @@ class CrossingFleet:
             "progress_gate": self.progress_gate,
             "progress_percentile": self.progress_percentile,
         }
-        if self.leader_margin_m != _LEADER_MARGIN_M:
+        if self._leader_margin_from_card and self.leader_margin_m != 1.0:
             task_id["leader_margin_m"] = self.leader_margin_m
         self.cfg = ProtocolConfig(
             members=self.members,
@@ -548,7 +550,13 @@ class CrossingFleet:
         s = self._progress.get(drone_id)
         if s is None:
             s = self.rail.along(np.asarray(head_p, dtype=float), self.slots[drone_id])
-        return float(s) > self.gate_s() + self.leader_margin_m
+        return float(s) > self.gate_s() + self.effective_leader_margin_m()
+
+    def effective_leader_margin_m(self) -> float:
+        """卡上的余量优先。没写字段时跟当前模块缺省走。"""
+        if self._leader_margin_from_card:
+            return self.leader_margin_m
+        return float(_LEADER_MARGIN_M)
 
     def _forest_six(self) -> bool:
         return self.in_forest and len(self.members) >= 6 and bool(self._trees)
@@ -1172,7 +1180,7 @@ class CrossingFleet:
             "progress_gate": self.progress_gate,
             "progress_percentile": self.progress_percentile,
             "gate_s_m": self.gate_s() if self.progress_gate else None,
-            "leader_margin_m": self.leader_margin_m if self.progress_gate else None,
+            "leader_margin_m": self.effective_leader_margin_m() if self.progress_gate else None,
             "lateral_slack_m": self.lateral_slack_m,
             "longitudinal_slack_m": self.longitudinal_slack_m,
             "body_radius_m": self.radius,
