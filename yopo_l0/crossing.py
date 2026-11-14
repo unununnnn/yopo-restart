@@ -63,7 +63,7 @@ from .inter_drone import (
     sample_motion,
 )
 from .policy import R_yaw, read_safe_radius, upstream_decoder
-from .progress import read_progress_settings
+from .progress import read_leader_margin_m, read_progress_settings
 from .scene import Box, Cylinder, parse_geometry
 
 # 轨迹采样步长。0.02 s 的弦高按动力学 a_max 计大约几毫米，门按采样到的最小距离判。
@@ -80,6 +80,7 @@ HORIZON_MARGIN_S = 0.25
 _PLAN_V_MAX = 20.0
 _PLAN_J_MAX = 20000.0
 # 超前超过这一截才改提悬停或短前缀。落后机仍走原来的 YOPO。
+# 缺省 1.0。场景卡 task.leader_margin_m 可改；缺这个字段时与改前逐位相同。
 _LEADER_MARGIN_M = 1.0
 _LEADER_PREFIX_S = 0.3
 
@@ -389,34 +390,37 @@ class CrossingFleet:
         self.progress_gate, self.progress_percentile = read_progress_settings(
             task, default_gate=self.in_forest
         )
+        # 与门控同一处读。缺省不写进 task_hash：多一个键会改协议摘要，缺省飞行就不再与改前相同。
+        self.leader_margin_m = read_leader_margin_m(task, default=_LEADER_MARGIN_M)
         # 超前机悬停/短前缀用场景加速度。13a 之后计划契约已经是同一组限幅。
         self.gentle_limits = plan_limits_for_dynamics(card.get("dynamics"))
         self._progress = {did: 0.0 for did in self.members}
         spec = task["virtual_center"]
+        task_id = {
+            "origin": spec["origin_enu"],
+            "length_m": spec["length_m"],
+            "speed_mps": spec["speed_mps"],
+            "slots": {k: v.tolist() for k, v in self.slots.items()},
+            "window_len_s": window,
+            "commit_horizon_s": self.horizon,
+            "lookahead_s": self.lookahead_s,
+            "min_ahead_m": self.min_ahead_m,
+            "lateral_gain": self.lateral_gain,
+            "arrive_radius_m": self.arrive_radius,
+            "safe_radius_m": self.safe_radius_m,
+            "clearance_margin_m": self.clearance_margin_m,
+            "lateral_slack_m": self.lateral_slack_m,
+            "longitudinal_slack_m": self.longitudinal_slack_m,
+            "exit_tighten_m": self.exit_tighten_m,
+            "progress_gate": self.progress_gate,
+            "progress_percentile": self.progress_percentile,
+        }
+        if self.leader_margin_m != _LEADER_MARGIN_M:
+            task_id["leader_margin_m"] = self.leader_margin_m
         self.cfg = ProtocolConfig(
             members=self.members,
             window_len=window,
-            task_hash=digest(
-                {
-                    "origin": spec["origin_enu"],
-                    "length_m": spec["length_m"],
-                    "speed_mps": spec["speed_mps"],
-                    "slots": {k: v.tolist() for k, v in self.slots.items()},
-                    "window_len_s": window,
-                    "commit_horizon_s": self.horizon,
-                    "lookahead_s": self.lookahead_s,
-                    "min_ahead_m": self.min_ahead_m,
-                    "lateral_gain": self.lateral_gain,
-                    "arrive_radius_m": self.arrive_radius,
-                    "safe_radius_m": self.safe_radius_m,
-                    "clearance_margin_m": self.clearance_margin_m,
-                    "lateral_slack_m": self.lateral_slack_m,
-                    "longitudinal_slack_m": self.longitudinal_slack_m,
-                    "exit_tighten_m": self.exit_tighten_m,
-                    "progress_gate": self.progress_gate,
-                    "progress_percentile": self.progress_percentile,
-                }
-            ),
+            task_hash=digest(task_id),
             # 冲突跳过是常态，不能三次失败就停飞。
             max_failed_rounds=10000,
             resend_period=None,
@@ -544,7 +548,7 @@ class CrossingFleet:
         s = self._progress.get(drone_id)
         if s is None:
             s = self.rail.along(np.asarray(head_p, dtype=float), self.slots[drone_id])
-        return float(s) > self.gate_s() + _LEADER_MARGIN_M
+        return float(s) > self.gate_s() + self.leader_margin_m
 
     def _forest_six(self) -> bool:
         return self.in_forest and len(self.members) >= 6 and bool(self._trees)
@@ -1168,7 +1172,7 @@ class CrossingFleet:
             "progress_gate": self.progress_gate,
             "progress_percentile": self.progress_percentile,
             "gate_s_m": self.gate_s() if self.progress_gate else None,
-            "leader_margin_m": _LEADER_MARGIN_M if self.progress_gate else None,
+            "leader_margin_m": self.leader_margin_m if self.progress_gate else None,
             "lateral_slack_m": self.lateral_slack_m,
             "longitudinal_slack_m": self.longitudinal_slack_m,
             "body_radius_m": self.radius,

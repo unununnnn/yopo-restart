@@ -56,6 +56,8 @@
 | e-combo-six-forest.md |  | 六机林带上把 E-A1、D1、E-B2 三个开关一起量 | report-only、冻结 |
 | e-combo-swap8-seeds-runs.json |  | 墙钟不参与轨迹。combo 的 backend_budget_cuts 是后段 0.02 s 墙钟预算把迭代截断的次数。 | 无 |
 | e-combo-swap8-seeds.md |  | 八机开阔对向补跑种子 1–9 | report-only、冻结 |
+| e-pg2-forest-gate-switch-runs.json |  | 整表 report-only。open 偏离当前场景卡（卡上 progress_gate=false，没有 leader_margin_m）。余量写在进程内的 task.leader_margin_m，不写回场景卡。墙钟不进门。 | report-only、冻结 |
+| e-pg2-forest-gate-switch.md |  | 票 E-PG2：六机林带进度门控的超前余量做成开关 | report-only、冻结 |
 | ego-c2-swap3.md |  | 票 E-C2：三机开阔对向（只报数） | report-only、冻结 |
 | ego-swarm-baseline.md |  | EGO-Swarm 外部基线（E-C1） | 无 |
 | ego-swarm-comparison.md |  | yopo-restart 与 EGO-Swarm 对照 | report-only、冻结 |
