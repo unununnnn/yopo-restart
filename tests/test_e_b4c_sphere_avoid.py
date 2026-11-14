@@ -49,7 +49,7 @@ def _opposing(y: float = 0.30, speed: float = 2.5, duration: float = 1.6) -> Pie
 
 
 def _cfg(**kwargs) -> BackendConfig:
-    base = dict(a_max=6.0, v_max=6.0, max_iterations=8, time_budget_s=0.20, clearance_m=0.35)
+    base = dict(a_max=6.0, v_max=6.0, max_iterations=8, time_budget_s=5.0, clearance_m=0.35)
     base.update(kwargs)
     return BackendConfig(**base)
 
@@ -168,6 +168,9 @@ def test_peer_sphere_off_is_bitwise_with_close_neighbor():
     out_near, rec_near = refine_yopo(traj, plain, (), neighbors=[close])
     out_flag, rec_flag = refine_yopo(traj, explicit, (), neighbors=[close])
     assert rec_plain["applied"] and rec_near["applied"] and rec_flag["applied"]
+    assert rec_plain.get("budget_cut") is False
+    assert rec_near.get("budget_cut") is False
+    assert rec_flag.get("budget_cut") is False
     np.testing.assert_array_equal(_positions(out_plain), _positions(out_near))
     np.testing.assert_array_equal(_positions(out_plain), _positions(out_flag))
     assert rec_plain["iterations"] == rec_near["iterations"] == rec_flag["iterations"]
@@ -180,6 +183,8 @@ def test_far_neighbor_with_sphere_on_matches_off():
     off, rec_off = refine_yopo(traj, _cfg(), ())
     on, rec_on = refine_yopo(traj, _cfg(peer_sphere_enabled=True), (), neighbors=[far])
     assert rec_off["applied"] and rec_on["applied"]
+    assert rec_off.get("budget_cut") is False
+    assert rec_on.get("budget_cut") is False
     np.testing.assert_array_equal(_positions(off), _positions(on))
     assert rec_off["iterations"] == rec_on["iterations"]
 
@@ -244,9 +249,10 @@ def test_headon_sphere_pushes_min_distance_without_nan():
     neighbor = _samples(_opposing(y=0.30, speed=2.5, duration=1.6))
     before = _min_aligned(traj, neighbor)
     assert before < 0.70
-    cfg = _cfg(peer_sphere_enabled=True, max_iterations=8, time_budget_s=0.50)
+    cfg = _cfg(peer_sphere_enabled=True, max_iterations=8, time_budget_s=5.0)
     out, rec = refine_yopo(traj, cfg, (), neighbors=[neighbor])
     assert rec["applied"] is True, rec
+    assert rec.get("budget_cut") is False
     assert rec["reason"] == "applied"
     assert int(rec["iterations"]) >= 1
     pos = _positions(out, n=81)
@@ -271,6 +277,7 @@ def test_sphere_on_does_not_enable_segment_endpoint_release():
     neighbor = _samples(_opposing(y=0.30))
     out, rec = refine_yopo(traj, _cfg(peer_sphere_enabled=True), (), neighbors=[neighbor])
     assert rec["applied"] is True
+    assert rec.get("budget_cut") is False
     np.testing.assert_allclose(out.evaluate(out.t_end, 0), traj.evaluate(traj.t_end, 0), atol=1e-6)
     np.testing.assert_allclose(out.evaluate(out.t_end, 1), traj.evaluate(traj.t_end, 1), atol=1e-6)
     np.testing.assert_allclose(out.evaluate(out.t_end, 2), traj.evaluate(traj.t_end, 2), atol=1e-6)
