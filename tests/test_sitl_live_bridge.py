@@ -188,11 +188,14 @@ def test_namespaces_do_not_share_odometry_or_commands():
     inbox = {}
     expected = {}
     for slot in session.slots:
-        start = slot.bridge.start_enu.copy()
+        # 假里程计在各机本地系。世界系 = 本地 + 场景卡起点的水平偏置。
+        start = slot.bridge.start_enu
+        local = np.array([0.0, 0.0, float(start[2])])
         if slot.ident["namespace"] == "px4_1":
-            start = start + np.array([3.0, 0.0, 0.0])
-        expected[slot.ident["namespace"]] = start
-        msg, _ = _odom_message(start, timestamp_us=0)
+            local = local + np.array([0.4, -0.1, 0.0])
+        offset = np.array([float(start[0]), float(start[1]), 0.0])
+        expected[slot.ident["namespace"]] = local + offset
+        msg, _ = _odom_message(local, timestamp_us=0)
         inbox[slot.ident["namespace"]] = VehicleInbox(odometry=msg, armed=True, offboard=True, landed=False)
     inbox["px4_9"] = inbox["px4_1"]
     commands = session.step(0.0, inbox)
@@ -274,15 +277,13 @@ def test_arm_commands_use_each_vehicle_sys_id():
     )
     inbox = {}
     for slot in session.slots:
-        msg, _ = _odom_message(np.array([slot.bridge.start_enu[0], slot.bridge.start_enu[1], 0.0]), timestamp_us=0)
+        msg, _ = _odom_message(np.zeros(3), timestamp_us=0)
         inbox[slot.ident["namespace"]] = VehicleInbox(odometry=msg, armed=False, offboard=False, landed=True)
     seen = {}
     t = 0.0
-    index = {slot.ident["namespace"]: slot for slot in session.slots}
     for _ in range(8):
         for ns, box in inbox.items():
-            ground = index[ns].bridge.start_enu * np.array([1.0, 1.0, 0.0])
-            msg, _ = _odom_message(ground, timestamp_us=int(round(t * 1e6)))
+            msg, _ = _odom_message(np.zeros(3), timestamp_us=int(round(t * 1e6)))
             box.odometry = msg
         commands = session.step(t, inbox)
         for command in commands:

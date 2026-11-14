@@ -1,0 +1,89 @@
+{
+  "name": "open-3drone-sitl40",
+  "geometry": "open-area.json",
+  "ground_z": 0.0,
+  "drones": [
+    {
+      "id": "uav0",
+      "start_enu": [
+        0.0,
+        0.0,
+        1.5
+      ],
+      "goal_enu": [
+        6.0,
+        0.0,
+        1.5
+      ]
+    },
+    {
+      "id": "uav1",
+      "start_enu": [
+        0.0,
+        5.0,
+        1.5
+      ],
+      "goal_enu": [
+        6.0,
+        5.0,
+        1.5
+      ]
+    },
+    {
+      "id": "uav2",
+      "start_enu": [
+        0.0,
+        -5.0,
+        1.5
+      ],
+      "goal_enu": [
+        6.0,
+        -5.0,
+        1.5
+      ]
+    }
+  ],
+  "task": {
+    "type": "goto",
+    "duration_s": 40.0
+  },
+  "criteria": {
+    "body_radius_m": 0.35,
+    "goal_tolerance_m": 0.4,
+    "goal_speed_mps": 0.2,
+    "goal_hold_s": 1.0,
+    "frozen": false
+  },
+  "camera": {
+    "width": 160,
+    "height": 96,
+    "hfov_deg": 90.0,
+    "vfov_deg": 60.0,
+    "min_range_m": 0.2,
+    "max_range_m": 20.0,
+    "noise_std_m": 0.02,
+    "mount_xyz_body": [
+      0.13,
+      0.0,
+      0.02
+    ]
+  },
+  "dynamics": {
+    "model": "point_mass_lag",
+    "tau_s": 0.1,
+    "kp": 4.0,
+    "kd": 3.0,
+    "a_max": 6.0
+  },
+  "rates_hz": {
+    "physics": 100,
+    "camera": 30,
+    "planner": 10
+  },
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "note": "S4e 对齐验收用：open-3drone 只把 duration_s 改成 40（含起飞）。L0 upstream seeds 0-2 均 3/3、3.68 s。"
+}
