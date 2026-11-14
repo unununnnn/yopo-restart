@@ -21,6 +21,11 @@ JSON true 时，椭球项才改到每段的内点上算，梯度按 B 样条基�
 平滑二次/三次铰链，权重是 ``peer_sphere_weight``（默认 8）。也可经环境变量
 ``YOPO_PEER_SPHERE``（1/true/yes/on）在 ``enabled`` 已经为 JSON true 时打开；
 半径和权重可用 ``YOPO_PEER_SPHERE_RADIUS_M``、``YOPO_PEER_SPHERE_WEIGHT`` 盖过。
+
+``budget`` 是票 L0-DET。缺省 ``"evals"``：``time_budget_s`` 按空闲机器上每次
+代价评估约 2 ms 折成评估次数上限（0.020 s → 10 次），与机器负载无关，同一
+(场景卡, seed, 配置) 结果逐位相同。``"wall"`` 用真墙钟截断，留给实时形态
+（SITL / 真机）；也可经环境变量 ``YOPO_BACKEND_BUDGET=wall`` 打开。
 """
 
 from __future__ import annotations
@@ -37,6 +42,9 @@ DEFAULT_SWARM_C = 2.0
 # 0.70 m 是 L0 机间碰撞球（机体半径 0.35 m 的两倍）。0.15 m 是球外的三次过渡带。
 DEFAULT_PEER_SPHERE_RADIUS_M = 0.85
 DEFAULT_PEER_SPHERE_WEIGHT = 8.0
+# 票 L0-DET。仿真按评估次数截断，实时形态按墙钟截断。
+BUDGET_MODES = ("evals", "wall")
+DEFAULT_BUDGET = "evals"
 
 
 @dataclass(frozen=True)
@@ -57,6 +65,8 @@ class BackendConfig:
     peer_sphere_enabled: bool = False
     peer_sphere_radius_m: float = DEFAULT_PEER_SPHERE_RADIUS_M
     peer_sphere_weight: float = DEFAULT_PEER_SPHERE_WEIGHT
+    # 票 L0-DET。"evals"：预算折成评估次数，结果不随负载变。"wall"：真墙钟。
+    budget: str = DEFAULT_BUDGET
 
     def __post_init__(self) -> None:
         if not (self.a_max > 0.0 and self.v_max > 0.0 and self.clearance_m > 0.0):
@@ -65,6 +75,8 @@ class BackendConfig:
             raise ValueError("max_iterations 至少为 1")
         if not (self.time_budget_s > 0.0):
             raise ValueError("time_budget_s 必须为正")
+        if self.budget not in BUDGET_MODES:
+            raise ValueError(f"budget 只能是 {BUDGET_MODES}")
         if self.swarm_penalty:
             if not (self.swarm_clearance_m > 0.0):
                 raise ValueError("swarm_clearance_m 必须为正（假设，论文未给数值）")
@@ -99,6 +111,7 @@ def config_from_params(
     segment = block.get("swarm_segment_penalty") is True
     # 椭球开关不连带打开欧氏球。JSON true，或 YOPO_PEER_SPHERE 为真，才打开。
     sphere = block.get("peer_sphere_enabled") is True or _env_flag("YOPO_PEER_SPHERE")
+    budget = os.environ.get("YOPO_BACKEND_BUDGET", "").strip().lower() or block.get("budget", DEFAULT_BUDGET)
     radius = _env_float("YOPO_PEER_SPHERE_RADIUS_M")
     weight = _env_float("YOPO_PEER_SPHERE_WEIGHT")
     return BackendConfig(
@@ -118,6 +131,7 @@ def config_from_params(
         peer_sphere_weight=float(block.get("peer_sphere_weight", DEFAULT_PEER_SPHERE_WEIGHT))
         if weight is None
         else weight,
+        budget=budget,
     )
 
 
