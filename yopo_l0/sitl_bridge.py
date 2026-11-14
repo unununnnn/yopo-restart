@@ -263,6 +263,7 @@ class YopoSitlBridge:
         self._last_plan_s: float | None = None
         self._last_sample_s: float | None = None
         self._last_output: BridgeOutput | None = None
+        self.goal_hold = False
         self.last_observation: Observation | None = None
         self.plan_counts: dict[str, int] = {}
 
@@ -323,6 +324,13 @@ class YopoSitlBridge:
         # 机头因此一直朝东，网络的前向轨迹被转到 +x。间隔够大时先按同一限速把期望航向补到目标方向，
         # 这一拍的机体旋转用补过的航向，位置设定点才朝目标而不是朝机头。
         # 假动力学每拍 0.02 s，进不了这个分支。
+        gap = 0.0 if self._last_sample_s is None else now_s - float(self._last_sample_s)
+        stalled = gap >= STALL_S
+        if stalled:
+            # plan_from_reference 会用旧轨迹在 now 的点当下一拍的头。
+            # now 已经跳了 1 s 以上，等于把上一拍的轨迹提前飞完，再从目标后面接着规划。
+            # 先把参考头放回当前测量位置。新轨迹从飞机现在的位置长出来。
+            self._park_reference(now_s, p)
         yaw = self._catch_up_yaw(now_s, p, yaw)
         planned = False
         if self._due(now_s):
@@ -337,7 +345,15 @@ class YopoSitlBridge:
             self._broadcast_samples = samples_from_pva(self._plan, now_s)
             self._last_plan_s = now_s
             planned = True
-        p_ref, v_ref, a_ref, yaw_ref = self._plan.sample(now_s)
+        # 刚重规划的轨迹 t_start 就是 now。间隔里飞机本该飞过的那段，用 now+gap 采样，
+        # 而不是把上一拍的轨迹先快进到 now 再从那里采样。
+        sample_t = now_s + gap if stalled else now_s
+        p_ref, v_ref, a_ref, yaw_ref = self._plan.sample(sample_t)
+        self.goal_hold = False
+        if stalled:
+            p_ref, v_ref, a_ref, self.goal_hold = clamp_stalled_setpoint(
+                p, p_ref, v_ref, a_ref, self.goal, self._arrive_radius(), self.start_enu
+            )
         p_ref = np.asarray(p_ref, dtype=float).copy()
         v_ref = np.asarray(v_ref, dtype=float).copy()
         a_ref = np.asarray(a_ref, dtype=float).copy()
@@ -378,6 +394,20 @@ class YopoSitlBridge:
             return float(yaw_odom)
         plan.yaw = float(calculate_yaw(goal_dir, goal_dir, float(plan.yaw), dt)[0])
         return float(plan.yaw)
+
+    def _arrive_radius(self) -> float:
+        params = getattr(self.policy, "p", None)
+        if isinstance(params, dict) and "arrive_radius_m" in params:
+            return float(params["arrive_radius_m"])
+        return 1.5
+
+    def _park_reference(self, now_s: float, position) -> None:
+        plan = getattr(self.policy, "plan_obj", None)
+        if plan is None or not hasattr(plan, "traj"):
+            return
+        from yopo_swarm_core.plan import hold_traj
+
+        plan.traj = hold_traj(np.asarray(position, dtype=float).reshape(3), float(now_s) - 1.0, float(now_s) + 30.0)
 
 
 class FakePx4Vehicle:
@@ -893,6 +923,50 @@ def apply_world_offset(decoded: dict, offset_enu) -> dict:
         px4.enu_to_ned(offset), dtype=float
     )
     return out
+
+
+# 实飞主循环一次规划常常超过 0.5 s。假动力学是 0.02 s，不进这条。
+STALL_S = 0.5
+
+
+def clamp_stalled_setpoint(position, setpoint, velocity, acceleration, goal, radius: float, start):
+    """时间跳变时，不要把设定点发到目标后面。
+
+    进入 ``stop_at_goal`` 的 1.5 m，或者飞机/设定点已经越过起点到目标的那一段，
+    就改成目标点悬停。返回 (position, velocity, acceleration, hold)。
+    """
+    position = np.asarray(position, dtype=float).reshape(3)
+    setpoint = np.asarray(setpoint, dtype=float).reshape(3)
+    velocity = np.asarray(velocity, dtype=float).reshape(3)
+    acceleration = np.asarray(acceleration, dtype=float).reshape(3)
+    goal = np.asarray(goal, dtype=float).reshape(3)
+    start = np.asarray(start, dtype=float).reshape(3)
+    radius = float(radius)
+    if float(np.linalg.norm(position - goal)) <= radius or _past_goal(setpoint, goal, start, radius) or _past_goal(position, goal, start, radius):
+        return goal.copy(), np.zeros(3), np.zeros(3), True
+    to_goal = goal - position
+    reach = float(np.dot(to_goal, to_goal))
+    if reach > 1e-8:
+        to_sp = setpoint - position
+        progress = float(np.dot(to_sp, to_goal) / reach)
+        lateral = float(np.linalg.norm(to_sp - progress * to_goal))
+        if progress >= 1.0 and lateral <= radius:
+            return goal.copy(), np.zeros(3), np.zeros(3), True
+    return setpoint.copy(), velocity.copy(), acceleration.copy(), False
+
+
+def _past_goal(point, goal, start, radius: float) -> bool:
+    """水平面上，点在起点→目标的延长线上，并且已经过了目标。横着偏开的不算。高度不参与。"""
+    axis = (np.asarray(goal, dtype=float) - np.asarray(start, dtype=float))[:2]
+    span = float(np.dot(axis, axis))
+    if span <= 1e-8:
+        return False
+    rel = (np.asarray(point, dtype=float) - np.asarray(goal, dtype=float))[:2]
+    along = float(np.dot(rel, axis) / math.sqrt(span))
+    if along <= 0.05:
+        return False
+    lateral = float(np.linalg.norm(rel - (float(np.dot(rel, axis)) / span) * axis))
+    return lateral <= max(float(radius), 1.5)
 
 
 def setpoint_to_local(setpoint: dict | None, offset_enu) -> dict | None:
@@ -1520,7 +1594,12 @@ class LiveFleetSession:
         now_s = float(now_s)
         if slot.trace and abs(float(slot.trace[-1]["t_s"]) - now_s) <= 1e-9:
             return
-        sample: dict = {"t_s": now_s, "phase": slot.phase, "yaw_enu": float(slot.yaw)}
+        sample: dict = {
+            "t_s": now_s,
+            "phase": slot.phase,
+            "yaw_enu": float(slot.yaw),
+            "goal_hold": bool(getattr(slot.bridge, "goal_hold", False)),
+        }
         if world_enu is None:
             sample["odometry_world_enu"] = None
             sample["odometry_local_enu"] = None

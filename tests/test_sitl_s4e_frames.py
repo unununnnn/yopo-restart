@@ -436,6 +436,44 @@ def test_local_setpoint_perfect_track_stays_in_the_world_frame():
     assert trace[0]["setpoint_world_enu"][2] == pytest.approx(1.5)
 
 
+def test_stalled_setpoint_holds_at_the_goal_instead_of_passing_it():
+    """第四轮的数：设定点已经在目标后面，或者飞机进了 1.5 m，就改成目标点悬停。"""
+    from yopo_l0.sitl_bridge import clamp_stalled_setpoint
+
+    goal = np.array([-8.0, 0.0, 1.5])
+    start = np.array([8.0, 0.0, 1.5])
+    here = np.array([7.945, -0.018, 1.417])
+    past = np.array([-8.824, 0.069, 3.130])
+    p, v, a, hold = clamp_stalled_setpoint(here, past, np.array([-4.0, 0.0, 0.2]), np.zeros(3), goal, 1.5, start)
+    assert hold
+    assert p == pytest.approx(goal)
+    assert v == pytest.approx(0.0)
+    assert a == pytest.approx(0.0)
+    short = np.array([0.0, 0.0, 1.5])
+    p2, v2, _, hold2 = clamp_stalled_setpoint(here, short, np.array([-1.0, 0.0, 0.0]), np.zeros(3), goal, 1.5, start)
+    assert not hold2
+    assert p2 == pytest.approx(short)
+    assert v2[0] == pytest.approx(-1.0)
+    inside = goal + np.array([1.0, 0.0, 0.0])
+    p3, v3, _, hold3 = clamp_stalled_setpoint(inside, past, np.ones(3), np.ones(3), goal, 1.5, start)
+    assert hold3 and p3 == pytest.approx(goal) and v3 == pytest.approx(0.0)
+    # 已经冲过目标 3.7 m，也要拉回目标，而不是继续往前发。
+    overshot = np.array([-11.735, 0.104, 2.052])
+    p4, _, _, hold4 = clamp_stalled_setpoint(overshot, overshot + np.array([-1.0, 0.0, 0.0]), np.zeros(3), np.zeros(3), goal, 1.5, start)
+    assert hold4 and p4 == pytest.approx(goal)
+
+
+def test_live_arrival_limits_match_the_scene_card():
+    from yopo_l0.sitl_bridge import _goal_limits
+
+    card = load_card(SWAP)
+    tol, speed, hold, body = _goal_limits(card)
+    assert (tol, speed, hold, body) == (0.4, 0.2, 1.0, 0.35)
+    session = _session(card, "PLAN")
+    assert session.goal_tol == tol and session.goal_speed == speed and session.goal_hold == hold
+    assert session.slots[0].bridge._arrive_radius() == pytest.approx(1.5)
+
+
 def test_yaw_catches_up_toward_the_goal_when_the_loop_stalls():
     """正常 0.02 s 节拍偏航几乎不动。间隔 1.5 s 时期望航向转到目标，下一拍的速度朝西而不是朝东。"""
     from yopo_l0.sitl_bridge import SitlBridgeConfig, YopoSitlBridge
@@ -464,6 +502,12 @@ def test_yaw_catches_up_toward_the_goal_when_the_loop_stalls():
     stalled = run([0.0, 1.5, 1.9])
     assert abs(px4.wrap_pi(stalled.yaw_enu)) > 1.0
     assert stalled.v_enu[0] < 0.0
+    # 1.2 s 的间隔不能把设定点发到目标西边。
+    jumped = run([0.0, 1.2])
+    assert jumped.p_enu[0] >= -8.0 - 1e-6
+    assert float(np.linalg.norm(jumped.p_enu - np.array([-8.0, 0.0, 1.5]))) <= float(
+        np.linalg.norm(np.array([8.0, 0.0, 1.5]) - np.array([-8.0, 0.0, 1.5]))
+    )
 
 
 def test_yopo_poses_cli_rewrites_a_layout_file(tmp_path):
