@@ -25,6 +25,7 @@ from yopo_l0.sitl_bridge import (
     live_topic_plan,
     make_live_session,
     normalize_positioning,
+    outcome_exit_code,
     vehicle_topics,
 )
 
@@ -254,7 +255,8 @@ def _run_ros(args, card, positioning: str) -> int:  # pragma: no cover - 需要 
                 if fresh:
                     for fields in command.vehicle_commands:
                         pub["cmd"].publish(_fill(VehicleCommand(), fields))
-            if session.result()["ok"]:
+            snapshot = session.result()
+            if snapshot["ok"] or snapshot.get("terminal"):
                 break
             time.sleep(0.02)
     finally:
@@ -269,7 +271,7 @@ def _run_ros(args, card, positioning: str) -> int:  # pragma: no cover - 需要 
         payload["ok"] = False
     payload["positioning"] = positioning
     _write(args.out, payload)
-    return 0 if payload["ok"] else 1
+    return outcome_exit_code(payload)
 
 
 if __name__ == "__main__":

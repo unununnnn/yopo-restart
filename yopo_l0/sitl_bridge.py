@@ -8,6 +8,13 @@
 增益与 ``PointMassLag`` 相同。票 S4b 把同一份桥接接到 ROS 消息字段：
 ``VehicleOdometry``、深度图或障碍摘要进 ``Observation``，``TrajectorySetpoint`` 出去。
 容器里的订阅和发布在 ``scripts/sitl/yopo_l0_live.py``，见 ``docs/research/s4b-sitl-live.md``。
+
+实飞多机时，每架 PX4 的 ``VehicleOdometry`` 在自己的本地系，生成点附近就是原点。
+``LiveFleetSession`` 加上该机场景卡起点的水平偏置，得到场景卡世界系；下发
+``TrajectorySetpoint`` 时减回去。速度、加速度和航向是平移不变量，不改。
+不订阅 ``vehicle_global_position``：本地里程计已经以生成点为原点，再引入一套
+WGS84 参考并不更可靠。三机场景卡起点和 S2 直线生成点不一致时，容器按场景卡
+起点生成（``fleet.py yopo-poses``），S2 的默认布局不动。
 """
 
 from __future__ import annotations
@@ -31,6 +38,8 @@ from .sensor import R_BODY_CAM, CameraConfig, DepthCamera, DepthFrame
 
 SCHEMA = "yopo-restart/s4-sitl-bridge/1"
 SCHEMA_LIVE = "yopo-restart/s4b-sitl-live/1"
+# 与 scripts/sitl/fleet.py 的 SPAWN_SPACING_M 相同：S2 多机沿东向每隔 3 m 一架。
+SITL_LINE_SPACING_M = 3.0
 # ``--partial`` 只跑这么长的前缀，用来做离线校验，不等到达。
 PARTIAL_PREFIX_S = 0.5
 POSITIONING_MODES = ("default", "rtk")
@@ -817,6 +826,92 @@ def decode_vehicle_odometry(msg, now_s: float | None = None) -> dict:
     }
 
 
+def world_offset_enu(start_enu) -> np.ndarray:
+    """场景卡起点的水平平移。本地 z 已是离地高度，不再叠起点高度。"""
+    start = _as_vec3(start_enu, "start_enu")
+    return np.array([float(start[0]), float(start[1]), 0.0], dtype=float)
+
+
+def sitl_line_spawn_xy(n: int) -> list[tuple[float, float]]:
+    """S2 直线生成点。单机是原点；多机是 (0, 0)、(0, 3)、…。"""
+    count = int(n)
+    if isinstance(n, bool) or count < 1:
+        raise ValueError(f"n 必须为正整数，收到 {n!r}")
+    if count == 1:
+        return [(0.0, 0.0)]
+    return [(0.0, float(i) * SITL_LINE_SPACING_M) for i in range(count)]
+
+
+def _fmt_xy(points) -> str:
+    return "[" + ", ".join(f"({x:g}, {y:g})" for x, y in points) + "]"
+
+
+def frame_note(card: SceneCard) -> str:
+    """场景卡起点和 S2 直线生成点不一致时说明，并以场景卡为准。一致时是空串。"""
+    drones = list(card.card["drones"])
+    starts = [(float(d["start_enu"][0]), float(d["start_enu"][1])) for d in drones]
+    line = sitl_line_spawn_xy(len(drones))
+    if all(abs(a - c) <= 1e-6 and abs(b - d) <= 1e-6 for (a, b), (c, d) in zip(starts, line)):
+        return ""
+    return (
+        "场景卡起点与 S2 直线生成点不一致，实飞以场景卡为准生成。"
+        f" 场景卡 xy={_fmt_xy(starts)}；S2 直线 xy={_fmt_xy(line)}。"
+        "各机 VehicleOdometry 在自己的本地系，桥接加上场景卡起点的水平偏置得到统一世界系，设定点下发时减回去。"
+    )
+
+
+def apply_world_offset(decoded: dict, offset_enu) -> dict:
+    """本地 ENU/NED 位置加上生成点偏置。速度、加速度、航向不动。"""
+    offset = np.asarray(offset_enu, dtype=float).reshape(3)
+    out = dict(decoded)
+    out["position_enu"] = np.asarray(decoded["position_enu"], dtype=float) + offset
+    out["position_ned"] = np.asarray(decoded["position_ned"], dtype=float) + np.asarray(
+        px4.enu_to_ned(offset), dtype=float
+    )
+    return out
+
+
+def setpoint_to_local(setpoint: dict | None, offset_enu) -> dict | None:
+    """世界系 NED 设定点减回生成点偏置。NaN 轴保持 NaN。不改速度、加速度和航向。"""
+    if setpoint is None:
+        return None
+    local = dict(setpoint)
+    position = local.get("position")
+    if position is None:
+        return local
+    pos = np.asarray(position, dtype=float).reshape(-1)
+    if pos.shape != (3,):
+        return local
+    delta = np.asarray(px4.enu_to_ned(np.asarray(offset_enu, dtype=float).reshape(3)), dtype=float)
+    shifted = []
+    for i in range(3):
+        value = float(pos[i])
+        if math.isfinite(value):
+            shifted.append(value - float(delta[i]))
+        else:
+            shifted.append(value)
+    local["position"] = shifted
+    return local
+
+
+def realtime_factor(sim_elapsed_s, wall_s) -> float | None:
+    """仿真时间 / 墙钟。墙钟不是正数时没有 RTF。"""
+    if sim_elapsed_s is None or wall_s is None:
+        return None
+    sim = float(sim_elapsed_s)
+    wall = float(wall_s)
+    if not math.isfinite(sim) or not math.isfinite(wall) or not wall > 0.0:
+        return None
+    return sim / wall
+
+
+def outcome_exit_code(result: dict) -> int:
+    """进程退出码跟 outcome 走。只有 SUCCESS 且 ok 时是 0。"""
+    if result.get("outcome") == "SUCCESS" and result.get("ok") is True:
+        return 0
+    return 1
+
+
 def encode_depth_image(frame: DepthFrame) -> dict:
     """``DepthFrame`` → ``sensor_msgs/Image`` 的 32FC1 字段。字节是小端 float32。"""
     depth = np.ascontiguousarray(frame.depth, dtype=np.float32)
@@ -1070,12 +1165,16 @@ class _LiveSlot:
         self.velocity: np.ndarray | None = None
         self.yaw = 0.0
         self.land_sent = False
+        self.landed_done = False
+        self.land_give_up = False
+        self.offset_enu = world_offset_enu(bridge.start_enu)
 
 
 class LiveFleetSession:
     """容器侧状态机：预热、解锁、起飞、按桥规划、全体到达后 NAV_LAND。
 
     不写 PX4 参数。每架只读自己 namespace 的消息。规划设定点仍来自 ``YopoSitlBridge``。
+    进来的里程计先加上该机场景卡起点的水平偏置；``_pack`` 把设定点减回去。
     """
 
     def __init__(self, card: SceneCard, bridges: list[YopoSitlBridge], idents: list[dict], cfg: LiveFleetConfig):
@@ -1091,11 +1190,21 @@ class LiveFleetSession:
         self.max_roundtrip_m = 0.0
         self._last_now: float | None = None
         self._last_cmds: list[LiveCommand] = []
+        self._min_inter: float | None = None
+        self._min_clear = math.inf
+        self._sim0: float | None = None
+        self._sim1: float | None = None
+        self._wall0: float | None = None
+        self.frame_note = frame_note(card)
 
     def step(self, now_s: float, inbox_by_ns: dict[str, VehicleInbox]) -> list[LiveCommand]:
         now_s = float(now_s)
         if self._last_now is not None and abs(now_s - self._last_now) <= 1e-12:
             return list(self._last_cmds)
+        if self._wall0 is None:
+            self._wall0 = time.perf_counter()
+            self._sim0 = now_s
+        self._sim1 = now_s
         decoded: dict[str, dict | None] = {}
         for slot in self.slots:
             ns = slot.ident["namespace"]
@@ -1104,12 +1213,11 @@ class LiveFleetSession:
                 decoded[ns] = None
                 continue
             try:
-                decoded[ns] = decode_vehicle_odometry(inbox.odometry, now_s=now_s)
+                decoded[ns] = apply_world_offset(decode_vehicle_odometry(inbox.odometry, now_s=now_s), slot.offset_enu)
             except ValueError:
                 decoded[ns] = None
         self._exchange(decoded)
-        if self.fail_reason == "":
-            self._note_separation(decoded, now_s)
+        self._note_separation(decoded, now_s)
         commands = [self._step_slot(slot, now_s, inbox_by_ns.get(slot.ident["namespace"]), decoded[slot.ident["namespace"]]) for slot in self.slots]
         if self.fail_reason == "" and all(slot.arrival is not None for slot in self.slots):
             for slot in self.slots:
@@ -1142,33 +1250,47 @@ class LiveFleetSession:
             slot.bridge.set_neighbors(others)
 
     def _note_separation(self, decoded: dict[str, dict | None], now_s: float) -> None:
-        positions = []
+        """离地超过机体半径才计最小净空和最小机间。碰撞仍只在 TAKEOFF / PLAN 里判。
+
+        先记下全部离地样本，再落第一个失败原因。已经有失败时不再改原因。
+        """
+        airborne = []
+        obstacle = None
         for slot in self.slots:
             state = decoded.get(slot.ident["namespace"])
-            if state is None or slot.phase not in ("TAKEOFF", "PLAN"):
+            if state is None:
                 continue
-            position = state["position_enu"]
+            position = np.asarray(state["position_enu"], dtype=float)
             if float(position[2]) <= self.body:
                 continue
-            if float(self.card.min_distance(position)) <= self.body:
-                self._fail(f"{slot.bridge.drone_id}:OBSTACLE", now_s)
-                return
-            positions.append((slot, position))
-        for i in range(len(positions)):
-            for j in range(i + 1, len(positions)):
-                dist = float(np.linalg.norm(positions[i][1] - positions[j][1]))
-                if dist <= 2.0 * self.body:
-                    left, right = positions[i][0].bridge.drone_id, positions[j][0].bridge.drone_id
-                    self._fail(f"{left}-{right}:INTER_DRONE", now_s)
-                    return
+            dist = float(self.card.min_distance(position))
+            self._min_clear = min(self._min_clear, dist - self.body)
+            judged = slot.phase in ("TAKEOFF", "PLAN")
+            if judged and obstacle is None and self.fail_reason == "" and dist <= self.body:
+                obstacle = f"{slot.bridge.drone_id}:OBSTACLE"
+            airborne.append((slot, position, judged))
+        if obstacle is not None:
+            self._fail(obstacle, now_s)
+        inter = None
+        for i in range(len(airborne)):
+            for j in range(i + 1, len(airborne)):
+                dist = float(np.linalg.norm(airborne[i][1] - airborne[j][1]))
+                self._min_inter = dist if self._min_inter is None else min(self._min_inter, dist)
+                if inter is None and self.fail_reason == "" and airborne[i][2] and airborne[j][2] and dist <= 2.0 * self.body:
+                    left, right = airborne[i][0].bridge.drone_id, airborne[j][0].bridge.drone_id
+                    inter = f"{left}-{right}:INTER_DRONE"
+        if inter is not None:
+            self._fail(inter, now_s)
 
     def _fail(self, reason: str, now_s: float) -> None:
-        self.fail_reason = reason
+        if self.fail_reason == "":
+            self.fail_reason = reason
         for slot in self.slots:
-            if slot.phase != "DONE":
-                slot.phase = "FAIL"
-                slot.t_phase = now_s
-                slot.land_sent = False
+            if slot.phase == "DONE" or slot.landed_done or slot.phase == "FAIL":
+                continue
+            slot.phase = "FAIL"
+            slot.t_phase = now_s
+            slot.land_sent = False
 
     def _pack(
         self,
@@ -1183,6 +1305,7 @@ class LiveFleetSession:
         roundtrip: float,
         position,
     ) -> LiveCommand:
+        setpoint = setpoint_to_local(setpoint, slot.offset_enu)
         offboard = None if setpoint is None else px4.offboard_control_mode(setpoint["timestamp"])
         if position is not None:
             self.max_roundtrip_m = max(self.max_roundtrip_m, float(roundtrip))
@@ -1342,28 +1465,44 @@ class LiveFleetSession:
         armed = True if inbox is None or inbox.armed is None else bool(inbox.armed)
         command = vehicle_command_message("land", int(round(now_s * 1e6)), slot.ident["mav_sys_id"])
         if land_status_done(command, landed=landed, armed=armed) == "DONE":
-            slot.phase = "DONE"
+            slot.landed_done = True
             commands = [command] if not slot.land_sent else []
             slot.land_sent = True
+            # 失败之后的落地只表示飞机已经上锁，不把 FAIL 改成 DONE，也不改失败原因。
+            if slot.phase != "FAIL" and self.fail_reason == "":
+                slot.phase = "DONE"
             return self._pack(slot, now_s, heartbeat=False, setpoint=None, commands=commands, planned=False, depth_source=slot.depth_source, roundtrip=0.0, position=slot.position)
         commands = []
         if not slot.land_sent or now_s - slot.last_cmd_s >= self.cfg.arm_retry_s:
             slot.last_cmd_s = now_s
             slot.land_sent = True
             commands = [command]
-        if slot.phase != "FAIL" and slot.t_phase is not None and now_s - float(slot.t_phase) > self.cfg.land_timeout_s:
-            self._fail(f"{slot.bridge.drone_id}:LAND_TIMEOUT", now_s)
+        timed_out = slot.t_phase is not None and now_s - float(slot.t_phase) > self.cfg.land_timeout_s
+        if timed_out:
+            if slot.phase != "FAIL" and self.fail_reason == "":
+                self._fail(f"{slot.bridge.drone_id}:LAND_TIMEOUT", now_s)
+            slot.land_give_up = True
         return self._pack(slot, now_s, heartbeat=False, setpoint=None, commands=commands, planned=False, depth_source=slot.depth_source, roundtrip=0.0, position=slot.position)
+
+    def _failure_settled(self) -> bool:
+        if any(slot.land_give_up for slot in self.slots):
+            return True
+        return bool(self.slots) and all(slot.landed_done or slot.phase == "DONE" for slot in self.slots)
 
     def result(self, *, adapter: str = "px4-ros") -> dict:
         n = len(self.slots)
         arrived = sum(slot.arrival is not None for slot in self.slots)
-        if self.slots and all(slot.phase == "DONE" for slot in self.slots):
+        all_arrived = bool(self.slots) and arrived == n
+        all_done = bool(self.slots) and all(slot.phase == "DONE" for slot in self.slots)
+        if self.fail_reason:
+            outcome, reason, ok = "FAIL", self.fail_reason, False
+        elif all_done and all_arrived:
             outcome, reason, ok = "SUCCESS", "GOAL_REACHED_AND_HELD", True
-        elif any(slot.phase == "FAIL" for slot in self.slots):
-            outcome, reason, ok = "FAIL", self.fail_reason or "FAIL", False
+        elif all_done:
+            outcome, reason, ok = "FAIL", "GOAL_NOT_REACHED", False
         else:
             outcome, reason, ok = "RUNNING", self.slots[0].phase if self.slots else "", False
+        terminal = bool(ok) or (outcome == "FAIL" and self._failure_settled())
         drones = []
         for slot in self.slots:
             drones.append(
@@ -1374,6 +1513,7 @@ class LiveFleetSession:
                     "gcs_port": int(slot.ident["gcs_port"]),
                     "phase": slot.phase,
                     "goal_enu": _vec_list(slot.bridge.goal),
+                    "world_offset_enu": _vec_list(slot.offset_enu),
                     "arrived": slot.arrival is not None,
                     "arrival_time_s": slot.arrival,
                     "position_enu": None if slot.position is None else _vec_list(slot.position),
@@ -1381,6 +1521,12 @@ class LiveFleetSession:
                     "plans": int(sum(slot.bridge.plan_counts.values())),
                 }
             )
+        sim_elapsed = None
+        wall = None
+        if self._sim0 is not None and self._sim1 is not None and self._wall0 is not None:
+            sim_elapsed = float(self._sim1) - float(self._sim0)
+            wall = time.perf_counter() - float(self._wall0)
+        clear_out = None if self._min_clear is math.inf else float(self._min_clear)
         return {
             "schema": SCHEMA_LIVE,
             "report_only": True,
@@ -1392,6 +1538,7 @@ class LiveFleetSession:
             "positioning": self.cfg.positioning,
             "px4_parameters_written": list(self.px4_parameters_written),
             "coordinate_conversion": "yopo_swarm_core.px4",
+            "frame_note": self.frame_note,
             "namespaces": [slot.ident["namespace"] for slot in self.slots],
             "mav_sys_ids": [int(slot.ident["mav_sys_id"]) for slot in self.slots],
             "gcs_ports": [int(slot.ident["gcs_port"]) for slot in self.slots],
@@ -1399,10 +1546,16 @@ class LiveFleetSession:
             "outcome": outcome,
             "reason": reason,
             "ok": ok,
+            "terminal": terminal,
             "arrived": arrived,
             "arrival_rate": float(arrived) / float(n),
-            "landed": bool(self.slots) and all(slot.phase == "DONE" for slot in self.slots),
+            "landed": bool(self.slots) and all(slot.landed_done or slot.phase == "DONE" for slot in self.slots),
             "land_commands_sent": int(self.land_commands_sent),
+            "min_inter_drone_distance_m": self._min_inter,
+            "min_surface_clearance_m": clear_out,
+            "sim_time_s": sim_elapsed,
+            "wall_time_s": wall,
+            "rtf": realtime_factor(sim_elapsed, wall),
             "enu_ned_roundtrip_max_error_m": float(self.max_roundtrip_m),
             "depth_sources": sorted({slot.depth_source for slot in self.slots if slot.depth_source}),
             "drones": drones,
