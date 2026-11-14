@@ -24,3 +24,21 @@ def read_progress_settings(task: dict, *, default_gate: bool) -> tuple[bool, flo
     if not math.isfinite(pct) or pct < 0.0 or pct > 100.0:
         raise ValueError("progress_percentile 必须在 [0, 100]")
     return gate, pct
+
+
+def read_leader_margin_m(task: dict, *, default: float = 1.0) -> float:
+    """读 task.leader_margin_m。缺这个字段时用 default，穿林缺省 1.0。
+
+    与 read_progress_settings 一起在 CrossingFleet 构造时读。缺省值与改前的
+    模块常量相同，不改已有场景卡的飞行结果。
+    """
+    if "leader_margin_m" not in task:
+        margin = float(default)
+    else:
+        raw = task["leader_margin_m"]
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+            raise ValueError(f"leader_margin_m 必须是数字，收到 {raw!r}")
+        margin = float(raw)
+    if not math.isfinite(margin) or margin < 0.0:
+        raise ValueError(f"leader_margin_m 必须是非负有限数，收到 {margin!r}")
+    return margin
