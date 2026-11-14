@@ -52,6 +52,33 @@ def test_research_check_current_missing_stale_and_byte_stable(tmp_path: Path) ->
     assert run_research(tmp_path, "--check").returncode != 0
 
 
+def test_research_hint_current_has_no_warning(tmp_path: Path) -> None:
+    (tmp_path / "d1-report.md").write_text("# D1 报告\n", encoding="utf-8")
+    assert run_research(tmp_path).returncode == 0
+
+    hinted = run_research(tmp_path, "--hint")
+
+    assert hinted.returncode == 0
+    assert hinted.stderr == ""
+
+
+def test_research_hint_missing_and_stale_warn_without_failing(tmp_path: Path) -> None:
+    (tmp_path / "d1-report.md").write_text("# D1 报告\n", encoding="utf-8")
+
+    missing = run_research(tmp_path, "--hint")
+    assert missing.returncode == 0
+    assert str(tmp_path / "INDEX.md") in missing.stderr
+    assert "missing or stale" in missing.stderr
+    assert "does not block merging" in missing.stderr
+
+    (tmp_path / "INDEX.md").write_text("stale\n", encoding="utf-8")
+    stale = run_research(tmp_path, "--hint")
+    assert stale.returncode == 0
+    assert str(tmp_path / "INDEX.md") in stale.stderr
+    assert "missing or stale" in stale.stderr
+    assert "does not block merging" in stale.stderr
+
+
 def test_default_results_render_is_locked_byte_for_byte(tmp_path: Path) -> None:
     (tmp_path / "06c-report.md").write_text(
         "# 票 06c：结果 | 样例\n\nreport-only，已冻结。\n", encoding="utf-8"
