@@ -306,6 +306,8 @@ def test_check_grid_does_not_touch_upstream_files():
     from yopo_l0.backend.config import swarm_penalty_enabled as real_swarm
     from yopo_l0.policy import UpstreamPolicy
 
+    # 别的研究脚本可能已经包过 runner。这里只要求本票装上之后能拆干净，回到装之前的那个函数。
+    runner_before = runner_mod.swarm_penalty_enabled
     plan_before = UpstreamPolicy.plan
     try:
         mod.install_peer_delivery()
@@ -319,7 +321,7 @@ def test_check_grid_does_not_touch_upstream_files():
         mod.uninstall_peer_delivery()
         mod.uninstall_escape()
     assert UpstreamPolicy.plan is plan_before
-    assert runner_mod.swarm_penalty_enabled is real_swarm
+    assert runner_mod.swarm_penalty_enabled is runner_before
     tickets = (ROOT / "docs/tickets.md").read_text(encoding="utf-8")
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "E-C8b" not in tickets and "E-C8b" not in readme
