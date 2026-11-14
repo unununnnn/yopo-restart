@@ -38,6 +38,8 @@ from .sensor import R_BODY_CAM, CameraConfig, DepthCamera, DepthFrame
 
 SCHEMA = "yopo-restart/s4-sitl-bridge/1"
 SCHEMA_LIVE = "yopo-restart/s4b-sitl-live/1"
+# 实飞结果里留下开头几拍，方便对世界系/本地系设定点和里程计。
+TRACE_SAMPLES = 16
 # 与 scripts/sitl/fleet.py 的 SPAWN_SPACING_M 相同：S2 多机沿东向每隔 3 m 一架。
 SITL_LINE_SPACING_M = 3.0
 # ``--partial`` 只跑这么长的前缀，用来做离线校验，不等到达。
@@ -1168,6 +1170,7 @@ class _LiveSlot:
         self.landed_done = False
         self.land_give_up = False
         self.offset_enu = world_offset_enu(bridge.start_enu)
+        self.trace: list[dict] = []
 
 
 class LiveFleetSession:
@@ -1305,7 +1308,10 @@ class LiveFleetSession:
         roundtrip: float,
         position,
     ) -> LiveCommand:
+        self._record_trace(slot, now_s, position, setpoint)
         setpoint = setpoint_to_local(setpoint, slot.offset_enu)
+        if slot.trace and slot.trace[-1].get("t_s") == float(now_s) and setpoint is not None:
+            slot.trace[-1]["setpoint_local_ned"] = _vec_list(setpoint["position"]) if setpoint.get("position") is not None else None
         offboard = None if setpoint is None else px4.offboard_control_mode(setpoint["timestamp"])
         if position is not None:
             self.max_roundtrip_m = max(self.max_roundtrip_m, float(roundtrip))
@@ -1484,6 +1490,35 @@ class LiveFleetSession:
             slot.land_give_up = True
         return self._pack(slot, now_s, heartbeat=False, setpoint=None, commands=commands, planned=False, depth_source=slot.depth_source, roundtrip=0.0, position=slot.position)
 
+    def _record_trace(self, slot: _LiveSlot, now_s: float, world_enu, setpoint_world: dict | None) -> None:
+        """记下开头几拍。世界系设定点是减偏置之前的 NED 转回 ENU。"""
+        if len(slot.trace) >= TRACE_SAMPLES:
+            return
+        now_s = float(now_s)
+        if slot.trace and abs(float(slot.trace[-1]["t_s"]) - now_s) <= 1e-9:
+            return
+        sample: dict = {"t_s": now_s, "phase": slot.phase}
+        if world_enu is None:
+            sample["odometry_world_enu"] = None
+            sample["odometry_local_enu"] = None
+        else:
+            world = np.asarray(world_enu, dtype=float).reshape(3)
+            sample["odometry_world_enu"] = _vec_list(world)
+            sample["odometry_local_enu"] = _vec_list(world - slot.offset_enu)
+        if setpoint_world is None or setpoint_world.get("position") is None:
+            sample["setpoint_world_enu"] = None
+            sample["setpoint_velocity_enu"] = None
+            sample["setpoint_velocity_ned"] = None
+            sample["setpoint_acceleration_ned"] = None
+            sample["setpoint_local_ned"] = None
+        else:
+            sample["setpoint_world_enu"] = _vec_list(px4.ned_to_enu(setpoint_world["position"]))
+            sample["setpoint_velocity_enu"] = _vec_list(px4.ned_to_enu(setpoint_world["velocity"]))
+            sample["setpoint_velocity_ned"] = _vec_list(setpoint_world["velocity"])
+            sample["setpoint_acceleration_ned"] = _vec_list(setpoint_world.get("acceleration", [0.0, 0.0, 0.0]))
+            sample["setpoint_local_ned"] = None
+        slot.trace.append(sample)
+
     def _failure_settled(self) -> bool:
         if any(slot.land_give_up for slot in self.slots):
             return True
@@ -1519,6 +1554,7 @@ class LiveFleetSession:
                     "position_enu": None if slot.position is None else _vec_list(slot.position),
                     "depth_source": slot.depth_source,
                     "plans": int(sum(slot.bridge.plan_counts.values())),
+                    "trace": list(slot.trace),
                 }
             )
         sim_elapsed = None

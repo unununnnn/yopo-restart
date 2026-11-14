@@ -60,14 +60,28 @@ class MissionClock:
         return self.elapsed(t_sim) > self.max_s
 
 
-def offboard_stream(command) -> tuple[dict | None, dict | None]:
-    """持续心跳只带 OffboardControlMode 和 TrajectorySetpoint。
+def hold_setpoint(setpoint: dict | None) -> dict | None:
+    """心跳重发只守位置和航向。速度、加速度前馈清零。
 
-    解锁、降落这类 VehicleCommand 不在这里重复发。
+    规划一步常常超过 1 s。若把上一拍的 velocity 按 20 Hz 再发，PX4 会把这口
+    前馈一直积下去，三机都顺着这口速度漂。位置设定点仍是已经转到本地 NED 的那一份。
+    """
+    if setpoint is None:
+        return None
+    held = dict(setpoint)
+    held["velocity"] = [0.0, 0.0, 0.0]
+    held["acceleration"] = [0.0, 0.0, 0.0]
+    return held
+
+
+def offboard_stream(command) -> tuple[dict | None, dict | None]:
+    """持续心跳只带 OffboardControlMode 和位置保持设定点。
+
+    解锁、降落这类 VehicleCommand 不在这里重复发。设定点已是本地 NED，这里不再做坐标变换。
     """
     if not getattr(command, "heartbeat", False):
         return None, None
-    return command.offboard, command.setpoint
+    return command.offboard, hold_setpoint(command.setpoint)
 
 
 class PreflightLatch:
@@ -302,7 +316,7 @@ def _run_ros(args, card, positioning: str) -> int:  # pragma: no cover - 需要 
 
     def publish_stream() -> None:
         # 规划（场景卡相机 + 网络）会占住主循环超过 COM_OF_LOSS_T。
-        # 这条线只重复上一拍的 offboard 心跳，不重复 VehicleCommand。
+        # 这条线只重复上一拍的位置和航向，速度前馈清零，也不重复 VehicleCommand。
         while not stop.is_set():
             with stream_lock:
                 commands = list(streamed["commands"])

@@ -345,14 +345,95 @@ def test_offboard_stream_repeats_setpoints_but_not_vehicle_commands():
             self.setpoint = setpoint
             self.vehicle_commands = ({"command": 21},)
 
-    mode, setpoint = live.offboard_stream(_Cmd(True, {"mode": 1}, {"position": [0.0, 1.0, -1.5]}))
+    fresh = {
+        "position": [0.0, 1.0, -1.5],
+        "velocity": [1.0, 0.0, -0.4],
+        "acceleration": [0.2, 0.0, 0.0],
+        "yaw": 1.2,
+    }
+    mode, setpoint = live.offboard_stream(_Cmd(True, {"mode": 1}, fresh))
     assert mode == {"mode": 1}
     assert setpoint["position"] == [0.0, 1.0, -1.5]
+    assert setpoint["yaw"] == 1.2
+    assert setpoint["velocity"] == [0.0, 0.0, 0.0]
+    assert setpoint["acceleration"] == [0.0, 0.0, 0.0]
+    assert fresh["velocity"] == [1.0, 0.0, -0.4]
     assert live.offboard_stream(_Cmd(False, {"mode": 1}, {"position": [1.0, 0.0, 0.0]})) == (None, None)
     text = (SITL / "yopo_l0_live.py").read_text()
     assert "offboard_stream(command)" in text
     assert "MissionClock(max_s)" in text
     assert "sitl-battery.env" not in text
+
+
+def test_feedforward_is_ned_once_and_z_up_is_negative():
+    """速度、加速度只做一次 ENU→NED。往东是 NED +y，往上是 NED -z。偏置不改这三项。"""
+    from yopo_l0.sitl_bridge import trajectory_setpoint_ned
+
+    setpoint = trajectory_setpoint_ned([8.0, 0.0, 1.5], [1.0, 0.0, 0.4], [0.0, 0.0, -0.2], 0.0, 0.0)
+    assert setpoint["position"] == pytest.approx([0.0, 8.0, -1.5])
+    assert setpoint["velocity"] == pytest.approx([0.0, 1.0, -0.4])
+    assert setpoint["acceleration"] == pytest.approx([0.0, 0.0, 0.2])
+    assert setpoint["yaw"] == pytest.approx(math.pi / 2.0)
+    local = setpoint_to_local(setpoint, [8.0, 0.0, 0.0])
+    assert local["position"] == pytest.approx([0.0, 0.0, -1.5])
+    assert local["velocity"] == pytest.approx(setpoint["velocity"])
+    assert local["acceleration"] == pytest.approx(setpoint["acceleration"])
+
+
+def test_local_setpoint_perfect_track_stays_in_the_world_frame():
+    """假 PX4 把本地 NED 设定点当成完美跟踪。世界系 = 本地 ENU + 场景卡起点。
+
+    偏置加两次或减两次时，t=0 的悬停点不会落回场景卡起点。
+    随后几秒 uav2 会朝目标收敛；uav0 开头往北是规划轨迹本身，不是坐标反号。
+    """
+    card = load_card(SWAP)
+    session = _session(card, "PLAN")
+    state = [np.array([0.0, 0.0, 1.5]) for _ in session.slots]
+    vel = [np.zeros(3) for _ in session.slots]
+    yaw = [0.0 for _ in session.slots]
+    dt = 0.2
+    errors = []
+    for k in range(21):
+        t = round(k * dt, 10)
+        inbox = {}
+        for i, slot in enumerate(session.slots):
+            vehicle = FakePx4Vehicle(state[i], vel[i], yaw_enu=yaw[i])
+            inbox[slot.ident["namespace"]] = VehicleInbox(
+                odometry=odometry_message_from_odometry(vehicle.odometry(), int(round(t * 1e6))),
+                armed=True,
+                offboard=True,
+                landed=False,
+            )
+        commands = session.step(t, inbox)
+        step_err = []
+        for i, (slot, command) in enumerate(zip(session.slots, commands)):
+            setpoint = command.setpoint
+            assert setpoint is not None
+            local_enu = np.asarray(px4.ned_to_enu(setpoint["position"]), dtype=float)
+            world = local_enu + slot.offset_enu
+            if k == 0:
+                assert world == pytest.approx(slot.bridge.start_enu)
+                assert setpoint["position"][2] == pytest.approx(-1.5)
+                assert local_enu[2] == pytest.approx(1.5)
+            step_err.append(float(np.linalg.norm(world - slot.bridge.goal)))
+            state[i] = local_enu
+            vel[i] = np.asarray(px4.ned_to_enu(setpoint["velocity"]), dtype=float)
+            if math.isfinite(float(setpoint["yaw"])):
+                yaw[i] = float(px4.yaw_ned_to_enu(float(setpoint["yaw"])))
+        errors.append(step_err)
+    assert errors[0][0] > 10.0
+    assert errors[-1][2] < 2.0
+    assert sum(errors[-1]) < sum(errors[0])
+    # 不是三架一起被推到东边：uav2 的世界系 x 停在目标附近，而不是箱上那次的 23 m。
+    uav2 = state[2] + session.slots[2].offset_enu
+    assert uav2[0] == pytest.approx(4.0, abs=2.0)
+    assert uav2[2] > 0.0
+    trace = session.result()["drones"][0]["trace"]
+    assert trace
+    assert trace[0]["odometry_world_enu"] == pytest.approx([8.0, 0.0, 1.5])
+    assert trace[0]["odometry_local_enu"] == pytest.approx([0.0, 0.0, 1.5])
+    assert trace[0]["setpoint_local_ned"][2] == pytest.approx(-1.5)
+    assert trace[0]["setpoint_world_enu"][2] == pytest.approx(1.5)
 
 
 def test_yopo_poses_cli_rewrites_a_layout_file(tmp_path):
