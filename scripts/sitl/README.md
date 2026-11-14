@@ -94,3 +94,35 @@ YOPO_SITL_N=3 YOPO_SITL_MISSION_MODE=swap \
 - 单机 `--n 1` 不传 `--mission`（或 hover）时仍走 S1，不会变成 1.5 m 原地降落。单机 `goto` 使用同一个 +6 m 偏移。单机不能 `swap`。
 - 不进 `scenes/suite.txt`，不进 regress。数字只在 box 上跑完才有，这里不写实测值。
 
+## 票 S4b：YOPO L0 规划桥接进容器（report-only）
+
+默认的 `smoke.sh` / `up.sh` 不设 `YOPO_SITL_PLANNER`，仍走 `offboard_mission.py` / `fleet.py`。
+实飞入口是单独的脚本，只传场景、机数、种子和定位模式：
+
+```bash
+scripts/sitl/run_yopo_l0_sitl.sh --n 1
+scripts/sitl/run_yopo_l0_sitl.sh --n 3 --positioning rtk
+scripts/sitl/run_yopo_l0_sitl.sh --dry-run --n 3 --positioning rtk
+```
+
+1 机默认 `scenes/g2-pillar.json`，话题在 `/fmu/...`。3 机默认 `scenes/swap-3-open.json`，namespace 是 `px4_1`、`px4_2`、`px4_3`。
+`--positioning rtk` 仍只走原来的 `positioning-rtk.env` 白名单，规划桥本身不写飞控参数。
+离线假 PX4 仍是 `scripts/sitl/run_yopo_l0.py`（`--fake-px4` 与缺省相同）。说明和实测数字在 `docs/research/s4b-sitl-live.md`。
+
+## 票 S4c：YOPO L0 运行时分层镜像（report-only）
+
+`scripts/sitl/Dockerfile` 仍然只有 ROS 2 Humble、PX4、Gazebo、Micro-XRCE-DDS-Agent 和 `px4_msgs`。
+不往那份文件里加 `torch`，S1/S1b 的镜像哈希不变。YOPO 运行时在第二层，基础镜像要先由 `up.sh` 准备好：
+
+```bash
+scripts/sitl/build_yopo_image.sh --print-image
+scripts/sitl/build_yopo_image.sh --status
+scripts/sitl/build_yopo_image.sh            # 基础镜像没有就退出，提示先跑 up.sh，不重编 PX4
+scripts/sitl/build_yopo_image.sh --bg       # setsid 后台构建，PID 和日志在 $SITL_STATE
+```
+
+标签是 `yopo-restart-sitl:yopo-<Dockerfile 与 Dockerfile.yopo 拼接后的哈希>`。
+`run_yopo_l0_sitl.sh` 在这层镜像已经存在时改用它。`--image` 或 `YOPO_SITL_IMAGE` 显式指定时用指定标签。
+`docker run` 之前检查这个标签在不在。`--dry-run` 仍打印原来的 planner、场景、机数、定位和种子，并多一行 `image=`。
+`up.sh` / `smoke.sh` 不读这层镜像。说明在 [s4c-sitl-yopo-image.md](../../docs/research/s4c-sitl-yopo-image.md)。
+

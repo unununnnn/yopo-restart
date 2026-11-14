@@ -57,6 +57,326 @@ def brake_from_head(head, now: float, a_max: float):
     return None
 
 
+def _head_matrix(head) -> np.ndarray:
+    rows = [np.asarray(row, dtype=float).reshape(3) for row in head]
+    arr = np.vstack(rows)
+    if arr.shape != (3, 3) or not bool(np.all(np.isfinite(arr))):
+        raise ValueError("head 必须是有限的 (p, v, a)")
+    return arr
+
+
+def _poly_min_z(coeffs_z: np.ndarray, duration: float) -> float:
+    """一段 z 多项式在 [0, duration] 上的最小值。端点、导数实根，再加 0.02 s 采样。"""
+    from numpy.polynomial.polynomial import polyder, polyroots, polyval
+
+    c = np.asarray(coeffs_z, dtype=float)
+    duration = float(duration)
+    best = min(float(polyval(0.0, c)), float(polyval(duration, c)))
+    deriv = polyder(c)
+    if deriv.size:
+        for root in np.atleast_1d(polyroots(deriv)):
+            if abs(float(np.imag(root))) > 1e-7:
+                continue
+            x = float(np.real(root))
+            if -1e-9 <= x <= duration + 1e-9:
+                best = min(best, float(polyval(min(max(x, 0.0), duration), c)))
+    steps = max(int(math.ceil(duration / SAMPLE_DT_S)), 1)
+    for k in range(steps + 1):
+        tau = min(duration, k * SAMPLE_DT_S)
+        best = min(best, float(polyval(tau, c)))
+    return float(best)
+
+
+def trajectory_min_z(traj) -> float:
+    """整段轨迹采样（含导数根）的最低 z。"""
+    best = math.inf
+    for seg in traj.segments:
+        best = min(best, _poly_min_z(np.asarray(seg.coeffs[2], dtype=float), float(seg.duration)))
+    return float(best)
+
+
+def _peak_accel(traj) -> float:
+    best = 0.0
+    for t in iter_times(float(traj.t_start), float(traj.t_end), min(SAMPLE_DT_S, 0.01)):
+        acc = np.asarray(traj.evaluate(float(t), 2), dtype=float)
+        best = max(best, float(np.linalg.norm(acc)))
+    return float(best)
+
+
+def _quintic_segment(head: np.ndarray, end: np.ndarray, duration: float):
+    from yopo_swarm_core.plan import quintic
+
+    return quintic(np.asarray(head, dtype=float), np.asarray(end, dtype=float), float(duration))
+
+
+def _as_traj(now: float, segments):
+    from yopo_swarm_core.trajectory import PiecewisePolynomial
+
+    return PiecewisePolynomial(float(now), list(segments))
+
+
+def _chain_ok(segments, floor: float, tol: float) -> bool:
+    if not segments:
+        return False
+    traj = _as_traj(0.0, segments)
+    return trajectory_min_z(traj) >= float(floor) - tol
+
+
+def ground_safe_brake_from_head(head, now, a_max, min_z):
+    """刹停不得下穿 ``min_z``。E-C5d，只在地面闸门打开时调用。
+
+    先取常规 ``brake_from_head``。全段 z 都 ≥ ``min_z`` 就原样返回。
+    原本静止且 ``head`` 的高度已经 ≥ ``min_z`` 时返回 None（与常规刹停一样，调用方原地保持）。
+    刹停曲线会下穿，或一开始就低于 ``min_z``，则用五次多项式拉起：
+    水平停在常规刹停的终点（来不及就停在就近的点），高度收到 ``max(刹停终点 z, min_z)``。
+    总时长至少 ``max(0.5, 1.5 * 速率 / a_max)``。垂向先用不超过必要的加速度拉起，
+    再在安全高度上把水平速度停掉。采样最低点不低于 ``min(起点 z, min_z)``
+    （起点已在线下且垂速向下时，只留反转垂速 unavoidable 的那一点下探）。
+    """
+    head_m = _head_matrix(head)
+    p, v, a = (head_m[i].copy() for i in range(3))
+    now = float(now)
+    a_max = float(a_max)
+    min_z = float(min_z)
+    if not math.isfinite(min_z) or not math.isfinite(a_max):
+        raise ValueError(f"min_z 与 a_max 必须有限，收到 min_z={min_z!r} a_max={a_max!r}")
+    a_lim = a_max if a_max > 1e-6 else 1e-6
+    z0 = float(p[2])
+    stationary = float(np.linalg.norm(v)) <= 1e-6 and float(np.linalg.norm(a)) <= 1e-6
+    regular = brake_from_head(head_m, now, a_lim if a_max > 1e-6 else a_max)
+    if stationary and z0 >= min_z - 1e-9:
+        return None
+    if (
+        regular is not None
+        and z0 >= min_z - 1e-9
+        and trajectory_min_z(regular) >= min_z - 1e-8
+    ):
+        return regular
+
+    speed = float(np.linalg.norm(v))
+    t_min = max(0.5, 1.5 * speed / a_lim)
+    if regular is not None:
+        stop = np.asarray(regular.evaluate(float(regular.t_end), 0), dtype=float)
+        xy_stop = stop[:2].copy()
+        z_end = float(stop[2])
+    else:
+        z_end = z0
+        xy_stop = p[:2] + v[:2] * (t_min / 2.0) + a[:2] * (t_min ** 2) / 12.0
+    z_target = max(z_end, min_z)
+    # 起点已低于 min_z 时，不能再往下；否则地板就是 min_z。
+    floor = min_z if z0 >= min_z - 1e-9 else z0
+    # 人已经在线下且还在往下掉时，五次必须先跟上这个垂速，最短斜坡会下探大约 |vz|·0.03。
+    if z0 >= min_z - 1e-9 or float(v[2]) >= -1e-6:
+        tol = 1e-6
+    else:
+        tol = min(0.03, max(1e-3, -float(v[2]) * 0.03))
+    built = _pullup_brake(head_m, now, a_lim, floor, z_target, xy_stop, t_min, tol)
+    if built is None:
+        built = _pullup_brake(head_m, now, max(a_lim, _az_needed(z0, float(v[2]), floor)), floor, z_target, xy_stop, t_min, tol)
+    if built is None:
+        # 仍要给出一条不低于地板的五次拉起，水平就停在当前位置。
+        built = _pullup_brake(
+            head_m, now, max(a_lim, _az_needed(z0, float(v[2]), floor)), floor, max(z_target, floor, z0),
+            p[:2].copy(), t_min, max(tol, 5e-3),
+        )
+    return built
+
+
+def _az_needed(z0: float, vz: float, floor: float) -> float:
+    room = float(z0) - float(floor)
+    if vz >= -1e-9 or room <= 1e-4:
+        return 0.0
+    return float(vz * vz / (2.0 * room))
+
+
+def _pullup_brake(head, now, a_lim, floor, z_target, xy_stop, t_min, tol):
+    """垂向先拉起，再在安全高度上刹停水平。拉不起就返回 None。"""
+    if float(np.linalg.norm(head[1])) <= 1e-6 and float(np.linalg.norm(head[2])) <= 1e-6:
+        return _rest_climb(head, now, np.asarray(xy_stop, dtype=float), max(float(z_target), float(floor)), t_min, a_lim, floor, tol)
+    segments, end = _vertical_rescue(head, a_lim, floor, z_target, tol)
+    if segments is None:
+        return None
+    t_used = sum(float(seg.duration) for seg in segments)
+    xy_goal = np.asarray(xy_stop, dtype=float).reshape(2)
+    # 救援段水平是滑行。终点离得太远就改停在救援结束时再刹一段能停住的地方。
+    coast_xy = end[0, :2]
+    if float(np.linalg.norm(xy_goal - coast_xy)) > max(8.0, float(np.linalg.norm(end[1, :2])) * t_min + 1.0):
+        xy_goal = coast_xy + end[1, :2] * max(0.5, t_min) / 2.0
+    z_goal = max(float(z_target), float(floor))
+    # 先把垂向加速度收到 0，高度留在不低于 z_goal 的地方，水平速度先留着。
+    eased, end = _ease_vertical(segments, end, z_goal, floor, tol)
+    if eased is None:
+        return None
+    segments = eased
+    t_used = sum(float(seg.duration) for seg in segments)
+    t_h = max(0.5, t_min - t_used, 1.5 * float(np.linalg.norm(end[1, :2])) / max(float(a_lim), 1e-6))
+    horizontal = _horizontal_stop(segments, end, xy_goal, z_goal, floor, tol, t_h, a_lim)
+    if horizontal is None:
+        return None
+    traj = _as_traj(now, horizontal)
+    if trajectory_min_z(traj) < float(floor) - tol:
+        return None
+    return traj
+
+
+def _rest_climb(head, now, xy, z_goal, t_min, a_lim, floor, tol):
+    """静止时一段五次拉到目标高度。时长从下限往上加，直到加速度不超过 a_max。"""
+    xy = np.asarray(xy, dtype=float).reshape(2)
+    z_goal = max(float(z_goal), float(floor))
+    duration = max(float(t_min), 0.5)
+    span = abs(z_goal - float(head[0, 2])) + float(np.linalg.norm(xy - head[0, :2]))
+    if span > 1e-8:
+        # 五次静止到静止的峰值加速度大约是 5.8 * 距离 / T^2。
+        duration = max(duration, math.sqrt(5.8 * span / max(float(a_lim), 1e-6)))
+    best = None
+    for _ in range(10):
+        end = np.array(
+            [[float(xy[0]), float(xy[1]), z_goal], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+            dtype=float,
+        )
+        seg = _quintic_segment(head, end, duration)
+        traj = _as_traj(now, [seg])
+        if trajectory_min_z(traj) < float(floor) - tol:
+            duration *= 1.25
+            continue
+        best = traj
+        if _peak_accel(traj) <= float(a_lim) * 1.05 + 0.2:
+            return traj
+        duration *= 1.25
+    return best
+
+
+def _vertical_rescue(head, a_lim, floor, z_target, tol):
+    """从当前垂速拉到 vz ≥ 0 且 z 不低于地板。试几档向上加速度，斜坡吃掉的高度也算进去。"""
+    vz = float(head[1, 2])
+    options = [float(a_lim)]
+    if vz < -1e-9:
+        need = _az_needed(float(head[0, 2]), vz, floor)
+        for mul in (1.0, 1.4, 2.0, 3.0, 5.0, 8.0):
+            options.append(max(float(a_lim), need * mul, float(a_lim) * mul))
+    elif float(head[0, 2]) < float(z_target) - 1e-9:
+        options.append(float(a_lim))
+    seen = set()
+    for a_up in options:
+        key = round(a_up, 5)
+        if key in seen:
+            continue
+        seen.add(key)
+        got = _rescue_at(head, a_up, floor, z_target, tol)
+        if got is not None and got[0] is not None:
+            return got
+    return None, None
+
+
+def _rescue_at(head, a_up, floor, z_target, tol):
+    a_cmd = np.array([0.0, 0.0, float(a_up)], dtype=float)
+    segments = []
+    state = head.copy()
+    if float(np.linalg.norm(state[2] - a_cmd)) > 1e-6:
+        ramp = _ramp_to_accel(state, a_cmd, floor, tol)
+        if ramp is None:
+            return None, None
+        seg, state = ramp
+        segments.append(seg)
+    if float(state[1, 2]) < -1e-9 and a_up > 1e-8:
+        hold_t = max(1e-3, -float(state[1, 2]) / a_up)
+        nxt = _const_accel_state(state, a_cmd, hold_t)
+        if float(nxt[0, 2]) < float(floor) - tol:
+            return None, None
+        segments.append(_quintic_segment(state, nxt, hold_t))
+        state = nxt
+    elif float(state[0, 2]) < float(z_target) - 1e-6 and a_up > 1e-8:
+        # 已经没有向下的速度，但还在目标高度下面：继续以 a_up 拉一段再交给后面收平。
+        need = float(z_target) - float(state[0, 2])
+        # 0.5*a*t^2 + vz*t = need 的一个够用的时长
+        vz_now = max(float(state[1, 2]), 0.0)
+        hold_t = max(0.05, (-vz_now + math.sqrt(max(vz_now * vz_now + 2.0 * a_up * need, 0.0))) / a_up)
+        nxt = _const_accel_state(state, a_cmd, hold_t)
+        segments.append(_quintic_segment(state, nxt, hold_t))
+        state = nxt
+    if not _chain_ok(segments, floor, tol) and segments:
+        return None, None
+    return segments, state
+
+
+def _ramp_to_accel(state, a_cmd, floor, tol):
+    """短五次，把加速度收到 a_cmd。取仍不低于地板的最短斜坡。"""
+    best = None
+    for ramp_t in (0.02, 0.03, 0.04, 0.06, 0.08, 0.12, 0.18, 0.28, 0.4):
+        a_avg = 0.5 * (state[2] + a_cmd)
+        p2 = state[0] + state[1] * ramp_t + 0.5 * a_avg * ramp_t * ramp_t
+        v2 = state[1] + a_avg * ramp_t
+        nxt = np.vstack([p2, v2, np.asarray(a_cmd, dtype=float)])
+        seg = _quintic_segment(state, nxt, ramp_t)
+        if _poly_min_z(np.asarray(seg.coeffs[2], dtype=float), ramp_t) < float(floor) - tol:
+            continue
+        best = (seg, nxt)
+        break
+    return best
+
+
+def _const_accel_state(state, a_cmd, duration: float) -> np.ndarray:
+    a_cmd = np.asarray(a_cmd, dtype=float)
+    duration = float(duration)
+    p2 = state[0] + state[1] * duration + 0.5 * a_cmd * duration * duration
+    v2 = state[1] + a_cmd * duration
+    return np.vstack([p2, v2, a_cmd.copy()])
+
+
+def _ease_vertical(segments, state, z_goal, floor, tol):
+    """垂速、垂向加速度收到 0，高度收到不低于 z_goal。水平速度保持。"""
+    z_now = float(state[0, 2])
+    z_keep = max(float(z_goal), z_now, float(floor))
+    # 若救援停在目标上方且垂向已经安静，不必再动高度。
+    if abs(float(state[1, 2])) <= 1e-6 and abs(float(state[2, 2])) <= 1e-6 and z_now >= float(z_goal) - 1e-6:
+        return list(segments), state
+    best = None
+    for duration in (0.2, 0.3, 0.45, 0.6, 0.8, 1.0, 1.4):
+        xy = state[0, :2] + state[1, :2] * duration
+        end = np.array(
+            [
+                [float(xy[0]), float(xy[1]), z_keep],
+                [float(state[1, 0]), float(state[1, 1]), 0.0],
+                [0.0, 0.0, 0.0],
+            ],
+            dtype=float,
+        )
+        seg = _quintic_segment(state, end, duration)
+        trial = list(segments) + [seg]
+        if _chain_ok(trial, floor, tol):
+            best = (trial, end)
+            break
+    if best is None:
+        return None, None
+    return best
+
+
+def _horizontal_stop(segments, state, xy_goal, z_goal, floor, tol, t_h, a_lim):
+    """在已经安全的高度上把水平速度停到 xy_goal。拉长时长直到加速度可跟踪且不掉高度。"""
+    z_hold = max(float(state[0, 2]), float(z_goal), float(floor))
+    duration = max(float(t_h), 0.5)
+    best = None
+    for _ in range(16):
+        end = np.array(
+            [
+                [float(xy_goal[0]), float(xy_goal[1]), z_hold],
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+            ],
+            dtype=float,
+        )
+        seg = _quintic_segment(state, end, duration)
+        trial = list(segments) + [seg]
+        # 只约束这一段水平刹停的加速度。前面的拉起为了不穿地，可以比 a_max 更陡。
+        above = trajectory_min_z(_as_traj(0.0, trial)) >= float(floor) - tol
+        if above and _peak_accel(_as_traj(0.0, [seg])) <= float(a_lim) * 1.05 + 0.5:
+            return trial
+        if above:
+            best = trial
+        duration *= 1.25
+    return best
+
+
 def _a_max(card: dict) -> float:
     dyn = card.get("dynamics") or {}
     if dyn.get("a_max") is None:
