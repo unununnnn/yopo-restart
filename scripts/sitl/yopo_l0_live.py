@@ -145,6 +145,48 @@ class PreflightLatch:
         return False
 
 
+class PreflightLatch:
+    """启动预检只要求第一次全体通过，通过后锁存。
+
+    状态：
+    - ``WAIT``：还没有一拍是每架都有样本且 ``preflight_ok``。这一拍不 step。
+    - ``LATCHED``：解锁 / 起飞前已经通过一次。之后继续 step。
+    - ``FAIL``：锁存前墙钟超过 ``--preflight-timeout``。这才是启动预检失败。
+
+    PX4 用 ``canArm(当前模式)`` 刷新 ``pre_flight_checks_pass``，着陆上锁后会把它拉低。
+    锁存之后这种失败留在 ``LATCHED``：不停 step，也不记成启动 ``PREFLIGHT``。
+    """
+
+    WAIT = "WAIT"
+    LATCHED = "LATCHED"
+    FAIL = "FAIL"
+
+    def __init__(self, timeout_s: float):
+        timeout = float(timeout_s)
+        if not timeout > 0.0:
+            raise ValueError(f"preflight timeout 必须为正，收到 {timeout_s!r}")
+        self.timeout_s = timeout
+        self.state = self.WAIT
+        self.failure = ""
+
+    def allow_step(self, boxes: dict, wall_s: float) -> bool:
+        """``boxes`` 的值是带 ``preflight_ok`` 的样本；``None`` 表示这一拍还没齐。"""
+        if self.state == self.FAIL:
+            return False
+        if self.state == self.LATCHED:
+            return True
+        ready = bool(boxes) and all(box is not None and bool(box.preflight_ok) for box in boxes.values())
+        if ready:
+            self.state = self.LATCHED
+            return True
+        if float(wall_s) > self.timeout_s:
+            missing = [ns or "/" for ns, box in boxes.items() if box is None]
+            self.failure = "PREFLIGHT " + (",".join(missing) if missing else "checks")
+            self.state = self.FAIL
+            return False
+        return False
+
+
 def _scene_path(raw: str) -> Path:
     path = Path(raw)
     if path.is_file():
