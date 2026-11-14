@@ -359,8 +359,25 @@ def test_offboard_stream_repeats_setpoints_but_not_vehicle_commands():
     assert setpoint["acceleration"] == [0.0, 0.0, 0.0]
     assert fresh["velocity"] == [1.0, 0.0, -0.4]
     assert live.offboard_stream(_Cmd(False, {"mode": 1}, {"position": [1.0, 0.0, 0.0]})) == (None, None)
+    tracked = {
+        "timestamp": 1600000,
+        "position": [0.0, -2.0, -1.5],
+        "velocity": [0.0, -3.0, 0.0],
+        "acceleration": [0.0, -0.5, 0.0],
+        "yaw": -1.5,
+    }
+    mode, setpoint = live.streamed_setpoint(_Cmd(True, {"mode": 1, "timestamp": 1}, fresh), tracked)
+    assert setpoint["velocity"] == [0.0, -3.0, 0.0]
+    assert setpoint["acceleration"] == [0.0, -0.5, 0.0]
+    assert setpoint["position"] == [0.0, -2.0, -1.5]
+    assert mode["timestamp"] == 1600000
+    assert fresh["velocity"] == [1.0, 0.0, -0.4]
+    held_mode, held = live.streamed_setpoint(_Cmd(True, {"mode": 1}, fresh), None)
+    assert held["velocity"] == [0.0, 0.0, 0.0]
+    assert held_mode == {"mode": 1}
     text = (SITL / "yopo_l0_live.py").read_text()
     assert "offboard_stream(command)" in text
+    assert "stream_local_setpoint" in text
     assert "MissionClock(max_s)" in text
     assert "sitl-battery.env" not in text
 
@@ -436,6 +453,35 @@ def test_local_setpoint_perfect_track_stays_in_the_world_frame():
     assert trace[0]["setpoint_world_enu"][2] == pytest.approx(1.5)
 
 
+def test_plan_is_sampled_at_its_timestamp_and_clipped_at_the_goal():
+    """心跳按时刻取点：0.5 s 还在半路上，并且带着这一刻的速度；越过目标则悬停在目标。"""
+    from yopo_l0.sitl_bridge import sample_plan_at
+
+    class _Line:
+        yaw = 1.2
+
+        def pva(self, t):
+            x = 8.0 - 4.0 * float(t)
+            return np.array([x, 0.0, 1.5]), np.array([-4.0, 0.0, 0.0]), np.zeros(3)
+
+    goal = np.array([-8.0, 0.0, 1.5])
+    start = np.array([8.0, 0.0, 1.5])
+    measured = np.array([7.9, 0.0, 1.4])
+    early = sample_plan_at(_Line(), 0.5, measured, goal, start, 1.5)
+    assert early[4] is False
+    assert early[0] == pytest.approx([6.0, 0.0, 1.5])
+    assert early[1][0] == pytest.approx(-4.0)
+    assert early[3] == pytest.approx(1.2)
+    late = sample_plan_at(_Line(), 4.5, measured, goal, start, 1.5)
+    assert late[4] is True
+    assert late[0] == pytest.approx(goal)
+    assert late[1] == pytest.approx(0.0)
+    assert late[2] == pytest.approx(0.0)
+    inside = sample_plan_at(_Line(), 0.1, goal + np.array([1.0, 0.0, 0.0]), goal, start, 1.5)
+    assert inside[4] is True and inside[0] == pytest.approx(goal)
+    assert sample_plan_at(None, 0.0, measured, goal, start, 1.5) is None
+
+
 def test_stalled_setpoint_holds_at_the_goal_instead_of_passing_it():
     """第四轮的数：设定点已经在目标后面，或者飞机进了 1.5 m，就改成目标点悬停。"""
     from yopo_l0.sitl_bridge import clamp_stalled_setpoint
@@ -494,20 +540,26 @@ def test_yaw_catches_up_toward_the_goal_when_the_loop_stalls():
                 odom["position_ned"], odom["velocity_ned"], t,
                 q_ned_frd=odom["q_ned_frd"], acceleration_ned=odom["acceleration_ned"],
             )
-        return last
+        return bridge, last
 
-    fine = run([0.0, 0.02])
+    _, fine = run([0.0, 0.02])
     assert abs(fine.yaw_enu) < 0.2
     # 1.5 s 处补航向并重规划，1.9 s 只采样、不再重规划，速度应朝西（目标在 -x）。
-    stalled = run([0.0, 1.5, 1.9])
+    _, stalled = run([0.0, 1.5, 1.9])
     assert abs(px4.wrap_pi(stalled.yaw_enu)) > 1.0
     assert stalled.v_enu[0] < 0.0
-    # 1.2 s 的间隔不能把设定点发到目标西边。
-    jumped = run([0.0, 1.2])
-    assert jumped.p_enu[0] >= -8.0 - 1e-6
-    assert float(np.linalg.norm(jumped.p_enu - np.array([-8.0, 0.0, 1.5]))) <= float(
-        np.linalg.norm(np.array([8.0, 0.0, 1.5]) - np.array([-8.0, 0.0, 1.5]))
-    )
+    # 1.2 s 的间隔在规划时刻采样，设定点还在东边，不把这一拍一次走到目标西边。
+    bridge, jumped = run([0.0, 1.2])
+    assert jumped.p_enu[0] > 6.0
+    goal = np.array([-8.0, 0.0, 1.5])
+    assert float(np.linalg.norm(jumped.p_enu - goal)) <= float(np.linalg.norm(np.array([8.0, 0.0, 1.5]) - goal))
+    # 心跳再过 0.4 s 才沿轨迹往西走，并且不越过目标。
+    walked = bridge.tracking_sample(1.6)
+    assert walked is not None
+    assert walked[0][0] >= -8.0 - 1e-6
+    assert walked[0][0] < jumped.p_enu[0] - 0.05
+    if not walked[4]:
+        assert walked[1][0] < 0.0
 
 
 def test_yopo_poses_cli_rewrites_a_layout_file(tmp_path):

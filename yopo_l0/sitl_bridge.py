@@ -263,6 +263,7 @@ class YopoSitlBridge:
         self._last_plan_s: float | None = None
         self._last_sample_s: float | None = None
         self._last_output: BridgeOutput | None = None
+        self._measured_enu: np.ndarray | None = None
         self.goal_hold = False
         self.last_observation: Observation | None = None
         self.plan_counts: dict[str, int] = {}
@@ -328,9 +329,8 @@ class YopoSitlBridge:
         stalled = gap >= STALL_S
         if stalled:
             # plan_from_reference 会用旧轨迹在 now 的点当下一拍的头。
-            # now 已经跳了 1 s 以上，等于把上一拍的轨迹提前飞完，再从目标后面接着规划。
-            # 先把参考头放回当前测量位置。新轨迹从飞机现在的位置长出来。
-            self._park_reference(now_s, p)
+            # now 已经跳了 1 s 以上，那个点飞机还没飞到。先把参考锚回测量状态。
+            self._anchor_reference(now_s, p, v)
         yaw = self._catch_up_yaw(now_s, p, yaw)
         planned = False
         if self._due(now_s):
@@ -345,10 +345,9 @@ class YopoSitlBridge:
             self._broadcast_samples = samples_from_pva(self._plan, now_s)
             self._last_plan_s = now_s
             planned = True
-        # 刚重规划的轨迹 t_start 就是 now。间隔里飞机本该飞过的那段，用 now+gap 采样，
-        # 而不是把上一拍的轨迹先快进到 now 再从那里采样。
-        sample_t = now_s + gap if stalled else now_s
-        p_ref, v_ref, a_ref, yaw_ref = self._plan.sample(sample_t)
+        # 这一拍用规划时刻 now。间隔里的点由心跳按仿真钟往前采样，不在这里把 1.2 s 一次走完。
+        p_ref, v_ref, a_ref, yaw_ref = self._plan.sample(now_s)
+        self._measured_enu = np.asarray(p, dtype=float).copy()
         self.goal_hold = False
         if stalled:
             p_ref, v_ref, a_ref, self.goal_hold = clamp_stalled_setpoint(
@@ -401,13 +400,24 @@ class YopoSitlBridge:
             return float(params["arrive_radius_m"])
         return 1.5
 
-    def _park_reference(self, now_s: float, position) -> None:
+    def _anchor_reference(self, now_s: float, position, velocity) -> None:
+        """把参考头放到测量位置和测量速度上，避免下一拍从旧轨迹的未来点接上。"""
         plan = getattr(self.policy, "plan_obj", None)
         if plan is None or not hasattr(plan, "traj"):
             return
-        from yopo_swarm_core.plan import hold_traj
+        from yopo_swarm_core.plan import quintic
+        from yopo_swarm_core.trajectory import PiecewisePolynomial
 
-        plan.traj = hold_traj(np.asarray(position, dtype=float).reshape(3), float(now_s) - 1.0, float(now_s) + 30.0)
+        p = np.asarray(position, dtype=float).reshape(3)
+        v = np.asarray(velocity, dtype=float).reshape(3)
+        head = np.array([p, v, np.zeros(3)])
+        end = np.array([p + v, v, np.zeros(3)])
+        plan.traj = PiecewisePolynomial(float(now_s), [quintic(head, end, 1.0)])
+
+    def tracking_sample(self, now_s: float):
+        """心跳用：轨迹在 ``now_s`` 的点。没有计划时是 None。不推进偏航。"""
+        measured = self.start_enu if self._measured_enu is None else self._measured_enu
+        return sample_plan_at(self._plan, now_s, measured, self.goal, self.start_enu, self._arrive_radius())
 
 
 class FakePx4Vehicle:
@@ -929,6 +939,21 @@ def apply_world_offset(decoded: dict, offset_enu) -> dict:
 STALL_S = 0.5
 
 
+def sample_plan_at(plan, now_s: float, measured, goal, start, radius: float):
+    """按规划时间戳取 ``plan.pva(now_s)``。
+
+    进入到达半径，或者这个点已经越过起点到目标的那一段，就改成目标点悬停。
+    不调用 ``plan.sample``：那个函数每调一次都按 physics_dt 推进一步偏航，
+    心跳 20 Hz 来读会把航向转快。返回 (position, velocity, acceleration, yaw, hold)。
+    """
+    if plan is None or not hasattr(plan, "pva"):
+        return None
+    p, v, a = plan.pva(float(now_s))
+    yaw = float(getattr(plan, "yaw", 0.0))
+    p, v, a, hold = clamp_stalled_setpoint(measured, p, v, a, goal, radius, start)
+    return p, v, a, yaw, hold
+
+
 def clamp_stalled_setpoint(position, setpoint, velocity, acceleration, goal, radius: float, start):
     """时间跳变时，不要把设定点发到目标后面。
 
@@ -1326,6 +1351,19 @@ class LiveFleetSession:
         self._last_now = now_s
         self._last_cmds = commands
         return list(commands)
+
+    def stream_local_setpoint(self, namespace: str, now_s: float) -> dict | None:
+        """PLAN 阶段心跳：按仿真钟采样当前轨迹，减回本地 NED。其他阶段返回 None。"""
+        for slot in self.slots:
+            if slot.ident["namespace"] != namespace or slot.phase != "PLAN":
+                continue
+            sample = slot.bridge.tracking_sample(now_s)
+            if sample is None:
+                return None
+            p, v, a, yaw, _hold = sample
+            world = trajectory_setpoint_ned(p, v, a, yaw, now_s)
+            return setpoint_to_local(world, slot.offset_enu)
+        return None
 
     def _exchange(self, decoded: dict[str, dict | None]) -> None:
         for slot in self.slots:

@@ -74,6 +74,25 @@ def hold_setpoint(setpoint: dict | None) -> dict | None:
     return held
 
 
+def streamed_setpoint(command, tracked: dict | None = None) -> tuple[dict | None, dict | None]:
+    """心跳发什么。
+
+    PLAN 阶段 ``tracked`` 是轨迹在当前仿真钟上的设定点，速度和加速度保留。
+    这口速度属于这一时刻，不是把 1 s 前的前馈再积一遍。
+    没有轨迹时，以及其他阶段，仍只守位置和航向。
+    """
+    if not getattr(command, "heartbeat", False):
+        return None, None
+    if tracked is None:
+        return offboard_stream(command)
+    mode = command.offboard
+    stamp = tracked.get("timestamp")
+    if mode is not None and stamp is not None:
+        mode = dict(mode)
+        mode["timestamp"] = stamp
+    return mode, tracked
+
+
 def offboard_stream(command) -> tuple[dict | None, dict | None]:
     """持续心跳只带 OffboardControlMode 和位置保持设定点。
 
@@ -316,12 +335,20 @@ def _run_ros(args, card, positioning: str) -> int:  # pragma: no cover - 需要 
 
     def publish_stream() -> None:
         # 规划（场景卡相机 + 网络）会占住主循环超过 COM_OF_LOSS_T。
-        # 这条线只重复上一拍的位置和航向，速度前馈清零，也不重复 VehicleCommand。
+        # PLAN 阶段按仿真钟沿当前轨迹往前采样，速度是这一时刻的前馈。
+        # 其他阶段只重复位置和航向。解锁、降落不在这里重发。
         while not stop.is_set():
+            with lock:
+                t_sim = sim["t"]
+            origin = clock.origin
+            elapsed = None if t_sim is None or origin is None else float(t_sim) - float(origin)
             with stream_lock:
                 commands = list(streamed["commands"])
             for command in commands:
-                mode, setpoint = offboard_stream(command)
+                tracked = None
+                if elapsed is not None and getattr(command, "phase", "") == "PLAN":
+                    tracked = session.stream_local_setpoint(command.namespace, elapsed)
+                mode, setpoint = streamed_setpoint(command, tracked)
                 pub = pubs[command.namespace]
                 if mode is not None:
                     pub["ocm"].publish(_fill(OffboardControlMode(), mode))
