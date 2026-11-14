@@ -64,7 +64,15 @@ def escape_cell(value: str) -> str:
     return value.replace("|", r"\|").replace("\n", " ")
 
 
-def render(results_dir: Path) -> str:
+def research_ticket_from_name(name: str) -> str:
+    # Research tickets are either a letter/number component (d2b, p1) or an
+    # E-series prefix plus that component (e-a1, e-c5b).  Descriptive names
+    # such as ego-swarm-* and e-combo-* intentionally do not infer a ticket.
+    match = re.match(r"(?i)^((?:e-)?[a-z]\d+[a-z]*)(?:-|\.)", name)
+    return match.group(1).lower() if match else ""
+
+
+def render(results_dir: Path, *, research: bool = False) -> str:
     rows: list[tuple[str, str, str, str]] = []
     files = sorted(
         (*results_dir.glob("*.md"), *results_dir.glob("*.json")),
@@ -80,12 +88,17 @@ def render(results_dir: Path) -> str:
         else:
             parsed = json.loads(text)
             title = json_title(parsed)
-        rows.append((path.name, ticket_from_name(path.name), title, marker(parsed)))
+        ticket = research_ticket_from_name(path.name) if research else ticket_from_name(path.name)
+        rows.append((path.name, ticket, title, marker(parsed)))
 
     lines = [
-        "# 结果目录索引",
+        "# 研究目录索引" if research else "# 结果目录索引",
         "",
-        "<!-- 由 scripts/results_index.py 生成；请勿手工编辑。 -->",
+        (
+            "<!-- 由 scripts/research_index.py 生成；请勿手工编辑。 -->"
+            if research
+            else "<!-- 由 scripts/results_index.py 生成；请勿手工编辑。 -->"
+        ),
         "",
         "| 文件名 | 票号 | 标题首行 | report-only / 冻结标记 |",
         "|---|---|---|---|",
@@ -97,10 +110,11 @@ def render(results_dir: Path) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=DEFAULT_RESULTS, help="results directory")
+    parser.add_argument("--research", action="store_true", help="use research index headings and ticket IDs")
     parser.add_argument("--check", action="store_true", help="fail if INDEX.md is absent or stale")
     args = parser.parse_args(argv)
 
-    expected = render(args.root)
+    expected = render(args.root, research=args.research)
     index = args.root / "INDEX.md"
     if args.check:
         if not index.is_file() or index.read_text(encoding="utf-8") != expected:
