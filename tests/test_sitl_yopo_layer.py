@@ -280,11 +280,40 @@ def test_run_checks_tag_before_start_and_prefers_layer(tmp_path):
     assert started.returncode == 0, started.stderr + started.stdout
     assert "run_dir " in started.stdout
     run_lines = [line for line in log.read_text().splitlines() if line.startswith("run ")]
-    assert len(run_lines) == 1
-    assert _yopo_image() in run_lines[0]
-    assert _base_image() not in run_lines[0]
-    assert "in_container.sh" in run_lines[0]
+    mission = [line for line in run_lines if "in_container.sh" in line]
+    assert len(mission) == 1
+    assert _yopo_image() in mission[0]
+    assert _base_image() not in mission[0]
+    assert "GIT_CONFIG_COUNT=1" in mission[0]
+    assert "GIT_CONFIG_KEY_0=safe.directory" in mission[0]
+    assert "GIT_CONFIG_VALUE_0=*" in mission[0]
+    chown = [line for line in run_lines if " chown " in line and "/out" in line]
+    assert len(chown) == 1
     assert _build_lines(log) == []
+
+
+def test_docker_run_mounts_readonly_cache_with_safe_directory(tmp_path):
+    bin_dir, log = _install_docker(tmp_path, [])
+    env = _env(tmp_path, bin_dir)
+    cache = tmp_path / "home" / ".cache" / "yopo-swarm"
+    cache.mkdir(parents=True)
+    (tmp_path / "inspect-ok.txt").write_text(_yopo_image() + "\n")
+    script = str(SITL / "run_yopo_l0_sitl.sh")
+    started = _run(["bash", script, "--n", "3", "--positioning", "rtk"], env)
+    assert started.returncode == 0, started.stderr + started.stdout
+    run_lines = [line for line in log.read_text().splitlines() if line.startswith("run ")]
+    mission = [line for line in run_lines if "in_container.sh" in line]
+    assert len(mission) == 1
+    line = mission[0]
+    assert f"{cache}:/yopo-cache:ro" in line
+    assert "YOPO_SWARM_CACHE=/yopo-cache" in line
+    assert "GIT_CONFIG_COUNT=1" in line
+    assert "GIT_CONFIG_KEY_0=safe.directory" in line
+    assert "GIT_CONFIG_VALUE_0=*" in line
+    assert ":/yopo-cache:rw" not in line
+    assert "param set" not in line
+    exec_lines = [row for row in log.read_text().splitlines() if row.startswith("exec ")]
+    assert exec_lines == []
 
 
 def test_research_note_says_layer_is_offline():
