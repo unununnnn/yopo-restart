@@ -1325,6 +1325,17 @@ class _LiveSlot:
         self.formation_sampler = None
 
 
+
+def _formation_plan_code(fleet, drone_id: str) -> str | None:
+    """还没 track 过的机在 result() 里没有 last_record，不能抛 KeyError。"""
+    if fleet is None:
+        return None
+    last = getattr(fleet, "_last_rec", None)
+    if not isinstance(last, dict) or drone_id not in last:
+        return None
+    return fleet.code(drone_id)
+
+
 class LiveFleetSession:
     """容器侧状态机：预热、解锁、起飞、按桥规划、全体到达后 NAV_LAND。
 
@@ -1841,7 +1852,7 @@ class LiveFleetSession:
                     "position_enu": None if slot.position is None else _vec_list(slot.position),
                     "depth_source": slot.depth_source,
                     "plans": int(sum(slot.bridge.plan_counts.values())),
-                    "plan_code": None if self.fleet is None else self.fleet.code(slot.bridge.drone_id),
+                    "plan_code": _formation_plan_code(self.fleet, slot.bridge.drone_id),
                     "trace": list(slot.trace),
                 }
             )

@@ -177,6 +177,14 @@ def test_formation_commands_follow_the_committed_schedule_on_the_inprocess_bus()
     assert FormationFleet.transport_override is None
 
 
+def test_result_before_first_plan_has_no_plan_code():
+    session = _session()
+    result = session.result()
+    assert result["outcome"] == "RUNNING"
+    assert all(drone["plan_code"] is None for drone in result["drones"])
+    assert all(drone["id"] in ("uav0", "uav1", "uav2") for drone in result["drones"])
+
+
 def test_fake_px4_tracks_the_straight_segment_without_closing_the_gap():
     session = _session()
     vehicles = [FakePx4Vehicle(np.array([0.0, 0.0, 1.5])) for _ in session.slots]
