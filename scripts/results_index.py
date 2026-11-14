@@ -111,13 +111,25 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=DEFAULT_RESULTS, help="results directory")
     parser.add_argument("--research", action="store_true", help="use research index headings and ticket IDs")
-    parser.add_argument("--check", action="store_true", help="fail if INDEX.md is absent or stale")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--check", action="store_true", help="fail if INDEX.md is absent or stale")
+    mode.add_argument(
+        "--hint",
+        action="store_true",
+        help="warn, without failing, if INDEX.md is absent or stale",
+    )
     args = parser.parse_args(argv)
 
     expected = render(args.root, research=args.research)
     index = args.root / "INDEX.md"
-    if args.check:
+    if args.check or args.hint:
         if not index.is_file() or index.read_text(encoding="utf-8") != expected:
+            if args.hint:
+                print(
+                    f"warning: index is missing or stale: {index} (this does not block merging)",
+                    file=sys.stderr,
+                )
+                return 0
             print(f"results index is missing or stale: {index}", file=sys.stderr)
             return 1
         return 0
