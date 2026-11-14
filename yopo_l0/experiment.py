@@ -53,7 +53,13 @@ def run_completion_jobs(specs: Sequence[T], worker: Callable[[T], R], jobs: int)
 def write_json(path: Path, payload: object) -> None:
     """Write canonical experiment JSON: UTF-8, indented, with a final newline."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    path.write_text(json_text(payload), encoding="utf-8")
+
+
+def json_text(payload: object, *, indent: int | None = 2, final_newline: bool = True) -> str:
+    """Render JSON while allowing legacy scripts to retain their exact indentation."""
+    text = json.dumps(payload, ensure_ascii=False, indent=indent)
+    return text + ("\n" if final_newline else "")
 
 
 def markdown_table(header: str, separator: str, rows: Sequence[str]) -> str:
