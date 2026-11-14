@@ -33,6 +33,14 @@ SWAP = ROOT / "scenes/swap-3-open.json"
 G2 = ROOT / "scenes/g2-pillar.json"
 
 
+def _load_live():
+    spec = importlib.util.spec_from_file_location("sitl_s4e_yopo_l0_live", SITL / "yopo_l0_live.py")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def _fleet():
     spec = importlib.util.spec_from_file_location("sitl_s4e_fleet", SITL / "fleet.py")
     mod = importlib.util.module_from_spec(spec)
@@ -285,6 +293,66 @@ def test_scene_card_spawn_replaces_the_s2_line_without_changing_the_default():
     assert "yopo-poses" in container
     assert 'fleet.py --n "$N" --format shell' in container
     subprocess.run(["bash", "-n", str(SITL / "in_container.sh")], check=True)
+
+
+def test_diagonal_spawn_offset_roundtrips_through_ned_without_swapping_axes():
+    """uav1 的起点不在坐标轴上。偏置减错轴的话，本地目标不会落在直径对侧。"""
+    offset = np.array([-4.0, 6.928203230275509, 0.0])
+    goal = np.array([4.0, -6.928203230275509, 1.5])
+    local_enu = goal - offset
+    assert local_enu == pytest.approx([8.0, -13.856406460551018, 1.5])
+    setpoint = {
+        "position": [float(x) for x in px4.enu_to_ned(goal)],
+        "velocity": [0.0, 1.0, 0.0],
+        "acceleration": [0.0, 0.0, 0.0],
+        "yaw": px4.yaw_enu_to_ned(0.0),
+    }
+    local = setpoint_to_local(setpoint, offset)
+    assert local["position"] == pytest.approx([float(x) for x in px4.enu_to_ned(local_enu)])
+    assert local["velocity"] == [0.0, 1.0, 0.0]
+    assert local["yaw"] == pytest.approx(math.pi / 2.0)
+    # 生成点只写 x,y。不在 PX4_GZ_MODEL_POSE 里再塞一个 yaw，避免和里程计航向叠一次。
+    fleet = _fleet()
+    rewritten = fleet.apply_scene_spawn_poses(fleet.format_shell(3), SWAP, 3)
+    poses = [line.split("=", 1)[1] for line in rewritten.splitlines() if line.startswith("pose=")]
+    assert poses
+    assert all(pose.count(",") == 1 for pose in poses)
+
+
+def test_mission_clock_ignores_gazebo_boot_time():
+    live = _load_live()
+    clock = live.MissionClock(40.0)
+    assert clock.elapsed(23.0) == pytest.approx(0.0)
+    assert clock.expired(40.0) is False
+    assert clock.elapsed(42.78) == pytest.approx(19.78)
+    assert clock.expired(63.0) is False
+    assert clock.elapsed(63.1) == pytest.approx(40.1)
+    assert clock.expired(63.1) is True
+    assert clock.origin == pytest.approx(23.0)
+    with pytest.raises(ValueError):
+        live.MissionClock(0.0)
+
+
+def test_offboard_stream_repeats_setpoints_but_not_vehicle_commands():
+    live = _load_live()
+    assert live.SETPOINT_PERIOD_S == pytest.approx(0.05)
+    assert live.SETPOINT_PERIOD_S < 1.0
+
+    class _Cmd:
+        def __init__(self, heartbeat, offboard, setpoint):
+            self.heartbeat = heartbeat
+            self.offboard = offboard
+            self.setpoint = setpoint
+            self.vehicle_commands = ({"command": 21},)
+
+    mode, setpoint = live.offboard_stream(_Cmd(True, {"mode": 1}, {"position": [0.0, 1.0, -1.5]}))
+    assert mode == {"mode": 1}
+    assert setpoint["position"] == [0.0, 1.0, -1.5]
+    assert live.offboard_stream(_Cmd(False, {"mode": 1}, {"position": [1.0, 0.0, 0.0]})) == (None, None)
+    text = (SITL / "yopo_l0_live.py").read_text()
+    assert "offboard_stream(command)" in text
+    assert "MissionClock(max_s)" in text
+    assert "sitl-battery.env" not in text
 
 
 def test_yopo_poses_cli_rewrites_a_layout_file(tmp_path):

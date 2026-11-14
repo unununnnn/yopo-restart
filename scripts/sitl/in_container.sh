@@ -64,6 +64,14 @@ case "$PLANNER" in
   offboard|yopo-l0) ;;
   *) echo "未知 YOPO_SITL_PLANNER=$PLANNER（只要 offboard 或 yopo-l0）" >&2; exit 2 ;;
 esac
+if [[ "$PLANNER" == "yopo-l0" ]]; then
+  # 只在 YOPO 实飞注入。参数都在 PX4 的 SITL 组，不改 COM_ / NAV_ / BAT_ 安全默认值。
+  # shellcheck disable=SC1091
+  set -a
+  # shellcheck disable=SC1091
+  . /repo/scripts/sitl/sitl-battery.env
+  set +a
+fi
 python3 /repo/scripts/sitl/fleet.py layout --n "$N" --mission "$MISSION_MODE" --format json >/dev/null
 
 run_yopo_l0() {

@@ -32,6 +32,42 @@ from yopo_l0.sitl_bridge import (
 _REPO = Path(__file__).resolve().parents[2]
 ARMING_STATE_ARMED = 2
 NAV_STATE_OFFBOARD = 14
+# PX4 v1.17 ``COM_OF_LOSS_T`` 默认 1 s。规划一步会堵住主循环，设定点要在这段时间里继续发。
+SETPOINT_PERIOD_S = 0.05
+
+
+class MissionClock:
+    """任务时间从第一次拿到仿真钟开始。
+
+    Gazebo ``/clock`` 是开机以来的绝对时间。PX4 启动先走掉二十多秒，
+    再拿它和场景卡 ``duration_s`` 比较，会话里实际飞不够这个时长。
+    """
+
+    def __init__(self, max_s: float):
+        limit = float(max_s)
+        if not limit > 0.0:
+            raise ValueError(f"max_s 必须为正，收到 {max_s!r}")
+        self.max_s = limit
+        self.origin: float | None = None
+
+    def elapsed(self, t_sim: float) -> float:
+        t = float(t_sim)
+        if self.origin is None:
+            self.origin = t
+        return t - self.origin
+
+    def expired(self, t_sim: float) -> bool:
+        return self.elapsed(t_sim) > self.max_s
+
+
+def offboard_stream(command) -> tuple[dict | None, dict | None]:
+    """持续心跳只带 OffboardControlMode 和 TrajectorySetpoint。
+
+    解锁、降落这类 VehicleCommand 不在这里重复发。
+    """
+    if not getattr(command, "heartbeat", False):
+        return None, None
+    return command.offboard, command.setpoint
 
 
 class PreflightLatch:
@@ -256,10 +292,30 @@ def _run_ros(args, card, positioning: str) -> int:  # pragma: no cover - 需要 
         )
 
     wall0 = time.monotonic()
-    last_step = None
+    last_elapsed = None
     physics_dt = float(session.slots[0].bridge.cfg.physics_dt)
     failure = ""
     preflight = PreflightLatch(args.preflight_timeout)
+    clock = MissionClock(max_s)
+    streamed = {"commands": []}
+    stream_lock = threading.Lock()
+
+    def publish_stream() -> None:
+        # 规划（场景卡相机 + 网络）会占住主循环超过 COM_OF_LOSS_T。
+        # 这条线只重复上一拍的 offboard 心跳，不重复 VehicleCommand。
+        while not stop.is_set():
+            with stream_lock:
+                commands = list(streamed["commands"])
+            for command in commands:
+                mode, setpoint = offboard_stream(command)
+                pub = pubs[command.namespace]
+                if mode is not None:
+                    pub["ocm"].publish(_fill(OffboardControlMode(), mode))
+                if setpoint is not None:
+                    pub["sp"].publish(_fill(TrajectorySetpoint(), setpoint))
+            stop.wait(SETPOINT_PERIOD_S)
+
+    threading.Thread(target=publish_stream, daemon=True).start()
     try:
         while True:
             rclpy.spin_once(node, timeout_sec=0.02)
@@ -279,29 +335,29 @@ def _run_ros(args, card, positioning: str) -> int:  # pragma: no cover - 需要 
             if t_sim is None:
                 present = next((box for box in boxes.values() if box is not None), None)
                 if present is None:
-                    if last_step is None:
+                    if last_elapsed is None:
                         time.sleep(0.02)
                         continue
-                    t_sim = last_step
+                    elapsed = last_elapsed
                 else:
-                    t_sim = float(present.odometry.timestamp) * 1e-6
-            if t_sim > max_s and session.result()["outcome"] == "RUNNING":
+                    elapsed = clock.elapsed(float(present.odometry.timestamp) * 1e-6)
+            else:
+                elapsed = clock.elapsed(float(t_sim))
+            if elapsed > max_s and session.result()["outcome"] == "RUNNING":
                 failure = f"MAX_S {max_s}"
                 break
-            fresh = last_step is None or float(t_sim) + 1e-9 >= float(last_step) + physics_dt
+            fresh = last_elapsed is None or float(elapsed) + 1e-9 >= float(last_elapsed) + physics_dt
             if fresh:
-                commands = session.step(float(t_sim), boxes)
-                last_step = float(t_sim)
+                commands = session.step(float(elapsed), boxes)
+                last_elapsed = float(elapsed)
             else:
                 # 仿真时钟还没走到下一拍时，只重复上一拍的心跳和设定点，避免把解锁/降落再发一遍。
-                commands = session.step(float(last_step), boxes)
+                commands = session.step(float(last_elapsed), boxes)
+            with stream_lock:
+                streamed["commands"] = list(commands)
             for command in commands:
-                pub = pubs[command.namespace]
-                if command.heartbeat and command.offboard is not None:
-                    pub["ocm"].publish(_fill(OffboardControlMode(), command.offboard))
-                if command.setpoint is not None:
-                    pub["sp"].publish(_fill(TrajectorySetpoint(), command.setpoint))
                 if fresh:
+                    pub = pubs[command.namespace]
                     for fields in command.vehicle_commands:
                         pub["cmd"].publish(_fill(VehicleCommand(), fields))
             snapshot = session.result()
@@ -320,6 +376,7 @@ def _run_ros(args, card, positioning: str) -> int:  # pragma: no cover - 需要 
         payload["reason"] = failure
         payload["ok"] = False
     payload["positioning"] = positioning
+    payload["mission_t0_s"] = clock.origin
     _write(args.out, payload)
     return outcome_exit_code(payload)
 
