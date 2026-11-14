@@ -26,6 +26,8 @@
 | d6b-pipeline.md | d6b | D6b：1.0 m 与 1.5 m 教师混合转换、训练、双高度评测 | report-only、冻结 |
 | d6c-diagnosis-runs.json | d6c | report-only。小权重是仓库样本上现训的，不是 D6b 的 student.pt。参考轨迹替换的是 predict，StudentPolicy.plan 的接口分支没有改。不修改 StudentPolicy.DEFAULTS，不改场景卡文件。 | report-only |
 | d6c-diagnosis.md | d6c | D6c：D6b 学生闭环失败归因（只报数） | report-only |
+| d6d-no-start-samples-runs.json | d6d | 票 D6d：样本规模上去掉起步零位移窗的闭环对照 | report-only |
+| d6d-no-start-samples.md | d6d | 票 D6d：去掉起步零位移样本（只报数） | report-only |
 | e-a1-inter-drone-filter.md | e-a1 | 票 E-A1：机间过滤开关，默认关 | report-only、冻结 |
 | e-a2-inter-soft-yield-runs.json | e-a2 | 只报数。report-only。不改默认 inter_drone_soft_yield false、empty_brake false、track_clearance false。四档都打开 E-A1（阈值 1.0 m、惩罚 0）和 empty_brake；geom 两档再打开 track_clearance mode=geom、margin 0.08 m。全部偏离上游。soft_yield 默认关。hard_min_m 0.75 m 高于 0.70 m 机间碰撞球。这是假设，不是论文复现（障碍半径 0.20 m，边长 20.0 m）。未冻结，不进 scenes/suite.txt，不设 gates。 | report-only |
 | e-a2-inter-soft-yield.md | e-a2 | 票 E-A2：机间过滤防死锁软让行，默认关 | report-only、冻结 |
