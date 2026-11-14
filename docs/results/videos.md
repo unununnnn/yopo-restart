@@ -5,7 +5,7 @@
 
 | 项 | 值 |
 |---|---|
-| 代码 commit | `f60f0086be6d2f142736edb9063c75de16dc5b21` |
+| 代码 commit | `5524cab42584ea54df54bbf38fc77e26117066dd` |
 | 层级 | L0 |
 | seed | 0 |
 | 播放时长上限 | 60 s |
@@ -13,12 +13,12 @@
 
 | 文件 | 时长 s | 大小 | 场景 | commit |
 |---|---|---|---|---|
-| `M0-g2-pillar-upstream-seed0.mp4` | 5.20 | 34.7 KiB | scenes/g2-pillar.json@upstream | `f60f0086be6d2f142736edb9063c75de16dc5b21` |
-| `M1-formation-hold-seed0.mp4` | 19.60 | 73.4 KiB | scenes/formation-hold.json@formation | `f60f0086be6d2f142736edb9063c75de16dc5b21` |
-| `M2-crossing-pillars-seed0.mp4` | 8.00 | 55.0 KiB | scenes/crossing-pillars.json@crossing | `f60f0086be6d2f142736edb9063c75de16dc5b21` |
-| `M2-crossing-forest-medium-seed0.mp4` | 24.30 | 94.0 KiB | scenes/crossing-forest.json@crossing | `f60f0086be6d2f142736edb9063c75de16dc5b21` |
-| `M3-formation-switch-seed0.mp4` | 28.00 | 116.0 KiB | scenes/formation-switch.json@switch | `f60f0086be6d2f142736edb9063c75de16dc5b21` |
-| `M4-formation-6-open-seed0.mp4` | 21.10 | 95.6 KiB | scenes/formation-6-open.json@formation | `f60f0086be6d2f142736edb9063c75de16dc5b21` |
-| `M4-crossing-6-forest-seed0.mp4` | 27.10 | 181.7 KiB | scenes/crossing-6-forest.json@crossing | `f60f0086be6d2f142736edb9063c75de16dc5b21` |
+| `M0-g2-pillar-upstream-seed0.mp4` | 5.20 | 34.7 KiB | scenes/g2-pillar.json@upstream | `5524cab42584ea54df54bbf38fc77e26117066dd` |
+| `M1-formation-hold-seed0.mp4` | 19.60 | 73.4 KiB | scenes/formation-hold.json@formation | `5524cab42584ea54df54bbf38fc77e26117066dd` |
+| `M2-crossing-pillars-seed0.mp4` | 8.00 | 55.0 KiB | scenes/crossing-pillars.json@crossing | `5524cab42584ea54df54bbf38fc77e26117066dd` |
+| `M2-crossing-forest-medium-seed0.mp4` | 24.30 | 93.9 KiB | scenes/crossing-forest.json@crossing | `5524cab42584ea54df54bbf38fc77e26117066dd` |
+| `M3-formation-switch-seed0.mp4` | 28.00 | 116.1 KiB | scenes/formation-switch.json@switch | `5524cab42584ea54df54bbf38fc77e26117066dd` |
+| `M4-formation-6-open-seed0.mp4` | 21.10 | 95.6 KiB | scenes/formation-6-open.json@formation | `5524cab42584ea54df54bbf38fc77e26117066dd` |
+| `M4-crossing-6-forest-seed0.mp4` | 27.10 | 181.5 KiB | scenes/crossing-6-forest.json@crossing | `5524cab42584ea54df54bbf38fc77e26117066dd` |
 
 每条都是 seed 0、层级 L0。M2、M4 各有两张场景卡，各渲一条。

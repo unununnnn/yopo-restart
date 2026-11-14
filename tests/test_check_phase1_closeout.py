@@ -388,11 +388,24 @@ def test_current_main_static_check():
             break
         if in_table and line.startswith("| M"):
             cited.append(line)
-    stale_lines = [line for line in cited if "f5985e4" in line]
-    assert stale_lines
-    assert len(report["summary_rows_on_old_commit"]) == len(stale_lines)
-    assert all(row["matches_stale_example"] for row in report["summary_rows_on_old_commit"])
-    assert all(row["hash_matches_current"] for row in report["summary_rows_on_old_commit"])
+    assert cited
+    # 基准提交从 SUMMARY.json 读，不写死某个提交号；总表每行都要引用它。
+    summary = json.loads((ROOT / "docs/results/SUMMARY.json").read_text(encoding="utf-8"))
+    base = summary["commit"]
+    assert len(base) == 40 and int(base, 16) >= 0
+    for line in cited:
+        cell = line.split("|")[7].strip().strip("`")
+        assert len(cell) >= 7 and base.startswith(cell), line
+    old_rows = report["summary_rows_on_old_commit"]
+    if MOD._commit_is_head(base, report["head"]):
+        assert old_rows == []
+        assert "commits-current" in _ids(report, "passed")
+    else:
+        # 结果提交之后只合了文档或脚本时，HEAD 会领先基准提交：只记待刷新，场景卡哈希须仍一致。
+        assert len(old_rows) == len(cited)
+        assert all(base.startswith(row["commit"]) for row in old_rows)
+        assert all(row["hash_matches_current"] for row in old_rows)
+        assert "stale-commits" in _ids(report, "refresh")
     phase2 = " ".join(item["title"] + item["detail"] for item in report["phase2"])
     assert "SITL" in phase2 and "蒸馏" in phase2
     arms = next(item for item in report["phase2"] if item["id"] == "research-arms")
