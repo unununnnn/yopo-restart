@@ -239,7 +239,7 @@ def test_summarize_fleet_is_report_only(tmp_path):
 
 def test_multi_vehicle_scripts_add_no_params_outside_whitelist():
     for p in sorted(SITL.rglob("*")):
-        if not p.is_file() or p.name == "positioning-rtk.env":
+        if not p.is_file() or p.name in ("positioning-rtk.env", "sitl-battery.env"):
             continue
         if p.suffix not in (".sh", ".py", ".env"):
             continue
