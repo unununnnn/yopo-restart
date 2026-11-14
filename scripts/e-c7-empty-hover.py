@@ -1417,8 +1417,10 @@ def _check() -> int:
     blob = watched[f"scenes/{GEOM_NAME}"]
     if hashlib.sha256(blob).hexdigest() != GEOM_SHA256:
         raise SystemExit(f"{GEOM_NAME} sha256 变了")
-    # E-A2 的正式开关也叫 soft_yield。这里只拦本票的探针名，不拦那个开关。
-    if PROBE_KEY.encode() in watched["yopo_l0/inter_drone.py"] or b"ec7_" in watched["yopo_l0/policy.py"]:
+    # 只认本票探针自己的名字。E-A2 已在 inter_drone.py 里合入 ``inter_drone_soft_yield`` 开关，
+    # 和 ``_soft_yield_pick``，裸 "soft_yield" 会把它误判成探针（票 L0-DET 查到 main 上这条检查必挂）。
+    probe_marks = (b"ec7_", b"def soft_yield_pick(")
+    if any(m in watched[f] for m in probe_marks for f in ("yopo_l0/inter_drone.py", "yopo_l0/policy.py")):
         raise SystemExit("inter_drone.py 或 policy.py 被写进了本票的探针")
     from yopo_l0.policy import read_empty_brake, read_track_clearance
 

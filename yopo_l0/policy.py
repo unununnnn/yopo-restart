@@ -142,6 +142,8 @@ def read_empty_brake(params: dict | None) -> bool:
 TRACK_CLEARANCE_MODES = ("pred", "geom", "geom_multi")
 TRACK_MARGIN_DEFAULT_M = 0.08
 TRACK_BODY_RADIUS_M = 0.35
+# E-C5d：地面净空。0.43 = 机体半径 0.35 + 与 track_margin 相同的 0.08。默认关。
+GROUND_GUARD_CLEARANCE_M = 0.43
 # 与 geom_fallback.SAMPLE_DT_S 相同。参考只在这些采样点上量表面净空，不取连续最小值。
 TRACK_SAMPLE_DT_S = 0.02
 
@@ -189,6 +191,38 @@ def read_track_body_radius_m(params: dict | None) -> float:
     if not math.isfinite(value) or value <= 0.0:
         raise ValueError(f"track_body_radius_m 必须为正，收到 {raw!r}")
     return value
+
+
+def read_ground_guard(params: dict | None) -> bool:
+    """E-C5d：`policy_params.upstream.ground_guard`。缺省 false。非布尔值报错。"""
+    raw = _upstream_block(params).get("ground_guard", False)
+    if raw is not True and raw is not False:
+        raise ValueError(f"ground_guard 必须是布尔值，收到 {raw!r}")
+    return raw
+
+
+def read_ground_guard_clearance_m(params: dict | None) -> float:
+    """相对地面的中心高度下限。缺省 0.43 m。非正、非有限、布尔值报错。"""
+    raw = _upstream_block(params).get("ground_guard_clearance_m", GROUND_GUARD_CLEARANCE_M)
+    if isinstance(raw, bool) or isinstance(raw, (str, bytes)) or raw is None:
+        raise ValueError(f"ground_guard_clearance_m 必须为正实数，收到 {raw!r}")
+    try:
+        value = float(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"ground_guard_clearance_m 必须为正实数，收到 {raw!r}") from exc
+    if not math.isfinite(value) or value <= 0.0:
+        raise ValueError(f"ground_guard_clearance_m 必须为正，收到 {raw!r}")
+    return value
+
+
+def _ground_safe_z(obstacles, clearance: float) -> float | None:
+    """最高的 Ground 再加净空。没有 Ground 就返回 None，闸门不生效。"""
+    from .scene import Ground
+
+    zs = [float(ob.z) for ob in obstacles if isinstance(ob, Ground)]
+    if not zs:
+        return None
+    return max(zs) + float(clearance)
 
 
 def track_clearance_wants_neighbors(params: dict | None) -> bool:
@@ -297,6 +331,11 @@ class UpstreamPolicy:
         本拍广播要到下一拍规划才进来，这一拍不启几何门。
       与 E-A1 的顺序：先走廊准入，再几何净空，得到的可行集才交给 `_apply_inter`。
       几何门滤空，或邻机过滤再滤空，都进 `CORRIDOR_EMPTY_HOVER`（empty_brake 开着则从参考头刹停）。
+    - ground_guard（E-C5d，默认 false）：地面净空闸门。关掉时不读 Ground、不改候选、不改无解分支。
+      打开且场景里有 Ground 才生效（偏离上游）：`safe_z = max(Ground.z) + ground_guard_clearance_m`（缺省 0.43 m）。
+      候选采样最低点要 ≥ safe_z；真值已经低于 safe_z 时只留净上升、末点高于 safe_z 或高于
+      `max(真值 z, 参考头 z) + 0.02` 的候选，否则当无解。无解且 empty_brake 开着走
+      `ground_safe_brake_from_head`；empty_brake 关着且真值或参考头低于 safe_z 时，从该状态五次拉到 safe_z 悬停。
     - arrive_radius_m / arrive_mode：上游进入到达半径（上游 5 m）后停止重规划，`hold_here` 原地保持（上游原样）。
       上游网络不会在目标点减速停住（训练目标是远处目标，goal 截断到 10 m），按 G2 oracle 0.4 m / 0.2 m/s / 1 s
       判到达时几乎总是绕圈超时，所以加一条项目终端规则 `stop_at_goal`：进入半径后用一段五次多项式从期望状态
@@ -344,6 +383,13 @@ class UpstreamPolicy:
             self._track_body = read_track_body_radius_m(ctx.params)
             if self._track_mode in ("geom", "geom_multi"):
                 self._track_index = _ObstacleIndex(ctx.obstacles)
+        # E-C5d：默认关。关时不读 Ground，下面的高度只是占位。
+        self._ground_guard = read_ground_guard(ctx.params)
+        self._ground_clearance = GROUND_GUARD_CLEARANCE_M
+        self._safe_z: float | None = None
+        if self._ground_guard:
+            self._ground_clearance = read_ground_guard_clearance_m(ctx.params)
+            self._safe_z = _ground_safe_z(ctx.obstacles, self._ground_clearance)
         self._neighbors: dict[str, np.ndarray] = {}
         self._inter_filtered = 0
         self._inter_penalized = 0
@@ -401,6 +447,10 @@ class UpstreamPolicy:
             action, brake, geom_ok = self._apply_track_geom(
                 score, radius, dec, now, head, tail_w, inner_w, durations
             )
+        if not brake and self._ground_active():
+            action, brake, geom_ok = self._apply_ground_guard(
+                score, radius, dec, now, head, tail_w, inner_w, durations, s, geom_ok
+            )
         if not brake and self._inter is not None and self._neighbors:
             action, brake = self._apply_inter(
                 score, radius, dec, now, head, tail_w, inner_w, durations, action, brake, geom_ok=geom_ok
@@ -409,7 +459,9 @@ class UpstreamPolicy:
             # SPEC：无准入候选时本帧悬停（停在当前位置），下帧照常重规划
             self.last_code = "CORRIDOR_EMPTY_HOVER"
             traj = None
-            if self._empty_brake:
+            if self._ground_active():
+                traj = self._ground_empty_motion(head, s, now)
+            elif self._empty_brake:
                 # E-B4b（偏离上游）：不把参考拽回当前位置，从参考头按 a_max 刹停（与 D1 回退同一个函数）。
                 from .geom_fallback import brake_from_head
 
@@ -433,6 +485,102 @@ class UpstreamPolicy:
         out, rec = refine_yopo(traj, self._backend, self._obstacles, goal, neighbors=neighbors)
         self.backend_log.append(rec)
         return out
+
+    def _ground_active(self) -> bool:
+        """闸门关，或场景里没有 Ground，都不改这一帧。"""
+        return self._safe_z is not None
+
+    def _ground_empty_motion(self, head, s, now):
+        """无解时的地面保护。高度已经够、又没开 empty_brake，就交给原来的原地悬停。"""
+        from yopo_swarm_core.plan import hold_traj
+
+        safe_z = float(self._safe_z)
+        if self._empty_brake:
+            from .geom_fallback import ground_safe_brake_from_head
+
+            traj = ground_safe_brake_from_head(head, now, float(self.ctx.a_max), safe_z)
+            if traj is None:
+                traj = hold_traj(np.asarray(head[0], dtype=float), now, now + 1e-3)
+            return traj
+        if float(s.p[2]) < safe_z or float(head[0][2]) < safe_z:
+            return self._ground_lift_hover(s, head, now, safe_z)
+        return None
+
+    def _ground_lift_hover(self, s, head, now, safe_z: float):
+        """贴地时不在当前位置悬停，从真值（或更低的参考头）五次拉到 safe_z。"""
+        from .geom_fallback import ground_safe_brake_from_head
+
+        if float(s.p[2]) < safe_z:
+            start = np.vstack(
+                [
+                    np.asarray(s.p, dtype=float).reshape(3),
+                    np.asarray(s.v, dtype=float).reshape(3),
+                    np.asarray(s.a, dtype=float).reshape(3),
+                ]
+            )
+        else:
+            start = np.asarray(head, dtype=float).reshape(3, 3)
+        traj = ground_safe_brake_from_head(start, now, float(self.ctx.a_max), safe_z)
+        if traj is not None:
+            return traj
+        from yopo_swarm_core.plan import quintic
+        from yopo_swarm_core.trajectory import PiecewisePolynomial
+
+        end_p = start[0].copy()
+        end_p[2] = float(safe_z)
+        end = np.vstack([end_p, np.zeros(3), np.zeros(3)])
+        return PiecewisePolynomial(float(now), [quintic(start, end, 0.5)])
+
+    def _apply_ground_guard(self, score, radius, dec, now, head, tail_w, inner_w, durations, state, geom_ok):
+        """候选最低点不得低于 safe_z。贴地恢复时改看净上升。没有合格的就当无解。"""
+        from yopo_swarm_core.candidates import corridor_mu_lo, minco_two_piece, rank_candidates
+
+        safe_z = float(self._safe_z)
+        ranking = rank_candidates(np.asarray(score), radius, dec)
+        n = int(np.asarray(score).shape[0])
+        ground_ok = np.zeros(n, dtype=bool)
+        if ranking.corridor_empty:
+            fallback = int(np.argmax(np.asarray(score)))
+            return fallback, True, ground_ok
+        admitted = np.asarray(corridor_mu_lo(radius, dec), dtype=np.float64) >= np.float64(dec.safe_mu)
+        if geom_ok is not None:
+            mask = np.asarray(geom_ok, dtype=bool)
+            if mask.shape != admitted.shape:
+                raise ValueError("geom_ok 与候选数不一致")
+            admitted = admitted & mask
+        truth_z = float(state.p[2])
+        head_z = float(head[0][2])
+        recovering = truth_z < safe_z
+        climb_line = max(truth_z, head_z) + 0.02
+        keep_rest = self._inter is not None and bool(self._neighbors)
+        first = None
+        for i in ranking.order:
+            if not bool(admitted[int(i)]):
+                continue
+            try:
+                traj_i = minco_two_piece(now, head, tail_w[int(i)], inner_w[int(i)], durations[int(i)])
+            except (ValueError, np.linalg.LinAlgError, FloatingPointError):
+                continue
+            zz = trajectory_sample_points(traj_i)[:, 2]
+            min_z = float(zz.min())
+            end_z = float(zz[-1])
+            start_z = float(zz[0])
+            if recovering:
+                net = end_z > start_z + 1e-4
+                high = end_z > safe_z + 1e-9 or end_z > climb_line
+                floor_z = safe_z if start_z >= safe_z - 1e-9 else min(start_z, truth_z)
+                if not (net and high and min_z + 1e-9 >= floor_z):
+                    continue
+            elif min_z + 1e-9 < safe_z:
+                continue
+            ground_ok[int(i)] = True
+            if first is None:
+                first = int(i)
+            if not keep_rest:
+                break
+        if first is None:
+            return int(ranking.order[0]), True, ground_ok
+        return first, False, ground_ok
 
     def _track_geom_now(self) -> bool:
         """本帧要不要做参考表面净空。关、pred、以及 geom_multi 没有邻机时都不做。"""
