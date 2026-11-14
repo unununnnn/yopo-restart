@@ -11,6 +11,18 @@ from typing import Callable, Iterable, Sequence, TypeVar
 T = TypeVar("T")
 R = TypeVar("R")
 
+# 场景卡上禁止写成 JSON true 的研究开关。缺省都关。
+# scripts/check_phase1_closeout.py 用这份名单做静态核验，实验脚本只在内存卡上打开。
+# d435_depth 读 task.d435_depth（缺省关）。打开即偏离上游，见 yopo_l0/depth_noise.py。
+RESEARCH_SWITCHES = (
+    "track_clearance",
+    "empty_brake",
+    "peer_sphere_enabled",
+    "swarm_penalty",
+    "swarm_segment_penalty",
+    "d435_depth",
+)
+
 
 def comma_list(value: str) -> list[str]:
     return [item for item in value.split(",") if item]

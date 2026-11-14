@@ -382,7 +382,7 @@ def _best_hit_accel(
 
 def render(
     obstacles: tuple[Obstacle, ...], cfg: CameraConfig, cam_pos: np.ndarray, R_world_cam: np.ndarray,
-    rng: np.random.Generator, stamp: float,
+    rng: np.random.Generator, stamp: float, d435=None,
 ) -> DepthFrame:
     d = _ray_dirs_cam(cfg) @ R_world_cam.T  # 世界系方向，参数 t 即相机 z 深度
     if sensor_accel_enabled():
@@ -397,6 +397,10 @@ def render(
             else:
                 t = _hit_ground(cam_pos, d, ob)
             best = np.minimum(best, t)
+    # D435 开关的唯一入口。关（d435 is None）时下面三行与加开关之前逐位相同，rng 抽取次数不变。
+    if d435 is not None:
+        depth, out_stamp = d435.finish(best, cfg, rng, stamp)
+        return DepthFrame(out_stamp, depth, cfg.intrinsics)
     # 噪声每帧整幅抽取，抽取次数与几何无关，保证同 seed 同序列。加速路径不碰 rng。
     noise = rng.normal(0.0, cfg.noise_std_m, best.shape) if cfg.noise_std_m > 0 else 0.0
     depth = best + noise
@@ -405,11 +409,11 @@ def render(
 
 
 class DepthCamera:
-    def __init__(self, cfg: CameraConfig, obstacles: tuple[Obstacle, ...], rng: np.random.Generator):
-        self.cfg, self._obstacles, self._rng = cfg, obstacles, rng
+    def __init__(self, cfg: CameraConfig, obstacles: tuple[Obstacle, ...], rng: np.random.Generator, d435=None):
+        self.cfg, self._obstacles, self._rng, self._d435 = cfg, obstacles, rng, d435
 
     def capture(self, position: np.ndarray, yaw: float, stamp: float) -> DepthFrame:
         c, s = np.cos(yaw), np.sin(yaw)
         R_wb = np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
         cam_pos = np.asarray(position) + R_wb @ np.asarray(self.cfg.mount_xyz_body)
-        return render(self._obstacles, self.cfg, cam_pos, R_wb @ R_BODY_CAM, self._rng, stamp)
+        return render(self._obstacles, self.cfg, cam_pos, R_wb @ R_BODY_CAM, self._rng, stamp, self._d435)
