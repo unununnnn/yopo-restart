@@ -14,6 +14,7 @@ R = TypeVar("R")
 # 场景卡上禁止写成 JSON true 的研究开关。缺省都关。
 # scripts/check_phase1_closeout.py 用这份名单做静态核验，实验脚本只在内存卡上打开。
 # d435_depth 读 task.d435_depth（缺省关）。打开即偏离上游，见 yopo_l0/depth_noise.py。
+# profile 缺省 scene。profile=native 仍要 enabled 才生效，不写 profile 时深度与 scene 相同。
 RESEARCH_SWITCHES = (
     "track_clearance",
     "empty_brake",
