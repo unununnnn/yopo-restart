@@ -38,6 +38,7 @@ class FakeWorld:
     """gz 世界 + 若干 PX4：run_to_sim_time 生效后 clock 跳到目标，每机按自己的滞后出电机指令。
 
     ``lose_every``：每隔几次请求丢一次（请求没生效，要靠重发）。
+    ``request_step`` 是 ``pause=True, multi_step=1``：只走一步，之后仍停着。
     ``lag_polls``：某机出电机指令前要多少次 motor_counts() 轮询（模拟 PX4 算得慢）。
     ``dead``：这些机永远不出电机指令。
     ``free_run``：暂停请求生效前 clock 还会再走这么多步（engage 要等它停稳）。
@@ -84,16 +85,14 @@ class FakeWorld:
         if not self._lost():
             self.paused = True
 
-    def request_run_to(self, t):
+    def request_step(self):
         if self._lost():
             return
         self.paused = True
-        if t > self.t + 1e-12:
-            steps = int(round((t - self.t) / STEP))
-            self.t = round(t, 9)
-            for ns in self.owed:
-                self.owed[ns] += steps
-        self.history.append(t)
+        self.t = round(self.t + STEP, 9)
+        for ns in self.owed:
+            self.owed[ns] += 1
+        self.history.append(self.t)
 
     def request_resume(self):
         self.paused = False
@@ -147,6 +146,20 @@ def test_extra_motor_messages_do_not_let_a_later_step_through_early():
     world.dead.add("px4_1")
     with pytest.raises(TimeoutError, match="PX4 电机握手超时"):
         stepper.advance(STEP)
+
+
+def test_world_that_ran_ahead_is_detected_and_not_hidden():
+    """第一版用 run_to_sim_time，目标落后时 gz 会放开世界自由跑。步进器必须把这种情况记下来。"""
+    ns = ["px4_1"]
+    world = FakeWorld(ns)
+    stepper, _ = _stepper(world, ns)
+    stepper.engage()
+    world.t = round(world.t + 0.05, 9)  # 代理算的时候世界自己走了 50 ms
+    world.owed["px4_1"] += 12
+    stepper.advance(0.02)
+    s = stepper.stats.summary()
+    assert s["clock_ahead"] == 1 and s["clock_ahead_max_s"] == pytest.approx(0.05)
+    assert stepper.t == pytest.approx(world.t)
 
 
 def test_lost_requests_are_resent_and_never_overshoot():

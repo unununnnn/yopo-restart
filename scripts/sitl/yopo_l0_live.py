@@ -37,7 +37,6 @@ from yopo_l0.sitl_lockstep import (
     LockstepStepper,
     SimStampSkewMeter,
     motor_topic,
-    split_time,
 )
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -313,12 +312,9 @@ class GzWorldPort:  # pragma: no cover - 需要 gz-transport
     def request_pause(self) -> None:
         self._request(self._WorldControl(pause=True))
 
-    def request_run_to(self, t_sim: float) -> None:
-        req = self._WorldControl(pause=False)
-        sec, nsec = split_time(t_sim)
-        req.run_to_sim_time.sec = sec
-        req.run_to_sim_time.nsec = nsec
-        self._request(req)
+    def request_step(self) -> None:
+        # 世界停着走一步再停；不会因为目标落后而放开世界。
+        self._request(self._WorldControl(pause=True, multi_step=1))
 
     def request_resume(self) -> None:
         for _ in range(3):

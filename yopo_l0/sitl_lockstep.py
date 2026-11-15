@@ -8,8 +8,10 @@ PX4 v1.17 的 GZBridge 在每个 ``/world/<w>/clock`` 回调里把自己的单�
 
 1. 进入主循环先暂停世界（``WorldControl.pause``）。
 2. 每个物理步（默认 world 的 ``max_step_size`` 0.004 s）发一次
-   ``WorldControl(pause=False, run_to_sim_time=t_k)``。``run_to_sim_time`` 是绝对时刻，
-   重发是幂等的：请求丢了就重发，已经到了也不会多走。
+   ``WorldControl(pause=True, multi_step=1)``：世界走一步后仍停着。
+   不用 ``run_to_sim_time``：它要带 ``pause=False``，目标一旦落在当前时刻之前，gz 就直接
+   放开世界自由跑（B1 第一版实测：代理每拍睡 20 ms 时世界跑到步进器前面 40–56 ms）。
+   请求回复丢了不要紧（实测约 3% 不回，但已生效），按 clock 判断；200 ms clock 没动才重发。
 3. 握手：等 ``/world/<w>/clock`` 走到 ``t_k``，并且每架 PX4 在 gz 上发出的
    ``/<model>/command/motor_speed`` 在发出这一步请求之后又来了新的一条。PX4 每吃一帧 IMU 出一条
    电机指令（实测 250 Hz、每步恰好 1 条），所以这一条到了就说明这架 PX4 已经算完了这一步。
@@ -55,7 +57,7 @@ class WorldPort(Protocol):
 
     def request_pause(self) -> None: ...
 
-    def request_run_to(self, t_sim: float) -> None: ...
+    def request_step(self) -> None: ...
 
     def request_resume(self) -> None: ...
 
@@ -97,6 +99,8 @@ class LockstepStats:
     resends: int = 0
     handshake_timeouts: dict[str, int] = field(default_factory=dict)
     clock_overshoots: int = 0
+    clock_ahead: int = 0  # 步进前发现世界已经跑在前面的次数（应为 0）
+    clock_ahead_max_s: float = 0.0
     step_wall_s: list[float] = field(default_factory=list)
     agent_wall_s: float = 0.0  # 世界停着、代理在算的墙钟合计
     stepping_wall_s: float = 0.0  # 推进世界 + 等握手的墙钟合计
@@ -109,7 +113,7 @@ class LockstepStats:
             "schema": SCHEMA_LOCKSTEP,
             "enabled": True,
             "engaged": bool(self.engaged),
-            "mechanism": "gz WorldControl run_to_sim_time per physics step + PX4 motor_speed handshake",
+            "mechanism": "gz WorldControl pause+multi_step=1 per physics step + PX4 motor_speed handshake",
             "physics_step_s": float(self.physics_step_s),
             "t_engage_s": self.t_engage_s,
             "steps": int(self.steps),
@@ -118,6 +122,8 @@ class LockstepStats:
             "handshake_timeouts": dict(sorted(self.handshake_timeouts.items())),
             "handshake_timeouts_total": int(sum(self.handshake_timeouts.values())),
             "clock_overshoots": int(self.clock_overshoots),
+            "clock_ahead": int(self.clock_ahead),
+            "clock_ahead_max_s": round(float(self.clock_ahead_max_s), 6),
             "step_wall_ms_median": None if arr.size == 0 else float(np.median(arr) * 1e3),
             "step_wall_ms_p95": None if arr.size == 0 else float(np.percentile(arr, 95) * 1e3),
             "step_wall_ms_max": None if arr.size == 0 else float(arr.max() * 1e3),
@@ -218,10 +224,16 @@ class LockstepStepper:
         return float(self.t)
 
     def _one_step(self) -> None:
-        target = quantize(float(self.t) + self.step_s, self.step_s)
         w0 = self._now()
+        t_obs = self.world.sim_time()
+        if t_obs is not None and t_obs > float(self.t) + 0.5 * self.step_s:
+            # 世界自己跑到前面去了：记下来，从实际时刻接着走，不假装还在锁步。
+            self.stats.clock_ahead += 1
+            self.stats.clock_ahead_max_s = max(self.stats.clock_ahead_max_s, t_obs - float(self.t))
+            self.t = float(t_obs)  # gz clock 本来就在步长网格上，不再量化，免得目标落到够不着的格点
+        target = round(float(self.t) + self.step_s, 9)
         before = self.world.motor_counts()
-        self.world.request_run_to(target)
+        self.world.request_step()
         last_req = w0
         # 1) clock 走到目标
         while True:
@@ -233,8 +245,9 @@ class LockstepStepper:
             now = self._now()
             if now - w0 > 10.0:
                 raise TimeoutError("锁步：Gazebo clock 推进超时")
-            if now - last_req >= self.resend_after_s:
-                self.world.request_run_to(target)
+            if now - last_req >= self.resend_after_s and (t is None or t <= float(self.t) + 1e-7):
+                # clock 一点没动才重发；已经在动就再等等，避免多走一步。
+                self.world.request_step()
                 self.stats.resends += 1
                 last_req = now
             self._sleep(self.poll_s)
@@ -250,7 +263,7 @@ class LockstepStepper:
                     self.stats.handshake_timeouts[ns] = self.stats.handshake_timeouts.get(ns, 0) + 1
                 raise TimeoutError("锁步：PX4 电机握手超时：" + ",".join(waiting))
             self._sleep(self.poll_s)
-        self.t = target
+        self.t = max(target, float(self.world.sim_time() or target))
         self.stats.steps += 1
         self.stats.step_wall_s.append(self._now() - w0)
 
