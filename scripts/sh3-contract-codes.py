@@ -230,7 +230,9 @@ def cmd_danger(_args) -> int:
     origin = np.array([0.0, 0.0, 1.5])
     dest = np.array([5.0, 0.0, 1.5])
     z = np.zeros(3)
-    traj = PiecewisePolynomial(0.0, [quintic(np.stack([origin, z, z]), np.stack([dest, z, z]), 1.2)])
+    # 5 m / 4 s 的静止到静止五次多项式，峰值速度和加速度都在上游限幅内。
+    # 这样拒绝只来自穿柱占用，而不是误报的运动学码。
+    traj = PiecewisePolynomial(0.0, [quintic(np.stack([origin, z, z]), np.stack([dest, z, z]), 4.0)])
 
     class Wrap:
         def __init__(self, traj):

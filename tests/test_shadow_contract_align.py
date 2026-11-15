@@ -140,14 +140,17 @@ def test_tracking_bound_not_counted_when_aligned_but_threshold_unchanged():
 def test_align_still_rejects_trajectory_through_pillar():
     origin = np.array([0.0, 0.0, 1.5])
     dest = np.array([5.0, 0.0, 1.5])
-    traj = _traj(origin, dest)
+    # 4 s 内走完 5 m，峰值在上游限幅内，拒绝只应来自穿柱占用。
+    traj = _traj(origin, dest, duration=4.0)
     shadow = DroneShadow(
         "uav0", origin, dest, {}, scene_obstacles=PILLAR, contract_align=True,
     )
     shadow.on_selection(_Wrap(traj), _frame(origin), _State(origin), 0.2)
     codes = shadow.on_tick(_Tick(origin, 0.2), origin, 0.2)
-    assert ENV_OCCUPIED in shadow.selection
+    assert shadow.selection == (ENV_OCCUPIED,)
     assert ENV_OCCUPIED in codes
+    assert "TRANSITION:MOTION_KINEMATICS" not in codes
+    assert "TRANSITION:BRANCH_UNREACHABLE" not in codes
 
 
 def test_align_keeps_true_head_discontinuity_between_motions():
