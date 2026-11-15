@@ -77,6 +77,9 @@ class RunConfig:
     # 研究开关，默认关。打开后把场景卡几何的光线投射交给影子盾，只记录，不改批准动作。
     # 关着不给影子传障碍，结果里也不加字段。
     shadow_env_evidence: bool = False
+    # 研究开关，默认关。打开后按上游轨迹语义过滤误报契约码，只记录，不改批准动作、不改冻结判据。
+    # 关着影子仍用认证默认限幅和 SafetyGate。打开即偏离上游。
+    shadow_contract_align: bool = False
 
 
 @dataclass
@@ -227,14 +230,14 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
     drones = []
     for d, ss in zip(c["drones"], root.spawn(len(c["drones"])), strict=True):
         start = np.asarray(d["start_enu"], dtype=float)
+        dyn_a = c["dynamics"].get("a_max")
+        a_max = float(PointMassLag.a_max) if dyn_a is None else float(dyn_a)
         if fleet is not None:
             fleet.check_start(d["id"], start)
             goal = fleet.goal_of(d["id"])
             policy = approval_cls()
         else:
             goal = np.asarray(d["goal_enu"] if track_goal else d.get("hover_enu", start), dtype=float)
-            dyn_a = c["dynamics"].get("a_max")
-            a_max = float(PointMassLag.a_max) if dyn_a is None else float(dyn_a)
             ctx = PolicyContext(
                 d["id"],
                 dt,
@@ -261,6 +264,8 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
                 DroneShadow(
                     d["id"], start, goal, dict(c.get("policy_params", {})),
                     card.obstacles if cfg.shadow_env_evidence else None,
+                    contract_align=bool(cfg.shadow_contract_align),
+                    a_max=a_max,
                 ) if cfg.shadow else None
             ),
         })
@@ -578,6 +583,11 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         from .so3 import public_record
 
         result["so3"] = public_record(dyn_cfg)
+        result["upstream_deviation"] = True
+
+    if cfg.shadow_contract_align:
+        # 研究开关。关时不加这些字段，契约检查仍按认证默认。打开即偏离上游。
+        result["shadow_contract_align"] = True
         result["upstream_deviation"] = True
 
     if cfg.shadow_env_evidence:

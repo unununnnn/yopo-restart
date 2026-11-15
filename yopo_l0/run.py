@@ -77,6 +77,10 @@ def main(argv=None):
         "--shadow-env-evidence", action="store_true",
         help="研究开关，默认关。打开后用场景卡几何的光线投射给影子盾补环境证据，只记录，不改批准动作。打开即偏离上游",
     )
+    ap.add_argument(
+        "--shadow-contract-align", action="store_true",
+        help="研究开关，默认关。打开后按上游轨迹语义修正影子盾误报契约码，只记录，不改批准动作。打开即偏离上游",
+    )
     a = ap.parse_args(_normalize_shadow(argv))
     card = load_card(a.scene)
     out = run(card, RunConfig(
@@ -88,6 +92,7 @@ def main(argv=None):
         safe_radius_m=a.safe_radius,
         geometric_fallback=a.geometric_fallback,
         shadow_env_evidence=bool(a.shadow_env_evidence),
+        shadow_contract_align=bool(a.shadow_contract_align),
     ))
     d = write(out, a.out or f"out/{card.name}/seed{a.seed}")
     print(json.dumps(out.result, ensure_ascii=False))
