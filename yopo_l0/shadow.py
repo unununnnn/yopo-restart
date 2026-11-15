@@ -16,11 +16,14 @@
   （会锁存，并把碰撞写进 oracle）。碰撞仍是运行器硬失败。
 
 邻机冲突要等票 05；单机 peers 为空，门照常跑。
+
+``scene_obstacles is None``（默认）时不读场景几何，输出与这条路径改前相同。
+传了障碍之后才把场景卡光线投射和净空证书写进影子自己的 ``FreeSpace``，见 ``shadow_env``。
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
@@ -178,7 +181,7 @@ def record_oracle_track_lag(now, stamp, actual, desired, start, goal, start_time
 class DroneShadow:
     """一架机自己的证据缓冲和父计划链。不碰策略、不碰动力学。"""
 
-    def __init__(self, owner: str, start: np.ndarray, goal: np.ndarray, params: dict):
+    def __init__(self, owner: str, start: np.ndarray, goal: np.ndarray, params: dict, scene_obstacles=None):
         cert = {**CertifiedPolicy.DEFAULTS, **params.get("certified", {})}
         self.cfg = default_config(
             owner, cert["body_radius"], cert["tracking_margin"], cert["switch_delay"],
@@ -190,6 +193,16 @@ class DroneShadow:
         self.pad = float(cert["start_pad_radius"])
         if self.pad > 0.0:
             self.space.assume_free(self.start, self.pad, "explicit-start-pad")
+        self._scene = None
+        if scene_obstacles:
+            # 只在研究开关打开时进入。关着不导入、不换 FreeSpace，起飞区证书仍是上面那一份。
+            from .shadow_env import SceneEvidence
+
+            self._scene = SceneEvidence(tuple(scene_obstacles), self.start, self.goal)
+            kept = list(self.space.assumptions)
+            wider = replace(self.cfg.space, max_frames=self.cfg.space.max_frames + self._scene.n_views)
+            self.space = FreeSpace(wider)
+            self.space.assumptions.extend(kept)
         self.gate = SafetyGate(self.cfg)
         self.parent = hover_plan(owner, self.start, 0.0, self.cfg.plan)
         self.seq = 1
@@ -198,6 +211,8 @@ class DroneShadow:
 
     def on_selection(self, plan, frame, state, now: float) -> None:
         self._add_evidence(frame, state)
+        if self._scene is not None:
+            self._scene.add_frames(self.space, float(now))
         env, contract, stop = self._recheck(plan, float(now))
         self.selection = tuple(dict.fromkeys((*self._frame_problem, *env, *contract, *stop)))
 
@@ -226,6 +241,8 @@ class DroneShadow:
     def _recheck(self, plan, now: float):
         existing = _executed_certified_plan(plan)
         if existing is not None:
+            if self._scene is not None:
+                self._scene.certify_plan(self.space, existing)
             return (
                 _env_of(self.space, existing, now),
                 _transition(validate_plan(existing, self.cfg.plan)),
@@ -234,8 +251,12 @@ class DroneShadow:
         built = self._build(plan, now)
         if isinstance(built, list):
             motion = getattr(plan, "traj", None)
+            if self._scene is not None and isinstance(motion, PiecewisePolynomial):
+                self._scene.certify_trajs(self.space, [motion])
             env = _sweep(self.space, motion, now) if isinstance(motion, PiecewisePolynomial) else ()
             return env, _transition(built), ()
+        if self._scene is not None:
+            self._scene.certify_plan(self.space, built)
         env = _env_of(self.space, built, now)
         contract = _transition(validate_plan(built, self.cfg.plan))
         res = self.gate.validate(built, self.parent, None, self.space, (), now)

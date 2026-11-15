@@ -73,6 +73,10 @@ def main(argv=None):
         "--no-geometric-fallback", dest="geometric_fallback", action="store_const", const=False,
         help="关掉几何回退，即使场景卡写了 enabled",
     )
+    ap.add_argument(
+        "--shadow-env-evidence", action="store_true",
+        help="研究开关，默认关。打开后用场景卡几何的光线投射给影子盾补环境证据，只记录，不改批准动作。打开即偏离上游",
+    )
     a = ap.parse_args(_normalize_shadow(argv))
     card = load_card(a.scene)
     out = run(card, RunConfig(
@@ -83,6 +87,7 @@ def main(argv=None):
         bus=_bus(a),
         safe_radius_m=a.safe_radius,
         geometric_fallback=a.geometric_fallback,
+        shadow_env_evidence=bool(a.shadow_env_evidence),
     ))
     d = write(out, a.out or f"out/{card.name}/seed{a.seed}")
     print(json.dumps(out.result, ensure_ascii=False))
