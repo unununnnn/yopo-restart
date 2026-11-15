@@ -156,3 +156,59 @@ def test_resume_skips_a_finished_prefix_row(tmp_path, monkeypatch):
     dest.write_text(json.dumps(stored))
     with pytest.raises(AssertionError):
         mod.run_one("sparse", "prefix10", 3, resume=True)
+
+
+def test_report_tables_match_the_runs_json():
+    mod = _script()
+    path = ROOT / "docs/research/e-pg3-leader-prefix-runs.json"
+    report = ROOT / "docs/research/e-pg3-leader-prefix.md"
+    payload = json.loads(path.read_text())
+    text = report.read_text()
+    rows = payload["rows"]
+    assert payload["seeds"] == list(range(10))
+    assert payload["report_only"] is True
+    assert payload["prefix_lengths_s"] == [0.3, 0.7, 1.0]
+    assert payload["ticket"] == "E-PG3"
+    for scene in mod.SCENES:
+        for arm in mod.ARMS:
+            got = sorted(int(row["seed"]) for row in rows if row["scene_kind"] == scene and row["arm"] == arm.arm_id)
+            assert got == list(range(10))
+            for row in rows:
+                if row["scene_kind"] != scene or row["arm"] != arm.arm_id:
+                    continue
+                assert row["config_status"] == arm.config_status
+                assert row["params"] == arm.params
+                assert bool(row["progress_gate"]) is arm.progress_gate
+                assert bool(row["upstream_deviation"]) is arm.upstream_deviation
+                assert int(row["n_drones"]) == 6
+                if arm.leader_prefix:
+                    assert row["config_status"] == "report-only / 偏离上游"
+                    assert float(row["leader_prefix_s"]) == pytest.approx(arm.leader_prefix_s)
+                elif arm.progress_gate:
+                    assert row["leader_prefix_s"] is None
+                    assert row["leader_prefix_count"] == 0
+                else:
+                    assert row["leader_hover"] == 0
+                    assert row["leader_prefix_count"] == 0
+    fresh = mod.aggregate(rows)
+    stored = payload["summary"]
+    assert [item["arm"] + item["scene"] for item in fresh] == [item["arm"] + item["scene"] for item in stored]
+    for got, expect in zip(fresh, stored, strict=True):
+        assert got["arrived"] == expect["arrived"]
+        assert got["drones"] == expect["drones"]
+        assert got["tree_collisions"] == expect["tree_collisions"]
+        assert got["inter_drone_collisions"] == expect["inter_drone_collisions"]
+        assert got["timeouts"] == expect["timeouts"]
+        assert got["config_status"] == expect["config_status"]
+        assert got["leader_prefix_sum"] == expect["leader_prefix_sum"]
+        assert got["leader_hover_sum"] == expect["leader_hover_sum"]
+    assert mod.render_report_tables(rows) in text
+    assert "report-only / 偏离上游" in text
+    assert not any(line.startswith("DIFF") for line in payload["baseline_anchor_notes"])
+    assert not any(line.startswith("DIFF") for line in payload["gate_anchor_notes"])
+    for scene in ("crossing-6-forest.json", "crossing-6-forest-sparse.json"):
+        card = json.loads((ROOT / "scenes" / scene).read_text())
+        assert card["task"]["progress_gate"] is False
+        assert "leader_prefix" not in card["task"]
+        assert "leader_prefix_s" not in card["task"]
+        assert "leader_margin_m" not in card["task"]
