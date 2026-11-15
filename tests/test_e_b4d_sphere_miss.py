@@ -395,7 +395,10 @@ def test_committed_report_is_the_diagnosed_run():
     for key in ("1", "2", "3", "4"):
         assert miss["answers"][key]["reading"]
     text = md_path.read_text()
-    assert text == mod.render_markdown(data)
+    rendered = mod.render_markdown(data)
+    # 原文仍是已提交诊断的渲染结果。L0-DET 重跑只加在文末，不改原结论段。
+    assert text.startswith(rendered)
+    assert "\n## L0-DET 确定性重跑（2026-11-15）\n" in text
     assert text.startswith("# 票 E-B4d")
     for phrase in ("report-only", "只报数", "uav1-uav2", "0.694", "peer_sphere_enabled"):
         assert phrase in text
