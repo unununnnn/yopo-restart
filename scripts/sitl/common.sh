@@ -16,8 +16,11 @@ fi
 image_exists() { "${DOCKER[@]}" image inspect "$SITL_IMAGE" >/dev/null 2>&1; }
 pid_alive() { [[ -f "$1" ]] && kill -0 "$(cat "$1")" 2>/dev/null; }
 # n=1 沿用 S1 容器名。n>1 是票 S2 的一趟仿真（容器里有 n 个 PX4 进程）。
+# YOPO_SITL_CONTAINER_NAME（缺省空）：给这一趟换个容器名，和别人的仿真并排跑（各自独立网络命名空间）。
 sitl_container_name() {
-  if [[ "$1" == "1" ]]; then
+  if [[ -n "${YOPO_SITL_CONTAINER_NAME:-}" ]]; then
+    printf '%s\n' "$YOPO_SITL_CONTAINER_NAME"
+  elif [[ "$1" == "1" ]]; then
     printf '%s\n' "yopo-restart-s1-sitl"
   else
     printf '%s\n' "yopo-restart-sitl-n$1"

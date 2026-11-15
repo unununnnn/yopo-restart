@@ -130,7 +130,9 @@ if ! tag_exists "$RUNTIME_IMAGE"; then
 fi
 
 NAME="$(sitl_container_name "$N")"
-others="$(sitl_running_names | grep -v "^${NAME}$" || true)"
+others=""
+# 自定容器名时只管自己这个名字；缺省仍是一次只起一趟。
+[[ -z "${YOPO_SITL_CONTAINER_NAME:-}" ]] && others="$(sitl_running_names | grep -v "^${NAME}$" || true)"
 if [[ -n "$others" ]]; then
   echo "已有仿真容器在跑（一次只起一趟）：$others" >&2
   exit 3
