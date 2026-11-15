@@ -531,6 +531,12 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         result["d435_depth"] = d435_cfg.public_dict()
         result["upstream_deviation"] = True
 
+    if fleet is not None and getattr(fleet, "leader_prefix_enabled", False):
+        # E-PG3：超前机改走短前缀。关时不加字段，结果与改前相同。打开即偏离上游。
+        result["leader_prefix"] = True
+        result["leader_prefix_s"] = float(fleet.leader_prefix_s)
+        result["upstream_deviation"] = True
+
     if cfg.policy == "student":
         result["network"] = _student_provenance(drones)
         infer = _student_infer_summary(drones)
