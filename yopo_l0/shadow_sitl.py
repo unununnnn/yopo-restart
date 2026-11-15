@@ -1,0 +1,184 @@
+"""票 SH2：把影子盾环境证据接到 SITL 桥。默认关，打开即偏离上游。
+
+``sitl_bridge`` 只调用这里的钩子：要不要开影子、要不要把场景障碍交给
+``DroneShadow``、编队类策略用哪份计划和哪座钟、结果里写哪些字段。
+逻辑不进桥接主循环。影子盾仍然只记录，不改设定点。
+"""
+
+from __future__ import annotations
+
+import numpy as np
+
+from .dynamics import State
+from .shadow import DroneShadow, approved_pva
+
+ENV_RESULT_KEYS = (
+    "shadow_env_evidence",
+    "shadow_env_views",
+    "shadow_env_clearance_evals",
+    "shadow_env_certificate_centers",
+)
+
+# 拒绝码的触发条件。只解释，不改判据。数值来自 core 现有缺省。
+CODE_CONDITIONS = {
+    "ENV:NO_FRAME": "这一拍影子没有深度帧。",
+    "ENV:NONFINITE": "深度或位姿里有非有限值，证据加不进 FreeSpace。",
+    "ENV:OCCUPIED": "classify_sweep 认为扫掠球碰到已观测到的表面。",
+    "ENV:UNKNOWN": "扫掠里有样本既不是 FREE 也不是 OCCUPIED。关证据时，相机后方和最小量程以内通常落在这里。",
+    "TIME:SWITCH_NOT_IN_FUTURE": "包装后的计划 t_switch 不大于当前影子时钟。上游多项式的 t_switch 取轨迹起点，计划一开始跑就会记下这个码。",
+    "TRANSITION:HEAD_DISCONTINUITY": "运动段起点的位置/速度/加速度与声明的 head_pva 对不上，或与父计划在 t_switch 的状态差超过 1e-6。",
+    "TRANSITION:TERMINAL_NOT_HOLDABLE": "运动段末端速度或加速度的绝对值超过 1e-6，不能当悬停收住。",
+    "TRANSITION:MOTION_KINEMATICS": "运动段超过计划运动学限制（缺省 v_max=4 m/s、a_max=8 m/s²、j_max=80 m/s³）。",
+    "TRANSITION:BRANCH_UNREACHABLE": "在某个制动分支时刻，按同样限制生成不出刹停曲线。",
+    "TRACKING_BOUND": "机体位置与批准位置的欧氏距离超过 FlightOracle.tracking_bound（0.15 m）。",
+    "LAG_VIOLATION": "沿起点到终点的进度落后超过 FlightOracle.lag_limit（1.5 m）；参考速度 0.15 m/s。",
+    "ODOMETRY_AGE_OR_NONFINITE": "里程计时间戳与影子时钟相差超过 0.2 s，或位置不是有限三维向量。",
+}
+
+
+def shadow_enabled(cfg, policy: str) -> bool:
+    """upstream 默认开影子盾（S6）。编队类策略默认不开，打开 fleet_shadow 或证据开关才记。"""
+    if not bool(getattr(cfg, "shadow", True)):
+        return False
+    if policy == "upstream":
+        return True
+    return bool(getattr(cfg, "fleet_shadow", False) or getattr(cfg, "shadow_env_evidence", False))
+
+
+def scene_obstacles(card, cfg):
+    """关着返回 None，DroneShadow 不读几何、不导入 shadow_env。"""
+    if not bool(getattr(cfg, "shadow_env_evidence", False)):
+        return None
+    return card.obstacles
+
+
+def bind_slot_shadow(slot, card, cfg, params: dict) -> None:
+    slot.shadow = DroneShadow(
+        slot.bridge.drone_id,
+        slot.bridge.start_enu,
+        slot.bridge.goal,
+        params,
+        scene_obstacles(card, cfg),
+    )
+
+
+def observe(session, slot, now_s: float, state: dict, *, planned: bool) -> None:
+    """只读复验本拍计划和跟踪点。不改设定点。"""
+    if slot.shadow is None or not session.shadow:
+        return
+    if session.fleet is not None:
+        _observe_fleet(session, slot, now_s, state, planned=planned)
+        return
+    _observe_upstream(session, slot, now_s, state, planned=planned)
+
+
+def annotate_result(session, payload: dict) -> None:
+    """关着不加字段。打开证据开关即偏离上游。"""
+    cfg = session.cfg
+    if not bool(getattr(cfg, "shadow_env_evidence", False)):
+        return
+    payload["shadow_env_evidence"] = True
+    payload["upstream_deviation"] = True
+    scenes = [
+        slot.shadow._scene
+        for slot in session.slots
+        if slot.shadow is not None and slot.shadow._scene is not None
+    ]
+    payload["shadow_env_views"] = 0 if not scenes else int(scenes[0].n_views)
+    payload["shadow_env_clearance_evals"] = int(sum(s.clearance_evals for s in scenes))
+    payload["shadow_env_certificate_centers"] = int(sum(s.certificate_centers for s in scenes))
+
+
+def _observe_upstream(session, slot, now_s: float, state: dict, *, planned: bool) -> None:
+    obs = slot.bridge.last_observation
+    if planned and obs is not None and slot.bridge.plan is not None:
+        slot.shadow.on_selection(slot.bridge.plan, obs.frame, obs.state, float(now_s))
+    if slot.bridge.plan is None:
+        return
+    body = _body_state(state, slot, float(now_s))
+    cmd_p, _, _ = approved_pva(slot.bridge.plan, float(now_s))
+    _tick(session, slot, body, cmd_p, float(now_s))
+
+
+def _observe_fleet(session, slot, now_s: float, state: dict, *, planned: bool) -> None:
+    # 编队钟从全体进入 PLAN 起算，计划和 L0 同一套时间。起飞段没有提交计划，不记。
+    if session._plan_origin is None or session._formation_t is None:
+        return
+    now = float(now_s) - float(session._plan_origin)
+    if now < -1e-12:
+        return
+    view = None
+    shadow_view = getattr(session.fleet, "shadow_view", None)
+    if callable(shadow_view):
+        view = shadow_view(slot.bridge.drone_id)
+    if view is not None:
+        frame = _frame_at(slot.fleet_frame, now)
+        body = _body_state(state, slot, now)
+        slot.shadow.on_selection(view, frame, body, now)
+    sampler = slot.formation_sampler
+    if sampler is None:
+        return
+    body = _body_state(state, slot, now)
+    cmd_p, _, _ = approved_pva(sampler, now)
+    _tick(session, slot, body, cmd_p, now)
+
+
+def _tick(session, slot, body: State, cmd_p, now: float) -> None:
+    codes = slot.shadow.on_tick(body, cmd_p, now)
+    session._shadow_ticks.append(
+        {
+            "uav": slot.bridge.drone_id,
+            "t": float(now),
+            "would_reject": bool(codes),
+            "reject_codes": list(codes),
+        }
+    )
+
+
+def _body_state(state: dict, slot, now: float) -> State:
+    accel = state.get("acceleration_enu")
+    if accel is None:
+        accel = np.zeros(3)
+    return State(
+        float(now),
+        np.asarray(state["position_enu"], dtype=float).copy(),
+        np.asarray(state["velocity_enu"], dtype=float).copy(),
+        np.asarray(accel, dtype=float).reshape(3).copy(),
+        float(state.get("yaw_enu", slot.yaw)),
+    )
+
+
+class _StampedFrame:
+    """同一张深度，时间戳改成影子时钟。不重新渲染。"""
+
+    __slots__ = ("depth", "K", "stamp")
+
+    def __init__(self, depth, k, stamp: float):
+        self.depth = depth
+        self.K = k
+        self.stamp = float(stamp)
+
+
+def _frame_at(frame, stamp: float):
+    if frame is None:
+        return None
+    # LazyDepthFrame：已经渲染就用缓存；还没有则按记录的位姿渲染一次。
+    rendered = getattr(frame, "_frame", None)
+    src = rendered if rendered is not None else frame
+    try:
+        depth = src.depth
+        k = src.K
+    except (AttributeError, TypeError, ValueError):
+        return None
+    return _StampedFrame(depth, k, stamp)
+
+
+__all__ = [
+    "CODE_CONDITIONS",
+    "ENV_RESULT_KEYS",
+    "annotate_result",
+    "bind_slot_shadow",
+    "observe",
+    "scene_obstacles",
+    "shadow_enabled",
+]

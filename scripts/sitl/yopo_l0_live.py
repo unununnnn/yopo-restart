@@ -211,6 +211,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=float(os.environ.get("YOPO_AGENT_DELAY_S", "0") or 0.0),
         help="人为延迟：每个代理控制拍（0.02 s 仿真）额外睡这么久墙钟，只用于证明结果与算力无关",
     )
+    # 票 SH2：影子盾环境证据。默认关；也可用 YOPO_SHADOW_ENV_EVIDENCE=1 打开。打开即偏离上游。
+    ap.add_argument(
+        "--shadow-env-evidence",
+        action="store_true",
+        default=_env_flag("YOPO_SHADOW_ENV_EVIDENCE"),
+        help="把场景卡几何交给影子盾（默认关，打开即偏离上游）",
+    )
+    ap.add_argument(
+        "--fleet-shadow",
+        action="store_true",
+        default=_env_flag("YOPO_FLEET_SHADOW"),
+        help="crossing / switch / formation 也记影子盾（只读，默认关）",
+    )
     return ap.parse_args(argv)
 
 
@@ -246,6 +259,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         plan = live_topic_plan(card, positioning=positioning, seed=args.seed, policy=policy)
         plan["lockstep"] = lockstep_plan(card, args)
+        if args.shadow_env_evidence or args.fleet_shadow:
+            # 缺省 dry-run 仍是 policy==upstream 才 shadow=True。打开本票开关才改这份计划。
+            plan["shadow"] = True
+            plan["fleet_shadow"] = bool(args.fleet_shadow or args.shadow_env_evidence)
+        if args.shadow_env_evidence:
+            plan["shadow_env_evidence"] = True
+            plan["upstream_deviation"] = True
         _write(args.out, plan)
         return 0
     try:
@@ -355,6 +375,8 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
             depth_source="auto",
             initial_phase="WARMUP",
             plan_timeout_s=plan_timeout_s,
+            shadow_env_evidence=bool(args.shadow_env_evidence),
+            fleet_shadow=bool(args.fleet_shadow),
         ),
     )
     ports = [int(slot.ident["gcs_port"]) for slot in session.slots]
