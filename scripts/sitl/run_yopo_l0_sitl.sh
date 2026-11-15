@@ -19,8 +19,11 @@ POLICY="${YOPO_L0_POLICY:-upstream}"
 SEED="0"
 DRY=0
 IMAGE_ARG=""
+# 票 B1：仿真钟锁步（默认关）和人为代理延迟（默认 0）。只经环境变量传进容器。
+LOCKSTEP="${YOPO_SITL_LOCKSTEP:-0}"
+AGENT_DELAY_S="${YOPO_AGENT_DELAY_S:-0}"
 usage() {
-  echo "用法：$0 [--scene 场景卡] [--n 1|2|3] [--policy upstream|formation|crossing|switch] [--positioning default|rtk] [--seed N] [--image 镜像] [--dry-run]"
+  echo "用法：$0 [--scene 场景卡] [--n 1|2|3] [--policy upstream|formation|crossing|switch] [--positioning default|rtk] [--seed N] [--image 镜像] [--lockstep] [--agent-delay-s 秒] [--dry-run]"
 }
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -50,6 +53,9 @@ while [[ $# -gt 0 ]]; do
       fi
       shift
       ;;
+    --lockstep) LOCKSTEP=1; shift ;;
+    --agent-delay-s) AGENT_DELAY_S="${2:-}"; shift 2 ;;
+    --agent-delay-s=*) AGENT_DELAY_S="${1#*=}"; shift ;;
     --dry-run) DRY=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) usage >&2; exit 2 ;;
@@ -66,6 +72,14 @@ case "$POLICY" in
   exit 2
   ;;
 esac
+case "$LOCKSTEP" in
+  0|1) ;;
+  *) echo "未知 YOPO_SITL_LOCKSTEP=$LOCKSTEP（只要 0 或 1）" >&2; exit 2 ;;
+esac
+if ! [[ "$AGENT_DELAY_S" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+  echo "--agent-delay-s 要非负数，收到 $AGENT_DELAY_S" >&2
+  exit 2
+fi
 case "$N" in
   1|2|3) ;;
   *) echo "未知 --n=$N（只要 1、2 或 3）" >&2; exit 2 ;;
@@ -99,8 +113,8 @@ choose_runtime_image() {
 }
 RUNTIME_IMAGE="$(choose_runtime_image)"
 if [[ "$DRY" == "1" ]]; then
-  printf 'planner=yopo-l0\nscene=%s\nn=%s\npolicy=%s\npositioning=%s\nseed=%s\nimage=%s\n' \
-    "$SCENE" "$N" "$POLICY" "$POSITIONING" "$SEED" "$RUNTIME_IMAGE"
+  printf 'planner=yopo-l0\nscene=%s\nn=%s\npolicy=%s\npositioning=%s\nseed=%s\nimage=%s\nlockstep=%s\nagent_delay_s=%s\n' \
+    "$SCENE" "$N" "$POLICY" "$POSITIONING" "$SEED" "$RUNTIME_IMAGE" "$LOCKSTEP" "$AGENT_DELAY_S"
   exit 0
 fi
 python3 "$SITL_DIR/fleet.py" layout --n "$N" --format json >/dev/null
@@ -161,6 +175,7 @@ if "${DOCKER[@]}" ps -q -f "name=^${NAME}$" | grep -q .; then
     -e YOPO_SITL_N="$N" -e YOPO_SITL_PLANNER=yopo-l0 -e YOPO_L0_SCENE="$SCENE" \
     -e YOPO_L0_POLICY="$POLICY" \
     -e YOPO_L0_SEED="$SEED" -e YOPO_POSITIONING="$POSITIONING" \
+    -e YOPO_SITL_LOCKSTEP="$LOCKSTEP" -e YOPO_AGENT_DELAY_S="$AGENT_DELAY_S" \
     -e YOPO_SITL_WALL_TIMEOUT="${YOPO_SITL_WALL_TIMEOUT:-900}" \
     "${cache_env[@]}" \
     "${git_safe[@]}" \
@@ -181,6 +196,7 @@ set +e
   -e ROS_DOMAIN_ID=0 -e YOPO_SITL_N="$N" -e YOPO_SITL_MISSION=1 \
   -e YOPO_SITL_PLANNER=yopo-l0 -e YOPO_L0_SCENE="$SCENE" -e YOPO_L0_POLICY="$POLICY" \
   -e YOPO_L0_SEED="$SEED" \
+  -e YOPO_SITL_LOCKSTEP="$LOCKSTEP" -e YOPO_AGENT_DELAY_S="$AGENT_DELAY_S" \
   -e YOPO_SITL_WALL_TIMEOUT="${YOPO_SITL_WALL_TIMEOUT:-900}" \
   -e YOPO_POSITIONING="$POSITIONING" \
   "${git_safe[@]}" \
