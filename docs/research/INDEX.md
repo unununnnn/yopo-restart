@@ -32,6 +32,8 @@
 | d6d-no-start-samples.md | d6d | 票 D6d：去掉起步零位移样本（只报数） | report-only |
 | d6e-start-knot-runs.json | d6e | 票 D6e：起步结点沿目标位移改写的小规模对照 | report-only |
 | d6e-start-knot.md | d6e | 票 D6e：起步结点沿目标位移改写（只报数） | report-only |
+| d7-dagger-runs.json | d7 | 票 D7：学生网络 DAgger 在策略重标注（小规模，只报数） | report-only |
+| d7-dagger.md | d7 | 票 D7：学生网络 DAgger 在策略重标注（只报数） | report-only |
 | e-a1-inter-drone-filter.md | e-a1 | 票 E-A1：机间过滤开关，默认关 | report-only、冻结 |
 | e-a2-inter-soft-yield-runs.json | e-a2 | 只报数。report-only。不改默认 inter_drone_soft_yield false、empty_brake false、track_clearance false。四档都打开 E-A1（阈值 1.0 m、惩罚 0）和 empty_brake；geom 两档再打开 track_clearance mode=geom、margin 0.08 m。全部偏离上游。soft_yield 默认关。hard_min_m 0.75 m 高于 0.70 m 机间碰撞球。这是假设，不是论文复现（障碍半径 0.20 m，边长 20.0 m）。未冻结，不进 scenes/suite.txt，不设 gates。 | report-only |
 | e-a2-inter-soft-yield.md | e-a2 | 票 E-A2：机间过滤防死锁软让行，默认关 | report-only、冻结 |
@@ -39,6 +41,8 @@
 | e-b2-bspline-prototype.md | e-b2 | 单机 B 样条原型（E-B2） | 冻结 |
 | e-b2-bspline-runs.json | e-b2 | （无说明字段） | 无 |
 | e-b2p-backend-speed.md | e-b2p | E-B2p：B 样条后段提速 | report-only、冻结 |
+| e-b2q-evals-diag-runs.json | e-b2q | 票 E-B2q：密林开后段评估次数预算诊断 | report-only |
+| e-b2q-evals-diag.md | e-b2q | 票 E-B2q：密林开后段评估次数预算诊断 | report-only、冻结 |
 | e-b3-closeout.md | e-b3 | E-B3 收口 | 冻结 |
 | e-b3-swarm-penalty-runs.json | e-b3 | 这是假设，不是论文复现 | 无 |
 | e-b3-swarm-penalty.md | e-b3 | E-B3：后段机间椭球惩罚 | report-only、冻结 |
@@ -97,6 +101,8 @@
 | e-pg2-forest-gate-switch.md |  | 票 E-PG2：六机林带进度门控的超前余量做成开关 | report-only、冻结 |
 | e-pg3-leader-prefix-runs.json |  | 票 E-PG3：超前机改走短前缀，只报数 | report-only、冻结 |
 | e-pg3-leader-prefix.md |  | 票 E-PG3：超前机改走短前缀 | report-only、冻结 |
+| e-pg4-prefix-suite-runs.json |  | 票 E-PG4：0.7 s 短前缀在冻结套件上重测，只报数 | report-only、冻结 |
+| e-pg4-prefix-suite.md |  | 票 E-PG4：0.7 s 短前缀在冻结套件上重测（只报数） | report-only、冻结 |
 | e-rerun-det.md |  | 票 E-RERUN：后段研究表的确定性重跑 | report-only、冻结 |
 | e-so3-dynamics-gap-runs.json |  | 只报数。report-only。SO3 两臂是偏离默认动力学（L0 点质量不变）。不改 yopo_l0/ 的默认动力学，不改 core/、scenes/、docs/tickets.md、README.md、scripts/premerge.sh、scripts/regress.sh。规划与策略保持场景卡默认：upstream（柱群和穿林由 CrossingFleet 走上游 YOPO），影子盾开。外环 kp/kd/a_max 与 PointMassLag 相同。τ_att、τ_thrust 和倾角是票面给定的假设，不是本仓库的 SITL 辨识。未冻结，不进 scenes/suite.txt，不设 gates，不改已冻门。 | report-only、冻结 |
 | e-so3-dynamics-gap.md |  | 票 E-SO3：L0 SO3 四旋翼滞后 vs 点质量，只报数 | report-only、冻结 |
