@@ -64,10 +64,11 @@ def test_launch_cap_time_scales_the_curve_and_keeps_the_head():
     cap = KinematicLimits(lim.v_max, 3.0, lim.j_max)
     fleet._launch_limits = None
     raw0 = fleet._launch_minco(0.0, head, tail, inner, [0.7, 0.7])
-    assert fleet._fit_yopo_with(raw0, cap) is None  # 原曲线超过 3 m/s²
+    assert not fleet._launch_prefix_ok(raw0, cap)  # 原曲线要飞的前缀超过 3 m/s²
     fleet._launch_limits = cap
     raw = fleet._launch_minco(0.0, head, tail, inner, [0.7, 0.7])
-    assert fleet._fit_yopo_with(raw, cap) is not None
+    assert fleet._launch_prefix_ok(raw, cap)
+    assert fleet._fit_yopo(raw) is not None  # 拟合、停止尾仍按场景 a_max
     assert fleet.b3_counts["launch_scaled"] == 1
     assert np.allclose(raw.evaluate(0.0, 0), head[0]) and np.allclose(raw.evaluate(0.0, 1), 0.0)
 

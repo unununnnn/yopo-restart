@@ -907,10 +907,11 @@ class CrossingFleet:
         return out
 
     def _launch_minco(self, t_start: float, head: np.ndarray, tail: np.ndarray, inner: np.ndarray, durations):
-        """票 B3（默认关）：起步段把 YOPO 曲线按时间伸缩，直到过起步加速度上限。
+        """票 B3（默认关）：起步段把 YOPO 曲线按时间伸缩，直到要飞的那段前缀过起步加速度上限。
 
         头状态不动（与已提交计划连续），内点和尾点位置不动；时长乘 k，尾速度除 k，尾加速度除 k²。
-        所有档都过不了就用原曲线（与关时相同），记一次 launch_uncapped。
+        只查提交跨度内的前缀；之后的拟合、停止尾和契约仍按场景 a_max（与关时相同）。
+        所有档都过不了就用原曲线，记一次 launch_uncapped。
         """
         raw1 = minco_two_piece(t_start, head, tail, inner, durations)
         limits = self._launch_limits
@@ -927,13 +928,20 @@ class CrossingFleet:
                     raw = minco_two_piece(t_start, head, t2, inner, [float(d) * k for d in durations])
                 except (ValueError, np.linalg.LinAlgError, FloatingPointError):
                     continue
-            fitted = self._fit_yopo_with(raw, limits)
-            if fitted is not None:
+            if self._launch_prefix_ok(raw, limits):
                 if k != 1.0:
                     self.b3_counts["launch_scaled"] += 1
                 return raw
         self.b3_counts["launch_uncapped"] += 1
         return raw1
+
+    def _launch_prefix_ok(self, raw: PiecewisePolynomial, limits: KinematicLimits) -> bool:
+        span = min(self._commit_span(), raw.t_end - raw.t_start)
+        try:
+            pre = _prefix(raw, raw.t_start + span)
+        except (ValueError, RuntimeError):
+            return False
+        return check_derivative_bound(pre, 2, float(limits.a_max)).verdict is Verdict.SAFE
 
     def _count(self, drone_id: str, code: str) -> None:
         slot = self._codes[drone_id]
@@ -953,10 +961,6 @@ class CrossingFleet:
 
     def _fit_yopo(self, raw: PiecewisePolynomial) -> PiecewisePolynomial | None:
         """从长到短取过运动学的前缀。系数不变，避障形状还是这条 YOPO 曲线。"""
-        if self._launch_limits is not None:
-            fitted = self._fit_yopo_with(raw, self._launch_limits)
-            if fitted is not None:
-                return fitted
         return self._fit_yopo_with(raw, self.pcfg.limits)
 
     def _fit_yopo_with(self, raw: PiecewisePolynomial, limits: KinematicLimits) -> PiecewisePolynomial | None:
