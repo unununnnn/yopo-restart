@@ -14,6 +14,7 @@ S5a/S5b 的三机入口只接 `formation`。本票把交叉和变阵接进同一
 | `scripts/sitl/yopo_l0_live.py` | `--policy` 接受 `crossing` / `switch`；编队类策略的 PLAN 超时 60 s（其他仍 45 s）；输出 `clock_skew`。 |
 | `scripts/sitl/run_yopo_l0_sitl.sh` | 策略检查改为 `upstream|formation|crossing|switch`，用法文本同步。 |
 | `scenes/crossing-pillars-sitl80.json`、`scenes/formation-switch-sitl80.json` | 与基础卡只差名字、一句 note 和 `task.duration_s`（45 → 80、32 → 80，含起飞降落）。不进 `scenes/suite.txt`。 |
+| `tests/test_sitl_s5a_formation.py` | S5a 断言 shell 入口拒绝 `--policy crossing`；本票起 crossing 合法，改为拒绝不存在的策略名，断言意图（未知策略退出 2）不变。 |
 | `tests/test_sitl_s7_crossing_switch.py` | 12 个测试：卡只延长时长、policy 与卡匹配、两张卡的 dry-run、fake PX4 上变阵 3/3、crossing 深度来自世界系位姿、净空口径、时钟偏差、按需渲染。 |
 
 ```bash
