@@ -195,7 +195,15 @@ mkdir -p "$RUN"
 shm=1g
 [[ "$N" != "1" ]] && shm=2g
 set +e
-"${DOCKER[@]}" run --rm --name "$NAME" \
+# YOPO_SITL_DOCKER_NETWORK（缺省空 = docker 默认网桥）：自定容器名并排跑时必须给一个自己的网络。
+# 同一网桥上两个容器的 DDS 和 gz-transport 组播会互相发现（话题名、世界名相同），里程计和世界步进会串。
+net_args=()
+[[ -n "${YOPO_SITL_DOCKER_NETWORK:-}" ]] && net_args=(--network "$YOPO_SITL_DOCKER_NETWORK")
+if [[ -n "${YOPO_SITL_CONTAINER_NAME:-}" && -z "${YOPO_SITL_DOCKER_NETWORK:-}" ]]; then
+  echo "YOPO_SITL_CONTAINER_NAME 要和 YOPO_SITL_DOCKER_NETWORK 一起给：默认网桥上会和别的仿真串话" >&2
+  exit 2
+fi
+"${DOCKER[@]}" run --rm --name "$NAME" "${net_args[@]}" \
   -e ROS_DOMAIN_ID=0 -e YOPO_SITL_N="$N" -e YOPO_SITL_MISSION=1 \
   -e YOPO_SITL_PLANNER=yopo-l0 -e YOPO_L0_SCENE="$SCENE" -e YOPO_L0_POLICY="$POLICY" \
   -e YOPO_L0_SEED="$SEED" \
