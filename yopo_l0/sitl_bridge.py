@@ -816,13 +816,16 @@ class ClockSkewMeter:
     def __init__(self) -> None:
         self.offsets: dict[str, list[float]] = {}
         self.spreads: list[float] = []
+        self.zero_stamps = 0
 
     def note(self, t_sim: float | None, odom_ts_s: dict[str, float | None]) -> None:
         if t_sim is None:
             return
         row = []
         for ns, ts in odom_ts_s.items():
-            if ts is None:
+            if ts is None or not float(ts) > 0.0:
+                # PX4 退出或重启时里程计时间戳会是 0，不算偏差样本。
+                self.zero_stamps += ts is not None
                 continue
             off = float(ts) - float(t_sim)
             self.offsets.setdefault(ns, []).append(off)
@@ -848,6 +851,7 @@ class ClockSkewMeter:
             "inter_vehicle_spread_median_s": None if spreads.size == 0 else float(np.median(spreads)),
             "inter_vehicle_spread_p95_s": None if spreads.size == 0 else float(np.percentile(spreads, 95)),
             "inter_vehicle_spread_max_s": None if spreads.size == 0 else float(spreads.max()),
+            "zero_stamps_skipped": int(self.zero_stamps),
         }
 
 

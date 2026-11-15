@@ -207,3 +207,15 @@ def test_lazy_depth_frame_renders_once_on_first_depth_read():
     assert frame.depth.shape == (2, 3)
     assert calls == [((1.0, 2.0, 1.5), 0.3, 4.0)]
     assert frame.rendered
+
+
+def test_clock_skew_meter_skips_zero_odometry_stamps():
+    from yopo_l0.sitl_bridge import ClockSkewMeter
+
+    meter = ClockSkewMeter()
+    meter.note(10.0, {"px4_1": 1000.0, "px4_2": 1000.1})
+    meter.note(10.02, {"px4_1": 1000.02, "px4_2": 0.0})
+    out = meter.summary()
+    assert out["zero_stamps_skipped"] == 1
+    assert out["per_vehicle"]["px4_2"]["samples"] == 1
+    assert out["inter_vehicle_spread_max_s"] < 0.2
