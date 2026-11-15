@@ -1429,6 +1429,10 @@ class CrossingFleet:
         if self.leader_prefix_enabled:
             out["leader_prefix"] = True
             out["leader_prefix_s"] = self.leader_prefix_s
+        if self.rail.ramp_mps2 is not None:
+            out["center_ramp_mps2"] = self.rail.ramp_mps2
+            out["center_ramp_s"] = self.rail.t_ramp
+            out["deviation"] = "偏离上游：虚拟中心起步匀加速斜坡"
         return out
 
 

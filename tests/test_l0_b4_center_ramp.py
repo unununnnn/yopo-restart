@@ -55,3 +55,15 @@ def test_fix_string_maps_ramp_and_marks_deviation():
     assert "偏离上游：虚拟中心起步按 3 m/s² 斜坡" in fix_deviations(fix)
     with pytest.raises(ValueError):
         parse_fix("ramp=0")
+
+
+
+def test_short_l0_flight_with_ramp_marks_upstream_deviation():
+    from yopo_l0.b2_plan_diag import apply_b2_overrides
+    from yopo_l0.runner import RunConfig, run
+
+    card, _ = apply_b2_overrides(load_card(CROSS), b3={"center_ramp_mps2": 3.0})
+    out = run(card, RunConfig(policy="crossing", seed=0, shadow=False, duration_s=1.0)).result
+    assert out["upstream_deviation"] is True
+    assert out["crossing"]["center_ramp_mps2"] == 3.0
+    assert out["center_ramp_deviation"].startswith("偏离上游")
