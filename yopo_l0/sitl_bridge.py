@@ -43,6 +43,7 @@ from .inter_drone import samples_from_pva
 from .policy import Observation, PolicyContext, UpstreamPolicy
 from .scene import SceneCard
 from .sensor import R_BODY_CAM, CameraConfig, DepthCamera, DepthFrame
+from .shadow import DroneShadow, aggregate, aggregate_drones, approved_pva, gate_status
 
 SCHEMA = "yopo-restart/s4-sitl-bridge/1"
 SCHEMA_LIVE = "yopo-restart/s4b-sitl-live/1"
@@ -1289,6 +1290,7 @@ class LiveFleetConfig:
     settle_pos_m: float = 0.2
     settle_vel_mps: float = 0.3
     settle_hold_s: float = 1.0
+    shadow: bool = True  # 默认开。只记录会否拒绝，不改批准动作
 
     def __post_init__(self) -> None:
         self.positioning = normalize_positioning(self.positioning)
@@ -1323,6 +1325,8 @@ class _LiveSlot:
         self.offset_enu = world_offset_enu(bridge.start_enu)
         self.trace: list[dict] = []
         self.formation_sampler = None
+        self.takeoff_handover_s: float | None = None
+        self.shadow = None
 
 
 
@@ -1384,7 +1388,13 @@ class LiveFleetSession:
         self._sim0: float | None = None
         self._sim1: float | None = None
         self._wall0: float | None = None
+        self._shadow_ticks: list[dict] = []
+        self.shadow = bool(cfg.shadow) and policy == "upstream"
         self.frame_note = frame_note(card)
+        if self.shadow:
+            params = dict(card.card.get("policy_params") or {})
+            for slot in self.slots:
+                slot.shadow = DroneShadow(slot.bridge.drone_id, slot.bridge.start_enu, slot.bridge.goal, params)
 
     def step(self, now_s: float, inbox_by_ns: dict[str, VehicleInbox]) -> list[LiveCommand]:
         now_s = float(now_s)
@@ -1609,6 +1619,8 @@ class LiveFleetSession:
             return self._pack(slot, now_s, heartbeat=False, setpoint=None, commands=[], planned=False, depth_source="", roundtrip=0.0, position=None)
         if slot.t_phase is None:
             slot.t_phase = now_s
+            if slot.phase == "PLAN" and slot.takeoff_handover_s is None:
+                slot.takeoff_handover_s = now_s
         if slot.phase == "FAIL":
             return self._land_pack(slot, now_s, inbox)
         if slot.phase == "WARMUP":
@@ -1658,6 +1670,7 @@ class LiveFleetSession:
             if now_s - slot.settle_since >= self.cfg.settle_hold_s - 1e-9:
                 slot.phase = "PLAN"
                 slot.t_phase = now_s
+                slot.takeoff_handover_s = now_s
                 slot.goal_since = None
         else:
             slot.settle_since = None
@@ -1701,6 +1714,7 @@ class LiveFleetSession:
             acceleration_ned=state["acceleration_ned"],
             depth_frame=frame,
         )
+        self._observe_shadow(slot, now_s, state, planned=out.planned)
         self._note_arrival(slot, now_s, state["position_enu"], state["velocity_enu"])
         return self._pack(
             slot,
@@ -1712,6 +1726,36 @@ class LiveFleetSession:
             depth_source=source,
             roundtrip=out.roundtrip_error_m,
             position=state["position_enu"],
+        )
+
+    def _observe_shadow(self, slot: _LiveSlot, now_s: float, state: dict, *, planned: bool) -> None:
+        """只读复验本拍选出的计划和跟踪点。不改设定点。"""
+        if slot.shadow is None or not self.shadow:
+            return
+        obs = slot.bridge.last_observation
+        if planned and obs is not None and slot.bridge.plan is not None:
+            slot.shadow.on_selection(slot.bridge.plan, obs.frame, obs.state, now_s)
+        if slot.bridge.plan is None:
+            return
+        accel = state.get("acceleration_enu")
+        if accel is None:
+            accel = np.zeros(3)
+        body = State(
+            float(now_s),
+            np.asarray(state["position_enu"], dtype=float).copy(),
+            np.asarray(state["velocity_enu"], dtype=float).copy(),
+            np.asarray(accel, dtype=float).reshape(3).copy(),
+            float(state.get("yaw_enu", slot.yaw)),
+        )
+        cmd_p, _, _ = approved_pva(slot.bridge.plan, now_s)
+        codes = slot.shadow.on_tick(body, cmd_p, now_s)
+        self._shadow_ticks.append(
+            {
+                "uav": slot.bridge.drone_id,
+                "t": float(now_s),
+                "would_reject": bool(codes),
+                "reject_codes": list(codes),
+            }
         )
 
     def _note_arrival(self, slot: _LiveSlot, now_s: float, position, velocity) -> None:
@@ -1849,6 +1893,12 @@ class LiveFleetSession:
                     "world_offset_enu": _vec_list(slot.offset_enu),
                     "arrived": slot.arrival is not None,
                     "arrival_time_s": slot.arrival,
+                    "takeoff_handover_s": slot.takeoff_handover_s,
+                    "arrival_after_handover_s": (
+                        None
+                        if slot.arrival is None or slot.takeoff_handover_s is None
+                        else float(slot.arrival) - float(slot.takeoff_handover_s)
+                    ),
                     "position_enu": None if slot.position is None else _vec_list(slot.position),
                     "depth_source": slot.depth_source,
                     "plans": int(sum(slot.bridge.plan_counts.values())),
@@ -1884,8 +1934,26 @@ class LiveFleetSession:
             "terminal": terminal,
             "arrived": arrived,
             "arrival_rate": float(arrived) / float(n),
+            "arrival_time_s": max((slot.arrival for slot in self.slots), default=None) if all_arrived else None,
+            "takeoff_handover_s": (
+                max(slot.takeoff_handover_s for slot in self.slots)
+                if self.slots and all(slot.takeoff_handover_s is not None for slot in self.slots)
+                else None
+            ),
+            "arrival_after_handover_s": (
+                max(float(slot.arrival) - float(slot.takeoff_handover_s) for slot in self.slots)
+                if all_arrived and all(slot.takeoff_handover_s is not None for slot in self.slots)
+                else None
+            ),
             "landed": bool(self.slots) and all(slot.landed_done or slot.phase == "DONE" for slot in self.slots),
             "land_commands_sent": int(self.land_commands_sent),
+            "collisions": 1 if self.fail_reason and (":OBSTACLE" in self.fail_reason or ":INTER_DRONE" in self.fail_reason) else 0,
+            "collision_reason": (
+                self.fail_reason
+                if self.fail_reason and (":OBSTACLE" in self.fail_reason or ":INTER_DRONE" in self.fail_reason)
+                else None
+            ),
+            "body_radius_m": float(self.body),
             "min_inter_drone_distance_m": self._min_inter,
             "min_surface_clearance_m": clear_out,
             "sim_time_s": sim_elapsed,
@@ -1910,6 +1978,17 @@ class LiveFleetSession:
                 "reorder": float(self.bus.faults.reorder),
                 **self.bus.counts(),
             }
+        payload["shadow"] = bool(self.shadow)
+        payload["shadow_reject_rate"] = None
+        payload["shadow_reject_histogram"] = None
+        payload["shadow_gates"] = None
+        payload["shadow_drones"] = None
+        if self.shadow:
+            rate, hist = aggregate(self._shadow_ticks)
+            payload["shadow_reject_rate"] = rate
+            payload["shadow_reject_histogram"] = hist
+            payload["shadow_gates"] = gate_status()
+            payload["shadow_drones"] = aggregate_drones(self._shadow_ticks, [slot.bridge.drone_id for slot in self.slots])
         return payload
 
 
@@ -2005,6 +2084,7 @@ def live_topic_plan(card: SceneCard, *, positioning: str = "default", seed: int 
         "seed": int(seed),
         "n_drones": n,
         "policy": name,
+        "shadow": name == "upstream",
         "inter_drone_transport": "inprocess" if name == "formation" else None,
         "positioning": positioning,
         "px4_parameters_written": [],
