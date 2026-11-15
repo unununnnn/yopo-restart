@@ -109,4 +109,12 @@ S6 指出 `min_surface_clearance_m` 把降落段也算进去：高度刚过机�
 
 ## 回归
 
-见 PR 描述（`scripts/regress.sh` 和 `pytest tests/test_sitl*.py` 的数字）。
+2026-11-15 11:13–11:37 UTC-3，提交 `578ec12`（已合并 origin/main 的 #133、#134）：
+
+| 项 | 结果 |
+|---|---|
+| `scripts/regress.sh` | pytest=通过 批跑=通过；L0 pytest 870 passed / 27 skipped；core pytest 453 passed / 3 skipped / 4 deselected；总耗时 1406.3 s |
+| 批跑冻结卡 | crossing-pillars 10/10（7.27 s）、formation-switch 10/10（27.00 s）、formation-hold 3/3、g2-pillar@upstream 10/10，碰撞 0 |
+| `pytest tests/test_sitl*.py` | 111 passed |
+
+第一次回归在修 S5a 断言之前跑，L0 pytest 1 failed / 869 passed（`test_dry_run_lists_formation_without_a_protocol_topic`）。修后整套重跑，上表就是重跑结果。
