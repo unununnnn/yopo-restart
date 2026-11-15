@@ -74,6 +74,9 @@ class RunConfig:
     # None = 场景卡 dynamics.model。True 用 yopo_l0.so3 的一阶 SO3，并标偏离上游。
     # False 强制点质量。缺省关；关时不导入 so3，动力学仍是 make_model(场景卡)。
     so3: bool | None = None
+    # 研究开关，默认关。打开后把场景卡几何的光线投射交给影子盾，只记录，不改批准动作。
+    # 关着不给影子传障碍，结果里也不加字段。
+    shadow_env_evidence: bool = False
 
 
 @dataclass
@@ -255,7 +258,10 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
             "frame": None, "plan": None, "approved": None,
             "min_obs": card.min_distance(start), "max_err": 0.0,
             "shadow": (
-                DroneShadow(d["id"], start, goal, dict(c.get("policy_params", {}))) if cfg.shadow else None
+                DroneShadow(
+                    d["id"], start, goal, dict(c.get("policy_params", {})),
+                    card.obstacles if cfg.shadow_env_evidence else None,
+                ) if cfg.shadow else None
             ),
         })
     by_id = {dr["id"]: dr for dr in drones}
@@ -573,6 +579,16 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
 
         result["so3"] = public_record(dyn_cfg)
         result["upstream_deviation"] = True
+
+    if cfg.shadow_env_evidence:
+        # 研究开关。关时不加这些字段，影子也不读场景几何。打开即偏离上游。
+        result["shadow_env_evidence"] = True
+        result["upstream_deviation"] = True
+        if cfg.shadow:
+            scenes = [dr["shadow"]._scene for dr in drones if dr["shadow"] is not None and dr["shadow"]._scene is not None]
+            result["shadow_env_views"] = 0 if not scenes else int(scenes[0].n_views)
+            result["shadow_env_clearance_evals"] = int(sum(s.clearance_evals for s in scenes))
+            result["shadow_env_certificate_centers"] = int(sum(s.certificate_centers for s in scenes))
 
     if cfg.policy == "student":
         result["network"] = _student_provenance(drones)

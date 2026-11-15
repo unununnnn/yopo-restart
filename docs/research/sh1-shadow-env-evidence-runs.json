@@ -1,0 +1,1657 @@
+{
+  "ticket": "SH1",
+  "title": "票 SH1：影子盾环境证据接入与拒绝率归因（只报数）",
+  "disclaimer": "只报数。report-only。判据未冻结。shadow_env_evidence 默认关。打开即偏离上游。不改 core/、scenes/suite.txt、已冻门、安全清单和 PX4 参数。影子盾只记录，不改批准动作。关臂与 765e2cb 的 g2-pillar seed 0 直方图一致。墙钟不进结论。净空查询次数是评估次数，不是秒表。",
+  "base_commit": "765e2cb6a01123a236ff00d3892d8ae99a806a65",
+  "switch": "shadow_env_evidence",
+  "default": false,
+  "on_label": "偏离上游",
+  "sample_radius_m": 0.525,
+  "sample_radius_note": "CertifiedPolicy 缺省 body_radius 0.35 + tracking_margin 0.15 + FreeSpaceConfig.sample_spacing 0.05 的一半。",
+  "min_range_m": 0.3,
+  "start_pad_radius_m": 1.2,
+  "scenes": [
+    {
+      "scene": "g2-pillar",
+      "scene_card_hash": "9d385f4cfce543922961865d06ceeedd44afdddb52c706bf6e3da9929431d8ae",
+      "seeds": [
+        {
+          "seed": 0,
+          "scene_card_hash": "9d385f4cfce543922961865d06ceeedd44afdddb52c706bf6e3da9929431d8ae",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "1/1",
+          "arrival_time_s": 4.26,
+          "min_obstacle_distance_m": 0.8290494225148274,
+          "min_inter_drone_distance_m": null,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 526,
+          "would_reject_off": 1.0,
+          "would_reject_on": 1.0,
+          "env_reject_off": 1.0,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 526,
+            "TIME:SWITCH_NOT_IN_FUTURE": 316,
+            "TRANSITION:HEAD_DISCONTINUITY": 316,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 210
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 316,
+            "TRANSITION:HEAD_DISCONTINUITY": 316,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 210
+          },
+          "open_gt_1m_off": {
+            "n": 479,
+            "would_reject": 1.0,
+            "env_reject": 1.0
+          },
+          "open_gt_1m_on": {
+            "n": 479,
+            "would_reject": 1.0,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 52003,
+          "certificate_centers": 7429,
+          "views": 5,
+          "traj_sha256": "fe9d34f7d6d8a9e30c4356a474696689d6e51b073d29b89fd4d18356bc1eb91e"
+        },
+        {
+          "seed": 1,
+          "scene_card_hash": "9d385f4cfce543922961865d06ceeedd44afdddb52c706bf6e3da9929431d8ae",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "1/1",
+          "arrival_time_s": 4.27,
+          "min_obstacle_distance_m": 0.8289228619025522,
+          "min_inter_drone_distance_m": null,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 527,
+          "would_reject_off": 1.0,
+          "would_reject_on": 1.0,
+          "env_reject_off": 1.0,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 527,
+            "TIME:SWITCH_NOT_IN_FUTURE": 317,
+            "TRANSITION:HEAD_DISCONTINUITY": 317,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 210
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 317,
+            "TRANSITION:HEAD_DISCONTINUITY": 317,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 210
+          },
+          "open_gt_1m_off": {
+            "n": 480,
+            "would_reject": 1.0,
+            "env_reject": 1.0
+          },
+          "open_gt_1m_on": {
+            "n": 480,
+            "would_reject": 1.0,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 52003,
+          "certificate_centers": 7429,
+          "views": 5,
+          "traj_sha256": "3146768cea54e78e56351379290c803407d86707798851939526b427d474eccb"
+        },
+        {
+          "seed": 2,
+          "scene_card_hash": "9d385f4cfce543922961865d06ceeedd44afdddb52c706bf6e3da9929431d8ae",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "1/1",
+          "arrival_time_s": 4.26,
+          "min_obstacle_distance_m": 0.8288622759806288,
+          "min_inter_drone_distance_m": null,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 526,
+          "would_reject_off": 1.0,
+          "would_reject_on": 1.0,
+          "env_reject_off": 1.0,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 526,
+            "TIME:SWITCH_NOT_IN_FUTURE": 316,
+            "TRANSITION:HEAD_DISCONTINUITY": 316,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 210
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 316,
+            "TRANSITION:HEAD_DISCONTINUITY": 316,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 210
+          },
+          "open_gt_1m_off": {
+            "n": 479,
+            "would_reject": 1.0,
+            "env_reject": 1.0
+          },
+          "open_gt_1m_on": {
+            "n": 479,
+            "would_reject": 1.0,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 52003,
+          "certificate_centers": 7429,
+          "views": 5,
+          "traj_sha256": "46184f569aa9c6cf497f8a2f08486d21b3a7c3eb19a2f000db95ba75dc7b86f4"
+        },
+        {
+          "seed": 3,
+          "scene_card_hash": "9d385f4cfce543922961865d06ceeedd44afdddb52c706bf6e3da9929431d8ae",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "1/1",
+          "arrival_time_s": 4.26,
+          "min_obstacle_distance_m": 0.8287389762255215,
+          "min_inter_drone_distance_m": null,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 526,
+          "would_reject_off": 1.0,
+          "would_reject_on": 1.0,
+          "env_reject_off": 1.0,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 526,
+            "TIME:SWITCH_NOT_IN_FUTURE": 316,
+            "TRANSITION:HEAD_DISCONTINUITY": 316,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 210
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 316,
+            "TRANSITION:HEAD_DISCONTINUITY": 316,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 210
+          },
+          "open_gt_1m_off": {
+            "n": 479,
+            "would_reject": 1.0,
+            "env_reject": 1.0
+          },
+          "open_gt_1m_on": {
+            "n": 479,
+            "would_reject": 1.0,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 52010,
+          "certificate_centers": 7430,
+          "views": 5,
+          "traj_sha256": "fa3354f6260669061af6e8527777f469aca430059f9013fdf8cac0d8e5812cc3"
+        },
+        {
+          "seed": 4,
+          "scene_card_hash": "9d385f4cfce543922961865d06ceeedd44afdddb52c706bf6e3da9929431d8ae",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "1/1",
+          "arrival_time_s": 4.27,
+          "min_obstacle_distance_m": 0.8294366302754674,
+          "min_inter_drone_distance_m": null,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 527,
+          "would_reject_off": 1.0,
+          "would_reject_on": 1.0,
+          "env_reject_off": 1.0,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 527,
+            "TIME:SWITCH_NOT_IN_FUTURE": 317,
+            "TRANSITION:HEAD_DISCONTINUITY": 317,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 210
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 317,
+            "TRANSITION:HEAD_DISCONTINUITY": 317,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 210
+          },
+          "open_gt_1m_off": {
+            "n": 480,
+            "would_reject": 1.0,
+            "env_reject": 1.0
+          },
+          "open_gt_1m_on": {
+            "n": 480,
+            "would_reject": 1.0,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 52003,
+          "certificate_centers": 7429,
+          "views": 5,
+          "traj_sha256": "748fc0725f679c4be9e5fb710d339379fc2dd7e0ed75363e812b297da5c35279"
+        },
+        {
+          "seed": 5,
+          "scene_card_hash": "9d385f4cfce543922961865d06ceeedd44afdddb52c706bf6e3da9929431d8ae",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "1/1",
+          "arrival_time_s": 4.28,
+          "min_obstacle_distance_m": 0.8280498031020118,
+          "min_inter_drone_distance_m": null,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 528,
+          "would_reject_off": 1.0,
+          "would_reject_on": 1.0,
+          "env_reject_off": 1.0,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 528,
+            "TIME:SWITCH_NOT_IN_FUTURE": 318,
+            "TRANSITION:HEAD_DISCONTINUITY": 318,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 210
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 318,
+            "TRANSITION:HEAD_DISCONTINUITY": 318,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 210
+          },
+          "open_gt_1m_off": {
+            "n": 482,
+            "would_reject": 1.0,
+            "env_reject": 1.0
+          },
+          "open_gt_1m_on": {
+            "n": 482,
+            "would_reject": 1.0,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 52731,
+          "certificate_centers": 7533,
+          "views": 5,
+          "traj_sha256": "9260d59461a1f2a9a408dc1c879d5cb92b02fe0497dc9d9f7c0c3d08ed0114ca"
+        },
+        {
+          "seed": 6,
+          "scene_card_hash": "9d385f4cfce543922961865d06ceeedd44afdddb52c706bf6e3da9929431d8ae",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "1/1",
+          "arrival_time_s": 4.28,
+          "min_obstacle_distance_m": 0.8278387606660735,
+          "min_inter_drone_distance_m": null,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 528,
+          "would_reject_off": 1.0,
+          "would_reject_on": 1.0,
+          "env_reject_off": 1.0,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 528,
+            "TIME:SWITCH_NOT_IN_FUTURE": 318,
+            "TRANSITION:HEAD_DISCONTINUITY": 318,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 210
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 318,
+            "TRANSITION:HEAD_DISCONTINUITY": 318,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 210
+          },
+          "open_gt_1m_off": {
+            "n": 482,
+            "would_reject": 1.0,
+            "env_reject": 1.0
+          },
+          "open_gt_1m_on": {
+            "n": 482,
+            "would_reject": 1.0,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 52724,
+          "certificate_centers": 7532,
+          "views": 5,
+          "traj_sha256": "3c8dc5730d73a0dc56c013068894554f8fbb81c61b2553611ce285dbf73bb212"
+        },
+        {
+          "seed": 7,
+          "scene_card_hash": "9d385f4cfce543922961865d06ceeedd44afdddb52c706bf6e3da9929431d8ae",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "1/1",
+          "arrival_time_s": 4.28,
+          "min_obstacle_distance_m": 0.8275465470413405,
+          "min_inter_drone_distance_m": null,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 528,
+          "would_reject_off": 1.0,
+          "would_reject_on": 1.0,
+          "env_reject_off": 1.0,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 528,
+            "TIME:SWITCH_NOT_IN_FUTURE": 318,
+            "TRANSITION:HEAD_DISCONTINUITY": 318,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 210
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 318,
+            "TRANSITION:HEAD_DISCONTINUITY": 318,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 210
+          },
+          "open_gt_1m_off": {
+            "n": 482,
+            "would_reject": 1.0,
+            "env_reject": 1.0
+          },
+          "open_gt_1m_on": {
+            "n": 482,
+            "would_reject": 1.0,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 52731,
+          "certificate_centers": 7533,
+          "views": 5,
+          "traj_sha256": "ac9ae2d0aaa9fee8d3f380e2b353da1caa6d9a08d62cf673e4a77c17fb560f82"
+        },
+        {
+          "seed": 8,
+          "scene_card_hash": "9d385f4cfce543922961865d06ceeedd44afdddb52c706bf6e3da9929431d8ae",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "1/1",
+          "arrival_time_s": 4.28,
+          "min_obstacle_distance_m": 0.8276587206919537,
+          "min_inter_drone_distance_m": null,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 528,
+          "would_reject_off": 1.0,
+          "would_reject_on": 1.0,
+          "env_reject_off": 1.0,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 528,
+            "TIME:SWITCH_NOT_IN_FUTURE": 318,
+            "TRANSITION:HEAD_DISCONTINUITY": 318,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 210
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 318,
+            "TRANSITION:HEAD_DISCONTINUITY": 318,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 210
+          },
+          "open_gt_1m_off": {
+            "n": 482,
+            "would_reject": 1.0,
+            "env_reject": 1.0
+          },
+          "open_gt_1m_on": {
+            "n": 482,
+            "would_reject": 1.0,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 52724,
+          "certificate_centers": 7532,
+          "views": 5,
+          "traj_sha256": "c05bcacf86553960f0f6610b8d10f377d3eb05f1ac05d19dca2d7937b7bc3917"
+        },
+        {
+          "seed": 9,
+          "scene_card_hash": "9d385f4cfce543922961865d06ceeedd44afdddb52c706bf6e3da9929431d8ae",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "1/1",
+          "arrival_time_s": 4.27,
+          "min_obstacle_distance_m": 0.8288789808353144,
+          "min_inter_drone_distance_m": null,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 527,
+          "would_reject_off": 1.0,
+          "would_reject_on": 1.0,
+          "env_reject_off": 1.0,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 527,
+            "TIME:SWITCH_NOT_IN_FUTURE": 317,
+            "TRANSITION:HEAD_DISCONTINUITY": 317,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 210
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 317,
+            "TRANSITION:HEAD_DISCONTINUITY": 317,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 210
+          },
+          "open_gt_1m_off": {
+            "n": 480,
+            "would_reject": 1.0,
+            "env_reject": 1.0
+          },
+          "open_gt_1m_on": {
+            "n": 480,
+            "would_reject": 1.0,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 52003,
+          "certificate_centers": 7429,
+          "views": 5,
+          "traj_sha256": "f6ff8f5780c6a24b9ad5085826f8d7b1cb85f9cf70a3381dc048d99d4e22ee80"
+        }
+      ],
+      "seed0_sweep_diagnosis": {
+        "classify_sweep_calls": {
+          "UNKNOWN": 211,
+          "FREE": 2
+        },
+        "unknown_first_sample": {
+          "within_min_range": 14,
+          "behind_camera": 197
+        },
+        "examples": [
+          {
+            "t": 0.7350331031723527,
+            "p": [
+              0.4952,
+              -0.4617,
+              1.4453
+            ],
+            "tag": "within_min_range",
+            "cam_dist_m": 0.592
+          },
+          {
+            "t": 2.1,
+            "p": [
+              4.2916,
+              -1.2737,
+              1.5475
+            ],
+            "tag": "behind_camera",
+            "cam_dist_m": 1.2235
+          },
+          {
+            "t": 2.1,
+            "p": [
+              4.2916,
+              -1.2737,
+              1.5475
+            ],
+            "tag": "behind_camera",
+            "cam_dist_m": 1.5263
+          }
+        ],
+        "note": "计数是 classify_sweep 调用，不是 tick。一次选择会扫运动段和制动分支，门里还会再扫一遍。"
+      },
+      "seed0_time_bins_off": [
+        {
+          "t0": 0.0,
+          "t1": 0.5,
+          "n": 49,
+          "would_reject": 1.0,
+          "env_reject": 1.0,
+          "min_obstacle_m": 1.4875383017841346,
+          "histogram": {
+            "ENV:UNKNOWN": 49,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 49
+          }
+        },
+        {
+          "t0": 0.5,
+          "t1": 1.0,
+          "n": 50,
+          "would_reject": 1.0,
+          "env_reject": 1.0,
+          "min_obstacle_m": 1.4851093431245452,
+          "histogram": {
+            "ENV:UNKNOWN": 50,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 50
+          }
+        },
+        {
+          "t0": 1.0,
+          "t1": 1.5,
+          "n": 50,
+          "would_reject": 1.0,
+          "env_reject": 1.0,
+          "min_obstacle_m": 0.8364791752092692,
+          "histogram": {
+            "ENV:UNKNOWN": 50,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 50
+          }
+        },
+        {
+          "t0": 1.5,
+          "t1": 2.0,
+          "n": 50,
+          "would_reject": 1.0,
+          "env_reject": 1.0,
+          "min_obstacle_m": 0.8290494225148274,
+          "histogram": {
+            "ENV:UNKNOWN": 50,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 50
+          }
+        },
+        {
+          "t0": 2.0,
+          "t1": 2.5,
+          "n": 50,
+          "would_reject": 1.0,
+          "env_reject": 1.0,
+          "min_obstacle_m": 1.2541194684944792,
+          "histogram": {
+            "ENV:UNKNOWN": 50,
+            "TIME:SWITCH_NOT_IN_FUTURE": 39,
+            "TRANSITION:HEAD_DISCONTINUITY": 39,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 11
+          }
+        },
+        {
+          "t0": 2.5,
+          "t1": 3.0,
+          "n": 50,
+          "would_reject": 1.0,
+          "env_reject": 1.0,
+          "min_obstacle_m": 1.493880719313602,
+          "histogram": {
+            "ENV:UNKNOWN": 50,
+            "TIME:SWITCH_NOT_IN_FUTURE": 50,
+            "TRANSITION:HEAD_DISCONTINUITY": 50
+          }
+        },
+        {
+          "t0": 3.0,
+          "t1": 3.5,
+          "n": 50,
+          "would_reject": 1.0,
+          "env_reject": 1.0,
+          "min_obstacle_m": 1.493451712165096,
+          "histogram": {
+            "ENV:UNKNOWN": 50,
+            "TIME:SWITCH_NOT_IN_FUTURE": 50,
+            "TRANSITION:HEAD_DISCONTINUITY": 50
+          }
+        },
+        {
+          "t0": 3.5,
+          "t1": 4.0,
+          "n": 50,
+          "would_reject": 1.0,
+          "env_reject": 1.0,
+          "min_obstacle_m": 1.4972608995414824,
+          "histogram": {
+            "ENV:UNKNOWN": 50,
+            "TIME:SWITCH_NOT_IN_FUTURE": 50,
+            "TRANSITION:HEAD_DISCONTINUITY": 50
+          }
+        },
+        {
+          "t0": 4.0,
+          "t1": 4.5,
+          "n": 50,
+          "would_reject": 1.0,
+          "env_reject": 1.0,
+          "min_obstacle_m": 1.5011293395278884,
+          "histogram": {
+            "ENV:UNKNOWN": 50,
+            "TIME:SWITCH_NOT_IN_FUTURE": 50,
+            "TRANSITION:HEAD_DISCONTINUITY": 50
+          }
+        },
+        {
+          "t0": 4.5,
+          "t1": 5.0,
+          "n": 50,
+          "would_reject": 1.0,
+          "env_reject": 1.0,
+          "min_obstacle_m": 1.500247324458775,
+          "histogram": {
+            "ENV:UNKNOWN": 50,
+            "TIME:SWITCH_NOT_IN_FUTURE": 50,
+            "TRANSITION:HEAD_DISCONTINUITY": 50
+          }
+        },
+        {
+          "t0": 5.0,
+          "t1": 5.5,
+          "n": 27,
+          "would_reject": 1.0,
+          "env_reject": 1.0,
+          "min_obstacle_m": 1.5000365462059166,
+          "histogram": {
+            "ENV:UNKNOWN": 27,
+            "TIME:SWITCH_NOT_IN_FUTURE": 27,
+            "TRANSITION:HEAD_DISCONTINUITY": 27
+          }
+        }
+      ],
+      "seed0_time_bins_on": [
+        {
+          "t0": 0.0,
+          "t1": 0.5,
+          "n": 49,
+          "would_reject": 1.0,
+          "env_reject": 0.0,
+          "min_obstacle_m": 1.4875383017841346,
+          "histogram": {
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 49
+          }
+        },
+        {
+          "t0": 0.5,
+          "t1": 1.0,
+          "n": 50,
+          "would_reject": 1.0,
+          "env_reject": 0.0,
+          "min_obstacle_m": 1.4851093431245452,
+          "histogram": {
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 50
+          }
+        },
+        {
+          "t0": 1.0,
+          "t1": 1.5,
+          "n": 50,
+          "would_reject": 1.0,
+          "env_reject": 0.0,
+          "min_obstacle_m": 0.8364791752092692,
+          "histogram": {
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 50
+          }
+        },
+        {
+          "t0": 1.5,
+          "t1": 2.0,
+          "n": 50,
+          "would_reject": 1.0,
+          "env_reject": 0.0,
+          "min_obstacle_m": 0.8290494225148274,
+          "histogram": {
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 50
+          }
+        },
+        {
+          "t0": 2.0,
+          "t1": 2.5,
+          "n": 50,
+          "would_reject": 1.0,
+          "env_reject": 0.0,
+          "min_obstacle_m": 1.2541194684944792,
+          "histogram": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 39,
+            "TRANSITION:HEAD_DISCONTINUITY": 39,
+            "TRANSITION:TERMINAL_NOT_HOLDABLE": 11
+          }
+        },
+        {
+          "t0": 2.5,
+          "t1": 3.0,
+          "n": 50,
+          "would_reject": 1.0,
+          "env_reject": 0.0,
+          "min_obstacle_m": 1.493880719313602,
+          "histogram": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 50,
+            "TRANSITION:HEAD_DISCONTINUITY": 50
+          }
+        },
+        {
+          "t0": 3.0,
+          "t1": 3.5,
+          "n": 50,
+          "would_reject": 1.0,
+          "env_reject": 0.0,
+          "min_obstacle_m": 1.493451712165096,
+          "histogram": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 50,
+            "TRANSITION:HEAD_DISCONTINUITY": 50
+          }
+        },
+        {
+          "t0": 3.5,
+          "t1": 4.0,
+          "n": 50,
+          "would_reject": 1.0,
+          "env_reject": 0.0,
+          "min_obstacle_m": 1.4972608995414824,
+          "histogram": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 50,
+            "TRANSITION:HEAD_DISCONTINUITY": 50
+          }
+        },
+        {
+          "t0": 4.0,
+          "t1": 4.5,
+          "n": 50,
+          "would_reject": 1.0,
+          "env_reject": 0.0,
+          "min_obstacle_m": 1.5011293395278884,
+          "histogram": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 50,
+            "TRANSITION:HEAD_DISCONTINUITY": 50
+          }
+        },
+        {
+          "t0": 4.5,
+          "t1": 5.0,
+          "n": 50,
+          "would_reject": 1.0,
+          "env_reject": 0.0,
+          "min_obstacle_m": 1.500247324458775,
+          "histogram": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 50,
+            "TRANSITION:HEAD_DISCONTINUITY": 50
+          }
+        },
+        {
+          "t0": 5.0,
+          "t1": 5.5,
+          "n": 27,
+          "would_reject": 1.0,
+          "env_reject": 0.0,
+          "min_obstacle_m": 1.5000365462059166,
+          "histogram": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 27,
+            "TRANSITION:HEAD_DISCONTINUITY": 27
+          }
+        }
+      ]
+    },
+    {
+      "scene": "crossing-pillars",
+      "scene_card_hash": "1d39afbd780740b9e925569a70b27b670d73184d9b487d3adb2473fdf1ed279e",
+      "seeds": [
+        {
+          "seed": 0,
+          "scene_card_hash": "1d39afbd780740b9e925569a70b27b670d73184d9b487d3adb2473fdf1ed279e",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "3/3",
+          "arrival_time_s": 7.06,
+          "min_obstacle_distance_m": 1.011807262442825,
+          "min_inter_drone_distance_m": 7.28446328175488,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 2418,
+          "would_reject_off": 1.0,
+          "would_reject_on": 1.0,
+          "env_reject_off": 0.9689826302729528,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 2343,
+            "TIME:SWITCH_NOT_IN_FUTURE": 75,
+            "TRANSITION:BRANCH_UNREACHABLE": 1125,
+            "TRANSITION:HEAD_DISCONTINUITY": 993,
+            "TRANSITION:MOTION_KINEMATICS": 1350
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 75,
+            "TRANSITION:BRANCH_UNREACHABLE": 1125,
+            "TRANSITION:HEAD_DISCONTINUITY": 993,
+            "TRANSITION:MOTION_KINEMATICS": 1350
+          },
+          "open_gt_1m_off": {
+            "n": 2418,
+            "would_reject": 1.0,
+            "env_reject": 0.9689826302729528
+          },
+          "open_gt_1m_on": {
+            "n": 2418,
+            "would_reject": 1.0,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 101142,
+          "certificate_centers": 5619,
+          "views": 5,
+          "traj_sha256": "902833ed7223bf8e41decf30a0217423c3f4169c79e34d6aaa62f4a94f3039ab"
+        },
+        {
+          "seed": 1,
+          "scene_card_hash": "1d39afbd780740b9e925569a70b27b670d73184d9b487d3adb2473fdf1ed279e",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "3/3",
+          "arrival_time_s": 7.06,
+          "min_obstacle_distance_m": 1.0161700623056689,
+          "min_inter_drone_distance_m": 7.281133707037611,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 2418,
+          "would_reject_off": 1.0,
+          "would_reject_on": 1.0,
+          "env_reject_off": 0.9689826302729528,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 2343,
+            "TIME:SWITCH_NOT_IN_FUTURE": 75,
+            "TRANSITION:BRANCH_UNREACHABLE": 1125,
+            "TRANSITION:HEAD_DISCONTINUITY": 993,
+            "TRANSITION:MOTION_KINEMATICS": 1350
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 75,
+            "TRANSITION:BRANCH_UNREACHABLE": 1125,
+            "TRANSITION:HEAD_DISCONTINUITY": 993,
+            "TRANSITION:MOTION_KINEMATICS": 1350
+          },
+          "open_gt_1m_off": {
+            "n": 2418,
+            "would_reject": 1.0,
+            "env_reject": 0.9689826302729528
+          },
+          "open_gt_1m_on": {
+            "n": 2418,
+            "would_reject": 1.0,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 102096,
+          "certificate_centers": 5672,
+          "views": 5,
+          "traj_sha256": "b2dba06ad8628a7797d78eead05d6dc29506aa0d0e9494502e88e0eadb063651"
+        },
+        {
+          "seed": 2,
+          "scene_card_hash": "1d39afbd780740b9e925569a70b27b670d73184d9b487d3adb2473fdf1ed279e",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "3/3",
+          "arrival_time_s": 7.06,
+          "min_obstacle_distance_m": 1.3607341926299854,
+          "min_inter_drone_distance_m": 7.3072680969540835,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 2418,
+          "would_reject_off": 1.0,
+          "would_reject_on": 1.0,
+          "env_reject_off": 0.9689826302729528,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 2343,
+            "TIME:SWITCH_NOT_IN_FUTURE": 75,
+            "TRANSITION:BRANCH_UNREACHABLE": 1125,
+            "TRANSITION:HEAD_DISCONTINUITY": 993,
+            "TRANSITION:MOTION_KINEMATICS": 1350
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 75,
+            "TRANSITION:BRANCH_UNREACHABLE": 1125,
+            "TRANSITION:HEAD_DISCONTINUITY": 993,
+            "TRANSITION:MOTION_KINEMATICS": 1350
+          },
+          "open_gt_1m_off": {
+            "n": 2418,
+            "would_reject": 1.0,
+            "env_reject": 0.9689826302729528
+          },
+          "open_gt_1m_on": {
+            "n": 2418,
+            "would_reject": 1.0,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 100800,
+          "certificate_centers": 5600,
+          "views": 5,
+          "traj_sha256": "5d3d1a9136bb4035cbf8572ed4077d00140ed89ffe811140b1f966a5e9ddf192"
+        },
+        {
+          "seed": 3,
+          "scene_card_hash": "1d39afbd780740b9e925569a70b27b670d73184d9b487d3adb2473fdf1ed279e",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "3/3",
+          "arrival_time_s": 7.76,
+          "min_obstacle_distance_m": 1.2645379476655407,
+          "min_inter_drone_distance_m": 3.506364290628664,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 2628,
+          "would_reject_off": 1.0,
+          "would_reject_on": 1.0,
+          "env_reject_off": 0.9714611872146118,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 2553,
+            "TIME:SWITCH_NOT_IN_FUTURE": 75,
+            "TRANSITION:BRANCH_UNREACHABLE": 1125,
+            "TRANSITION:HEAD_DISCONTINUITY": 1128,
+            "TRANSITION:MOTION_KINEMATICS": 1425
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 75,
+            "TRANSITION:BRANCH_UNREACHABLE": 1125,
+            "TRANSITION:HEAD_DISCONTINUITY": 1128,
+            "TRANSITION:MOTION_KINEMATICS": 1425
+          },
+          "open_gt_1m_off": {
+            "n": 2628,
+            "would_reject": 1.0,
+            "env_reject": 0.9714611872146118
+          },
+          "open_gt_1m_on": {
+            "n": 2628,
+            "would_reject": 1.0,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 103176,
+          "certificate_centers": 5732,
+          "views": 5,
+          "traj_sha256": "aa28574c0df7740a6d9bdfb0c632531bbeb17695ef649279f90412585c92b5aa"
+        },
+        {
+          "seed": 4,
+          "scene_card_hash": "1d39afbd780740b9e925569a70b27b670d73184d9b487d3adb2473fdf1ed279e",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "3/3",
+          "arrival_time_s": 7.05,
+          "min_obstacle_distance_m": 1.26406406018163,
+          "min_inter_drone_distance_m": 3.49094502621332,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 2415,
+          "would_reject_off": 1.0,
+          "would_reject_on": 1.0,
+          "env_reject_off": 0.968944099378882,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 2340,
+            "TIME:SWITCH_NOT_IN_FUTURE": 75,
+            "TRANSITION:BRANCH_UNREACHABLE": 1125,
+            "TRANSITION:HEAD_DISCONTINUITY": 990,
+            "TRANSITION:MOTION_KINEMATICS": 1350
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 75,
+            "TRANSITION:BRANCH_UNREACHABLE": 1125,
+            "TRANSITION:HEAD_DISCONTINUITY": 990,
+            "TRANSITION:MOTION_KINEMATICS": 1350
+          },
+          "open_gt_1m_off": {
+            "n": 2415,
+            "would_reject": 1.0,
+            "env_reject": 0.968944099378882
+          },
+          "open_gt_1m_on": {
+            "n": 2415,
+            "would_reject": 1.0,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 103014,
+          "certificate_centers": 5723,
+          "views": 5,
+          "traj_sha256": "96c08657789de26e267e4765de518224eba581ce184c0dc6e4aaafd8b538542b"
+        },
+        {
+          "seed": 5,
+          "scene_card_hash": "1d39afbd780740b9e925569a70b27b670d73184d9b487d3adb2473fdf1ed279e",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "3/3",
+          "arrival_time_s": 7.77,
+          "min_obstacle_distance_m": 1.266386233556264,
+          "min_inter_drone_distance_m": 3.3500304001512173,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 2631,
+          "would_reject_off": 1.0,
+          "would_reject_on": 1.0,
+          "env_reject_off": 0.9714937286202965,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 2556,
+            "TIME:SWITCH_NOT_IN_FUTURE": 75,
+            "TRANSITION:BRANCH_UNREACHABLE": 1125,
+            "TRANSITION:HEAD_DISCONTINUITY": 1131,
+            "TRANSITION:MOTION_KINEMATICS": 1425
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 75,
+            "TRANSITION:BRANCH_UNREACHABLE": 1125,
+            "TRANSITION:HEAD_DISCONTINUITY": 1131,
+            "TRANSITION:MOTION_KINEMATICS": 1425
+          },
+          "open_gt_1m_off": {
+            "n": 2631,
+            "would_reject": 1.0,
+            "env_reject": 0.9714937286202965
+          },
+          "open_gt_1m_on": {
+            "n": 2631,
+            "would_reject": 1.0,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 103788,
+          "certificate_centers": 5766,
+          "views": 5,
+          "traj_sha256": "0a6832f9e6c55128fe831b94516d99a0a4376f28e1e703aba93bbd4e5736bcad"
+        },
+        {
+          "seed": 6,
+          "scene_card_hash": "1d39afbd780740b9e925569a70b27b670d73184d9b487d3adb2473fdf1ed279e",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "3/3",
+          "arrival_time_s": 7.07,
+          "min_obstacle_distance_m": 1.1780717839746728,
+          "min_inter_drone_distance_m": 3.646193630049551,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 2421,
+          "would_reject_off": 1.0,
+          "would_reject_on": 1.0,
+          "env_reject_off": 0.9690210656753407,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 2346,
+            "TIME:SWITCH_NOT_IN_FUTURE": 75,
+            "TRANSITION:BRANCH_UNREACHABLE": 1125,
+            "TRANSITION:HEAD_DISCONTINUITY": 996,
+            "TRANSITION:MOTION_KINEMATICS": 1350
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 75,
+            "TRANSITION:BRANCH_UNREACHABLE": 1125,
+            "TRANSITION:HEAD_DISCONTINUITY": 996,
+            "TRANSITION:MOTION_KINEMATICS": 1350
+          },
+          "open_gt_1m_off": {
+            "n": 2421,
+            "would_reject": 1.0,
+            "env_reject": 0.9690210656753407
+          },
+          "open_gt_1m_on": {
+            "n": 2421,
+            "would_reject": 1.0,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 104166,
+          "certificate_centers": 5787,
+          "views": 5,
+          "traj_sha256": "f777ad6f09cb1902c4bccadad23bf8a01a4fedc0bb91cff9ec15cd26ee65730c"
+        },
+        {
+          "seed": 7,
+          "scene_card_hash": "1d39afbd780740b9e925569a70b27b670d73184d9b487d3adb2473fdf1ed279e",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "3/3",
+          "arrival_time_s": 7.76,
+          "min_obstacle_distance_m": 0.8775813017675318,
+          "min_inter_drone_distance_m": 3.5424505512284346,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 2628,
+          "would_reject_off": 1.0,
+          "would_reject_on": 1.0,
+          "env_reject_off": 0.9714611872146118,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 2553,
+            "TIME:SWITCH_NOT_IN_FUTURE": 75,
+            "TRANSITION:BRANCH_UNREACHABLE": 1125,
+            "TRANSITION:HEAD_DISCONTINUITY": 1128,
+            "TRANSITION:MOTION_KINEMATICS": 1425
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 75,
+            "TRANSITION:BRANCH_UNREACHABLE": 1125,
+            "TRANSITION:HEAD_DISCONTINUITY": 1128,
+            "TRANSITION:MOTION_KINEMATICS": 1425
+          },
+          "open_gt_1m_off": {
+            "n": 2576,
+            "would_reject": 1.0,
+            "env_reject": 0.9708850931677019
+          },
+          "open_gt_1m_on": {
+            "n": 2576,
+            "would_reject": 1.0,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 102420,
+          "certificate_centers": 5690,
+          "views": 5,
+          "traj_sha256": "3af91e60883c5c08bdfc4441f473f75d464a7401bfec9bc2d9dc4bafb8cce0f9"
+        },
+        {
+          "seed": 8,
+          "scene_card_hash": "1d39afbd780740b9e925569a70b27b670d73184d9b487d3adb2473fdf1ed279e",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "3/3",
+          "arrival_time_s": 7.06,
+          "min_obstacle_distance_m": 1.4559508259051521,
+          "min_inter_drone_distance_m": 7.510213512248194,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 2418,
+          "would_reject_off": 1.0,
+          "would_reject_on": 1.0,
+          "env_reject_off": 0.9689826302729528,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 2343,
+            "TIME:SWITCH_NOT_IN_FUTURE": 75,
+            "TRANSITION:BRANCH_UNREACHABLE": 1125,
+            "TRANSITION:HEAD_DISCONTINUITY": 993,
+            "TRANSITION:MOTION_KINEMATICS": 1350
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 75,
+            "TRANSITION:BRANCH_UNREACHABLE": 1125,
+            "TRANSITION:HEAD_DISCONTINUITY": 993,
+            "TRANSITION:MOTION_KINEMATICS": 1350
+          },
+          "open_gt_1m_off": {
+            "n": 2418,
+            "would_reject": 1.0,
+            "env_reject": 0.9689826302729528
+          },
+          "open_gt_1m_on": {
+            "n": 2418,
+            "would_reject": 1.0,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 102330,
+          "certificate_centers": 5685,
+          "views": 5,
+          "traj_sha256": "51928275231454e3e3249e0127d947f129f4e53ba71b6281667804116d990e28"
+        },
+        {
+          "seed": 9,
+          "scene_card_hash": "1d39afbd780740b9e925569a70b27b670d73184d9b487d3adb2473fdf1ed279e",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "3/3",
+          "arrival_time_s": 7.05,
+          "min_obstacle_distance_m": 1.2438183167410126,
+          "min_inter_drone_distance_m": 7.381497874666483,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 2415,
+          "would_reject_off": 1.0,
+          "would_reject_on": 1.0,
+          "env_reject_off": 0.968944099378882,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 2340,
+            "TIME:SWITCH_NOT_IN_FUTURE": 75,
+            "TRANSITION:BRANCH_UNREACHABLE": 1125,
+            "TRANSITION:HEAD_DISCONTINUITY": 990,
+            "TRANSITION:MOTION_KINEMATICS": 1350
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 75,
+            "TRANSITION:BRANCH_UNREACHABLE": 1125,
+            "TRANSITION:HEAD_DISCONTINUITY": 990,
+            "TRANSITION:MOTION_KINEMATICS": 1350
+          },
+          "open_gt_1m_off": {
+            "n": 2415,
+            "would_reject": 1.0,
+            "env_reject": 0.968944099378882
+          },
+          "open_gt_1m_on": {
+            "n": 2415,
+            "would_reject": 1.0,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 104292,
+          "certificate_centers": 5794,
+          "views": 5,
+          "traj_sha256": "6f42c8073211c8d03b40a78f47059ecbba3583f019232a7b9e3c4024b0f4cc6b"
+        }
+      ]
+    },
+    {
+      "scene": "formation-hold",
+      "scene_card_hash": "1b1894f5864a2f5f5fb0e06b7d44ec490acf8d012957829f0f599e19951c365e",
+      "seeds": [
+        {
+          "seed": 0,
+          "scene_card_hash": "1b1894f5864a2f5f5fb0e06b7d44ec490acf8d012957829f0f599e19951c365e",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "3/3",
+          "arrival_time_s": 18.63,
+          "min_obstacle_distance_m": 1.5,
+          "min_inter_drone_distance_m": 1.9865290876661743,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 5889,
+          "would_reject_off": 1.0,
+          "would_reject_on": 0.028018339276617423,
+          "env_reject_off": 0.9719816607233825,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 5724,
+            "TIME:SWITCH_NOT_IN_FUTURE": 165
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 165
+          },
+          "open_gt_1m_off": {
+            "n": 5889,
+            "would_reject": 1.0,
+            "env_reject": 0.9719816607233825
+          },
+          "open_gt_1m_on": {
+            "n": 5889,
+            "would_reject": 0.028018339276617423,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 2929,
+          "certificate_centers": 2929,
+          "views": 5,
+          "traj_sha256": "62d2a1de698c8ee0fc8b09ca6c9b694a91b37ce17f90ab4e9ecd89e44bb6f61f"
+        },
+        {
+          "seed": 1,
+          "scene_card_hash": "1b1894f5864a2f5f5fb0e06b7d44ec490acf8d012957829f0f599e19951c365e",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "3/3",
+          "arrival_time_s": 18.63,
+          "min_obstacle_distance_m": 1.5,
+          "min_inter_drone_distance_m": 1.9865290876661743,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 5889,
+          "would_reject_off": 1.0,
+          "would_reject_on": 0.028018339276617423,
+          "env_reject_off": 0.9719816607233825,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 5724,
+            "TIME:SWITCH_NOT_IN_FUTURE": 165
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 165
+          },
+          "open_gt_1m_off": {
+            "n": 5889,
+            "would_reject": 1.0,
+            "env_reject": 0.9719816607233825
+          },
+          "open_gt_1m_on": {
+            "n": 5889,
+            "would_reject": 0.028018339276617423,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 2929,
+          "certificate_centers": 2929,
+          "views": 5,
+          "traj_sha256": "62d2a1de698c8ee0fc8b09ca6c9b694a91b37ce17f90ab4e9ecd89e44bb6f61f"
+        },
+        {
+          "seed": 2,
+          "scene_card_hash": "1b1894f5864a2f5f5fb0e06b7d44ec490acf8d012957829f0f599e19951c365e",
+          "arms_match": true,
+          "outcome": "SUCCESS",
+          "arrived": "3/3",
+          "arrival_time_s": 18.63,
+          "min_obstacle_distance_m": 1.5,
+          "min_inter_drone_distance_m": 1.9865290876661743,
+          "collisions": {
+            "obstacle": 0,
+            "inter": 0,
+            "outcome_collision": 0
+          },
+          "ticks": 5889,
+          "would_reject_off": 1.0,
+          "would_reject_on": 0.028018339276617423,
+          "env_reject_off": 0.9719816607233825,
+          "env_reject_on": 0.0,
+          "histogram_off": {
+            "ENV:UNKNOWN": 5724,
+            "TIME:SWITCH_NOT_IN_FUTURE": 165
+          },
+          "histogram_on": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 165
+          },
+          "open_gt_1m_off": {
+            "n": 5889,
+            "would_reject": 1.0,
+            "env_reject": 0.9719816607233825
+          },
+          "open_gt_1m_on": {
+            "n": 5889,
+            "would_reject": 0.028018339276617423,
+            "env_reject": 0.0
+          },
+          "near_le_0p70m_off": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "near_le_0p70m_on": {
+            "n": 0,
+            "would_reject": null,
+            "env_reject": null
+          },
+          "clearance_evals": 2929,
+          "certificate_centers": 2929,
+          "views": 5,
+          "traj_sha256": "62d2a1de698c8ee0fc8b09ca6c9b694a91b37ce17f90ab4e9ecd89e44bb6f61f"
+        }
+      ],
+      "seed0_time_bins_on_nonzero": [
+        {
+          "t0": 0.0,
+          "t1": 0.5,
+          "n": 147,
+          "would_reject": 0.7006802721088435,
+          "env_reject": 0.0,
+          "min_obstacle_m": 1.5,
+          "histogram": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 103
+          }
+        },
+        {
+          "t0": 0.5,
+          "t1": 1.0,
+          "n": 150,
+          "would_reject": 0.37333333333333335,
+          "env_reject": 0.0,
+          "min_obstacle_m": 1.5,
+          "histogram": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 56
+          }
+        },
+        {
+          "t0": 1.0,
+          "t1": 1.5,
+          "n": 150,
+          "would_reject": 0.04,
+          "env_reject": 0.0,
+          "min_obstacle_m": 1.5,
+          "histogram": {
+            "TIME:SWITCH_NOT_IN_FUTURE": 6
+          }
+        }
+      ]
+    }
+  ]
+}
