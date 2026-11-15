@@ -511,6 +511,7 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
                     pub["sp"].publish(_fill(TrajectorySetpoint(), setpoint))
             stop.wait(SETPOINT_PERIOD_S)
 
+    executor = None
     if args.lockstep:
         from rclpy.executors import SingleThreadedExecutor
 
@@ -663,6 +664,9 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
         stop.set()
         if stepper is not None:
             stepper.release()
+        if executor is not None:
+            # 先停后台 spin 线程，避免 rclpy 关闭时线程里抛 ExternalShutdownException 导致进程 abort（rc=134）。
+            executor.shutdown(timeout_sec=2.0)
         node.destroy_node()
         rclpy.try_shutdown()
 
