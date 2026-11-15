@@ -1,0 +1,6644 @@
+{
+ "title": "票 D8：DAgger 方差与 g2 退化归因（只报数）",
+ "disclaimer": "D8 只报数，偏离上游：训练种子、场景加权、结点速度上限、教师侧精确几何都是本票的对照臂，库默认（StudentPolicy.DEFAULTS、knot_speed_cap_mps 缺省为关）不变。",
+ "d7_data": "/workspace/yopo-teacher-data/d7",
+ "fit_seeds": [
+  0,
+  1,
+  2
+ ],
+ "eval_seeds": {
+  "open-3drone": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9
+  ],
+  "g2-pillar": [
+   0,
+   1,
+   2,
+   3,
+   4
+  ]
+ },
+ "select_seeds": {
+  "open-3drone": [
+   10,
+   11,
+   12,
+   13,
+   14,
+   15,
+   16,
+   17,
+   18
+  ],
+  "g2-pillar": [
+   5,
+   6,
+   7,
+   8,
+   9,
+   10
+  ]
+ },
+ "altitudes_m": [
+  1.0,
+  1.5
+ ],
+ "speed_cap_mps": 2.0,
+ "g2_weight": 4.0,
+ "arms": {
+  "r0": {
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "train": [
+    {
+     "seed": 0,
+     "weights_sha256": "878291902bd9dedd98884e239a23262fc9a4d677ceb9dc9a057cb84219ca52cd",
+     "holdout": {
+      "n_windows": 1126,
+      "n_runs": 2,
+      "loss": 0.06452465640979804,
+      "position_mse": 0.052663011215031676,
+      "velocity_mse": 0.04728615385865657,
+      "yaw_mse": 0.0008021478769063393,
+      "position_rmse_m": 0.22948422868474355,
+      "position_xy_mse": 0.009148742853073308,
+      "position_xy_rmse_m": 0.09564906091056674
+     },
+     "n_dagger_windows_by_scene": {
+      "open-3drone": 0,
+      "g2-pillar": 0
+     },
+     "g2_weight": 1.0,
+     "n_base_train_windows": 3015
+    },
+    {
+     "seed": 1,
+     "weights_sha256": "c9fa58a952d5be6a9f59443622518415f12338ff6af803e5903f2d320cb5b7e3",
+     "holdout": {
+      "n_windows": 1126,
+      "n_runs": 2,
+      "loss": 0.07198074194031964,
+      "position_mse": 0.057228736916877875,
+      "velocity_mse": 0.05883359578214784,
+      "yaw_mse": 0.0008720950888086037,
+      "position_rmse_m": 0.23922528486110717,
+      "position_xy_mse": 0.009176134813385048,
+      "position_xy_rmse_m": 0.09579214379783474
+     },
+     "n_dagger_windows_by_scene": {
+      "open-3drone": 0,
+      "g2-pillar": 0
+     },
+     "g2_weight": 1.0,
+     "n_base_train_windows": 3015
+    },
+    {
+     "seed": 2,
+     "weights_sha256": "55070ed8037c7494bd43ed4f5740dcbf55b09ed5d34140be26da2d8ddb54fd2f",
+     "holdout": {
+      "n_windows": 1126,
+      "n_runs": 2,
+      "loss": 0.048275489869592035,
+      "position_mse": 0.03178276529214734,
+      "velocity_mse": 0.06572139649577505,
+      "yaw_mse": 0.0012475509270132381,
+      "position_rmse_m": 0.17827721473073146,
+      "position_xy_mse": 0.008951778038939193,
+      "position_xy_rmse_m": 0.09461383640324068
+     },
+     "n_dagger_windows_by_scene": {
+      "open-3drone": 0,
+      "g2-pillar": 0
+     },
+     "g2_weight": 1.0,
+     "n_base_train_windows": 3015
+    }
+   ],
+   "student_extra": {},
+   "cells": [
+    {
+     "scene": "open-3drone",
+     "altitude_m": 1.0,
+     "denom": 30,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "obstacle": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       10.0,
+       10.0,
+       10.0
+      ],
+      "mean": 10.0,
+      "min": 10.0,
+      "max": 10.0,
+      "range": 0.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.026958333333333334,
+       0.09908333333333333,
+       0.09066666666666666
+      ],
+      "mean": 0.07223611111111111,
+      "min": 0.026958333333333334,
+      "max": 0.09908333333333333,
+      "range": 0.072125
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       3.7389722794820925,
+       0.043930557554099456,
+       3.4877141047956997
+      ],
+      "mean": 2.4235389806106302,
+      "min": 0.043930557554099456,
+      "max": 3.7389722794820925,
+      "range": 3.695041721927993
+     },
+     "max_speed_median_mps": {
+      "values": [
+       2.2314222272481663,
+       2.0101637739151434,
+       2.1318484622242533
+      ],
+      "mean": 2.124478154462521,
+      "min": 2.0101637739151434,
+      "max": 2.2314222272481663,
+      "range": 0.22125845333302285
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       1.7535449576605942,
+       1.9898532322880693,
+       2.1318484622242533
+      ],
+      "mean": 1.9584155507243057,
+      "min": 1.7535449576605942,
+      "max": 2.1318484622242533,
+      "range": 0.37830350456365913
+     },
+     "collision_t_median_s": {
+      "values": [
+       null,
+       null,
+       null
+      ]
+     }
+    },
+    {
+     "scene": "open-3drone",
+     "altitude_m": 1.5,
+     "denom": 30,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "obstacle": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       10.0,
+       10.0,
+       10.0
+      ],
+      "mean": 10.0,
+      "min": 10.0,
+      "max": 10.0,
+      "range": 0.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.035416666666666666,
+       0.10266666666666668,
+       0.09937499999999999
+      ],
+      "mean": 0.07915277777777778,
+      "min": 0.035416666666666666,
+      "max": 0.10266666666666668,
+      "range": 0.06725000000000002
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       2.8890623069784724,
+       0.059383025871688026,
+       3.4331024032699684
+      ],
+      "mean": 2.1271825787067096,
+      "min": 0.059383025871688026,
+      "max": 3.4331024032699684,
+      "range": 3.3737193773982805
+     },
+     "max_speed_median_mps": {
+      "values": [
+       2.194947899889132,
+       2.019664748118837,
+       2.128172604702347
+      ],
+      "mean": 2.1142617509034385,
+      "min": 2.019664748118837,
+      "max": 2.194947899889132,
+      "range": 0.1752831517702953
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       1.7333276213140738,
+       1.987953580472638,
+       2.128172604702347
+      ],
+      "mean": 1.949817935496353,
+      "min": 1.7333276213140738,
+      "max": 2.128172604702347,
+      "range": 0.39484498338827323
+     },
+     "collision_t_median_s": {
+      "values": [
+       null,
+       null,
+       null
+      ]
+     }
+    },
+    {
+     "scene": "g2-pillar",
+     "altitude_m": 1.0,
+     "denom": 5,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       5.0,
+       0.0,
+       0.0
+      ],
+      "mean": 1.6666666666666667,
+      "min": 0.0,
+      "max": 5.0,
+      "range": 5.0
+     },
+     "obstacle": {
+      "values": [
+       0.0,
+       5.0,
+       5.0
+      ],
+      "mean": 3.3333333333333335,
+      "min": 0.0,
+      "max": 5.0,
+      "range": 5.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.06833679893456969,
+       0.09454545454545454,
+       0.1632156823918963
+      ],
+      "mean": 0.10869931195730682,
+      "min": 0.06833679893456969,
+      "max": 0.1632156823918963,
+      "range": 0.0948788834573266
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       0.020082930777445242,
+       2.679429789118249,
+       3.1598122877106394
+      ],
+      "mean": 1.9531083358687777,
+      "min": 0.020082930777445242,
+      "max": 3.1598122877106394,
+      "range": 3.139729356933194
+     },
+     "max_speed_median_mps": {
+      "values": [
+       1.9032416393022582,
+       1.9335633082309325,
+       1.9327047559888126
+      ],
+      "mean": 1.9231699011740009,
+      "min": 1.9032416393022582,
+      "max": 1.9335633082309325,
+      "range": 0.030321668928674272
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       1.9032371462426496,
+       1.9335633082309325,
+       1.9327047559888126
+      ],
+      "mean": 1.923168403487465,
+      "min": 1.9032371462426496,
+      "max": 1.9335633082309325,
+      "range": 0.030326161988282863
+     },
+     "collision_t_median_s": {
+      "values": [
+       null,
+       2.75,
+       12.22
+      ]
+     }
+    },
+    {
+     "scene": "g2-pillar",
+     "altitude_m": 1.5,
+     "denom": 5,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       3.0,
+       0.0,
+       0.0
+      ],
+      "mean": 1.0,
+      "min": 0.0,
+      "max": 3.0,
+      "range": 3.0
+     },
+     "obstacle": {
+      "values": [
+       1.0,
+       5.0,
+       5.0
+      ],
+      "mean": 3.6666666666666665,
+      "min": 1.0,
+      "max": 5.0,
+      "range": 4.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       1.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.3333333333333333,
+      "min": 0.0,
+      "max": 1.0,
+      "range": 1.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.08901356782863816,
+       0.09057971014492754,
+       0.273266380459158
+      ],
+      "mean": 0.15095321947757456,
+      "min": 0.08901356782863816,
+      "max": 0.273266380459158,
+      "range": 0.18425281263051985
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       0.023009488436573522,
+       2.6764589969449415,
+       1.9245100159390982
+      ],
+      "mean": 1.541326167106871,
+      "min": 0.023009488436573522,
+      "max": 2.6764589969449415,
+      "range": 2.653449508508368
+     },
+     "max_speed_median_mps": {
+      "values": [
+       1.897329602256313,
+       1.922685891440314,
+       1.933211879600868
+      ],
+      "mean": 1.9177424577658317,
+      "min": 1.897329602256313,
+      "max": 1.933211879600868,
+      "range": 0.03588227734455485
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       1.897329602256313,
+       1.922685891440314,
+       1.933211879600868
+      ],
+      "mean": 1.9177424577658317,
+      "min": 1.897329602256313,
+      "max": 1.933211879600868,
+      "range": 0.03588227734455485
+     },
+     "collision_t_median_s": {
+      "values": [
+       21.82,
+       2.76,
+       14.03
+      ],
+      "mean": 12.87,
+      "min": 2.76,
+      "max": 21.82,
+      "range": 19.060000000000002
+     }
+    }
+   ],
+   "per_seed_groups": [
+    [
+     {
+      "arm": "r0-s0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.06833679893456969,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.9032416393022582,
+      "final_goal_error_median_m": 0.020082930777445242,
+      "early_max_speed_median_mps": 1.9032371462426496,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "r0-s0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 3,
+      "denom": 5,
+      "obstacle": 1,
+      "inter_drone": 0,
+      "timeout": 1,
+      "hover_frac_mean": 0.08901356782863816,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.897329602256313,
+      "final_goal_error_median_m": 0.023009488436573522,
+      "early_max_speed_median_mps": 1.897329602256313,
+      "collision_t_median_s": 21.82
+     },
+     {
+      "arm": "r0-s0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.026958333333333334,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.2314222272481663,
+      "final_goal_error_median_m": 3.7389722794820925,
+      "early_max_speed_median_mps": 1.7535449576605942,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "r0-s0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.035416666666666666,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.194947899889132,
+      "final_goal_error_median_m": 2.8890623069784724,
+      "early_max_speed_median_mps": 1.7333276213140738,
+      "collision_t_median_s": null
+     }
+    ],
+    [
+     {
+      "arm": "r0-s1",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.09454545454545454,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.9335633082309325,
+      "final_goal_error_median_m": 2.679429789118249,
+      "early_max_speed_median_mps": 1.9335633082309325,
+      "collision_t_median_s": 2.75
+     },
+     {
+      "arm": "r0-s1",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.09057971014492754,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.922685891440314,
+      "final_goal_error_median_m": 2.6764589969449415,
+      "early_max_speed_median_mps": 1.922685891440314,
+      "collision_t_median_s": 2.76
+     },
+     {
+      "arm": "r0-s1",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.09908333333333333,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.0101637739151434,
+      "final_goal_error_median_m": 0.043930557554099456,
+      "early_max_speed_median_mps": 1.9898532322880693,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "r0-s1",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.10266666666666668,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.019664748118837,
+      "final_goal_error_median_m": 0.059383025871688026,
+      "early_max_speed_median_mps": 1.987953580472638,
+      "collision_t_median_s": null
+     }
+    ],
+    [
+     {
+      "arm": "r0-s2",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.1632156823918963,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.9327047559888126,
+      "final_goal_error_median_m": 3.1598122877106394,
+      "early_max_speed_median_mps": 1.9327047559888126,
+      "collision_t_median_s": 12.22
+     },
+     {
+      "arm": "r0-s2",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.273266380459158,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.933211879600868,
+      "final_goal_error_median_m": 1.9245100159390982,
+      "early_max_speed_median_mps": 1.933211879600868,
+      "collision_t_median_s": 14.03
+     },
+     {
+      "arm": "r0-s2",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.09066666666666666,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.1318484622242533,
+      "final_goal_error_median_m": 3.4877141047956997,
+      "early_max_speed_median_mps": 2.1318484622242533,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "r0-s2",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.09937499999999999,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.128172604702347,
+      "final_goal_error_median_m": 3.4331024032699684,
+      "early_max_speed_median_mps": 2.128172604702347,
+      "collision_t_median_s": null
+     }
+    ]
+   ]
+  },
+  "r2": {
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "train": [
+    {
+     "seed": 0,
+     "weights_sha256": "7b0b5625949ec283355ab80c39d291576fed4dfca3484025eea3b5b2eccf249c",
+     "holdout": {
+      "n_windows": 1126,
+      "n_runs": 2,
+      "loss": 0.08815126482324533,
+      "position_mse": 0.07914759153847584,
+      "velocity_mse": 0.03536541584621102,
+      "yaw_mse": 0.003246364750292278,
+      "position_rmse_m": 0.2813318175011064,
+      "position_xy_mse": 0.009112753978968461,
+      "position_xy_rmse_m": 0.09546074574906935
+     },
+     "n_dagger_windows_by_scene": {
+      "open-3drone": 10611,
+      "g2-pillar": 1550
+     },
+     "g2_weight": 1.0,
+     "n_base_train_windows": 3015
+    },
+    {
+     "seed": 1,
+     "weights_sha256": "6e8f57b4d43c92aaec0d53e47f38a04c93e19ba200f7be0596b114f76eaff75b",
+     "holdout": {
+      "n_windows": 1126,
+      "n_runs": 2,
+      "loss": 0.11993557994202653,
+      "position_mse": 0.10019716780573183,
+      "velocity_mse": 0.07826844099942151,
+      "yaw_mse": 0.003426034739621473,
+      "position_rmse_m": 0.31653936217433026,
+      "position_xy_mse": 0.01042245484336046,
+      "position_xy_rmse_m": 0.10209042483681054
+     },
+     "n_dagger_windows_by_scene": {
+      "open-3drone": 10611,
+      "g2-pillar": 1550
+     },
+     "g2_weight": 1.0,
+     "n_base_train_windows": 3015
+    },
+    {
+     "seed": 2,
+     "weights_sha256": "0f96c3e9825848b0c6162f46a0ad7126fb300436b0c3db0d8abf2e6e5cfa1650",
+     "holdout": {
+      "n_windows": 1126,
+      "n_runs": 2,
+      "loss": 0.04434960672291092,
+      "position_mse": 0.03241381125911726,
+      "velocity_mse": 0.04725108831644482,
+      "yaw_mse": 0.0024604894693107155,
+      "position_rmse_m": 0.1800383605210769,
+      "position_xy_mse": 0.010015723141667899,
+      "position_xy_rmse_m": 0.1000785848304616
+     },
+     "n_dagger_windows_by_scene": {
+      "open-3drone": 10611,
+      "g2-pillar": 1550
+     },
+     "g2_weight": 1.0,
+     "n_base_train_windows": 3015
+    }
+   ],
+   "student_extra": {},
+   "cells": [
+    {
+     "scene": "open-3drone",
+     "altitude_m": 1.0,
+     "denom": 30,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       20.0,
+       10.0,
+       10.0
+      ],
+      "mean": 13.333333333333334,
+      "min": 10.0,
+      "max": 20.0,
+      "range": 10.0
+     },
+     "obstacle": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       10.0,
+       10.0,
+       10.0
+      ],
+      "mean": 10.0,
+      "min": 10.0,
+      "max": 10.0,
+      "range": 0.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.015000000000000003,
+       0.035750000000000004,
+       0.027083333333333338
+      ],
+      "mean": 0.025944444444444447,
+      "min": 0.015000000000000003,
+      "max": 0.035750000000000004,
+      "range": 0.02075
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       0.023360823038973563,
+       2.671932152806923,
+       7.398096267152026
+      ],
+      "mean": 3.3644630809993075,
+      "min": 0.023360823038973563,
+      "max": 7.398096267152026,
+      "range": 7.374735444113052
+     },
+     "max_speed_median_mps": {
+      "values": [
+       3.102844194810601,
+       2.586180527921738,
+       3.7863503138061727
+      ],
+      "mean": 3.1584583455128374,
+      "min": 2.586180527921738,
+      "max": 3.7863503138061727,
+      "range": 1.2001697858844347
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       3.102844194810601,
+       2.4996585643955593,
+       3.7863503138061727
+      ],
+      "mean": 3.129617691004111,
+      "min": 2.4996585643955593,
+      "max": 3.7863503138061727,
+      "range": 1.2866917494106134
+     },
+     "collision_t_median_s": {
+      "values": [
+       null,
+       null,
+       null
+      ]
+     }
+    },
+    {
+     "scene": "open-3drone",
+     "altitude_m": 1.5,
+     "denom": 30,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       20.0,
+       10.0,
+       0.0
+      ],
+      "mean": 10.0,
+      "min": 0.0,
+      "max": 20.0,
+      "range": 20.0
+     },
+     "obstacle": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       10.0,
+       10.0,
+       10.0
+      ],
+      "mean": 10.0,
+      "min": 10.0,
+      "max": 10.0,
+      "range": 0.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.013750000000000002,
+       0.05700000000000001,
+       0.03216666666666666
+      ],
+      "mean": 0.034305555555555554,
+      "min": 0.013750000000000002,
+      "max": 0.05700000000000001,
+      "range": 0.04325000000000001
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       0.023172043601823157,
+       5.96854908580532,
+       2.6596615218121267
+      ],
+      "mean": 2.8837942170730897,
+      "min": 0.023172043601823157,
+      "max": 5.96854908580532,
+      "range": 5.945377042203496
+     },
+     "max_speed_median_mps": {
+      "values": [
+       3.121414801803663,
+       3.109980813699599,
+       3.7676392472625926
+      ],
+      "mean": 3.333011620921951,
+      "min": 3.109980813699599,
+      "max": 3.7676392472625926,
+      "range": 0.6576584335629936
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       3.121414801803663,
+       2.9221846464740677,
+       3.7676392472625926
+      ],
+      "mean": 3.2704128985134413,
+      "min": 2.9221846464740677,
+      "max": 3.7676392472625926,
+      "range": 0.8454546007885249
+     },
+     "collision_t_median_s": {
+      "values": [
+       null,
+       null,
+       null
+      ]
+     }
+    },
+    {
+     "scene": "g2-pillar",
+     "altitude_m": 1.0,
+     "denom": 5,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "obstacle": {
+      "values": [
+       5.0,
+       5.0,
+       5.0
+      ],
+      "mean": 5.0,
+      "min": 5.0,
+      "max": 5.0,
+      "range": 0.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.05555555555555556,
+       0.07352941176470588,
+       0.04861111111111111
+      ],
+      "mean": 0.059232026143790854,
+      "min": 0.04861111111111111,
+      "max": 0.07352941176470588,
+      "range": 0.024918300653594773
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       2.6616220232815353,
+       2.6719006921961266,
+       2.6665458279364294
+      ],
+      "mean": 2.6666895144713636,
+      "min": 2.6616220232815353,
+      "max": 2.6719006921961266,
+      "range": 0.010278668914591282
+     },
+     "max_speed_median_mps": {
+      "values": [
+       2.3430465878609867,
+       2.955360923971446,
+       1.7945948307281412
+      ],
+      "mean": 2.364334114186858,
+      "min": 1.7945948307281412,
+      "max": 2.955360923971446,
+      "range": 1.1607660932433046
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       2.3430465878609867,
+       2.955360923971446,
+       0.8605737003990056
+      ],
+      "mean": 2.0529937374104796,
+      "min": 0.8605737003990056,
+      "max": 2.955360923971446,
+      "range": 2.0947872235724403
+     },
+     "collision_t_median_s": {
+      "values": [
+       1.98,
+       1.36,
+       4.32
+      ],
+      "mean": 2.5533333333333332,
+      "min": 1.36,
+      "max": 4.32,
+      "range": 2.96
+     }
+    },
+    {
+     "scene": "g2-pillar",
+     "altitude_m": 1.5,
+     "denom": 5,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "obstacle": {
+      "values": [
+       5.0,
+       5.0,
+       5.0
+      ],
+      "mean": 5.0,
+      "min": 5.0,
+      "max": 5.0,
+      "range": 0.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.057591623036649206,
+       0.072992700729927,
+       0.04895104895104895
+      ],
+      "mean": 0.05984512423920838,
+      "min": 0.04895104895104895,
+      "max": 0.072992700729927,
+      "range": 0.02404165177887805
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       2.659112253466967,
+       2.6696653588610157,
+       2.6610194262294318
+      ],
+      "mean": 2.6632656795191383,
+      "min": 2.659112253466967,
+      "max": 2.6696653588610157,
+      "range": 0.010553105394048856
+     },
+     "max_speed_median_mps": {
+      "values": [
+       2.407837431170086,
+       2.9407652782232026,
+       1.7764967448946485
+      ],
+      "mean": 2.3750331514293124,
+      "min": 1.7764967448946485,
+      "max": 2.9407652782232026,
+      "range": 1.164268533328554
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       2.407837431170086,
+       2.9407652782232026,
+       0.8577484611800733
+      ],
+      "mean": 2.068783723524454,
+      "min": 0.8577484611800733,
+      "max": 2.9407652782232026,
+      "range": 2.0830168170431294
+     },
+     "collision_t_median_s": {
+      "values": [
+       1.91,
+       1.37,
+       4.29
+      ],
+      "mean": 2.5233333333333334,
+      "min": 1.37,
+      "max": 4.29,
+      "range": 2.92
+     }
+    }
+   ],
+   "per_seed_groups": [
+    [
+     {
+      "arm": "r2-s0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.05555555555555556,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.3430465878609867,
+      "final_goal_error_median_m": 2.6616220232815353,
+      "early_max_speed_median_mps": 2.3430465878609867,
+      "collision_t_median_s": 1.98
+     },
+     {
+      "arm": "r2-s0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.057591623036649206,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.407837431170086,
+      "final_goal_error_median_m": 2.659112253466967,
+      "early_max_speed_median_mps": 2.407837431170086,
+      "collision_t_median_s": 1.91
+     },
+     {
+      "arm": "r2-s0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.015000000000000003,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.102844194810601,
+      "final_goal_error_median_m": 0.023360823038973563,
+      "early_max_speed_median_mps": 3.102844194810601,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "r2-s0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.013750000000000002,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.121414801803663,
+      "final_goal_error_median_m": 0.023172043601823157,
+      "early_max_speed_median_mps": 3.121414801803663,
+      "collision_t_median_s": null
+     }
+    ],
+    [
+     {
+      "arm": "r2-s1",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.07352941176470588,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.955360923971446,
+      "final_goal_error_median_m": 2.6719006921961266,
+      "early_max_speed_median_mps": 2.955360923971446,
+      "collision_t_median_s": 1.36
+     },
+     {
+      "arm": "r2-s1",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.072992700729927,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.9407652782232026,
+      "final_goal_error_median_m": 2.6696653588610157,
+      "early_max_speed_median_mps": 2.9407652782232026,
+      "collision_t_median_s": 1.37
+     },
+     {
+      "arm": "r2-s1",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 10,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.035750000000000004,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.586180527921738,
+      "final_goal_error_median_m": 2.671932152806923,
+      "early_max_speed_median_mps": 2.4996585643955593,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "r2-s1",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 10,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.05700000000000001,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.109980813699599,
+      "final_goal_error_median_m": 5.96854908580532,
+      "early_max_speed_median_mps": 2.9221846464740677,
+      "collision_t_median_s": null
+     }
+    ],
+    [
+     {
+      "arm": "r2-s2",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.04861111111111111,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.7945948307281412,
+      "final_goal_error_median_m": 2.6665458279364294,
+      "early_max_speed_median_mps": 0.8605737003990056,
+      "collision_t_median_s": 4.32
+     },
+     {
+      "arm": "r2-s2",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.04895104895104895,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.7764967448946485,
+      "final_goal_error_median_m": 2.6610194262294318,
+      "early_max_speed_median_mps": 0.8577484611800733,
+      "collision_t_median_s": 4.29
+     },
+     {
+      "arm": "r2-s2",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 10,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.027083333333333338,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.7863503138061727,
+      "final_goal_error_median_m": 7.398096267152026,
+      "early_max_speed_median_mps": 3.7863503138061727,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "r2-s2",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.03216666666666666,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.7676392472625926,
+      "final_goal_error_median_m": 2.6596615218121267,
+      "early_max_speed_median_mps": 3.7676392472625926,
+      "collision_t_median_s": null
+     }
+    ]
+   ]
+  },
+  "r3": {
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "train": [
+    {
+     "seed": 0,
+     "weights_sha256": "8107770efd2d5845d254b728e6749799a2653130d05da2c9909f513ec32be9d1",
+     "holdout": {
+      "n_windows": 1126,
+      "n_runs": 2,
+      "loss": 0.06349305083998355,
+      "position_mse": 0.04912869514464062,
+      "velocity_mse": 0.05658469149316818,
+      "yaw_mse": 0.004363687214363849,
+      "position_rmse_m": 0.2216499382915335,
+      "position_xy_mse": 0.013162313087067532,
+      "position_xy_rmse_m": 0.11472712446090302
+     },
+     "n_dagger_windows_by_scene": {
+      "open-3drone": 13572,
+      "g2-pillar": 1819
+     },
+     "g2_weight": 1.0,
+     "n_base_train_windows": 3015
+    },
+    {
+     "seed": 1,
+     "weights_sha256": "46e70b26e07dd12f9fa4e20a3403afe62fc95c62333e3c5a53b92a3731e9b5e5",
+     "holdout": {
+      "n_windows": 1126,
+      "n_runs": 2,
+      "loss": 0.09968685620790264,
+      "position_mse": 0.0859469389857238,
+      "velocity_mse": 0.05432906023641886,
+      "yaw_mse": 0.003153022567263505,
+      "position_rmse_m": 0.293167083735067,
+      "position_xy_mse": 0.00870062279983111,
+      "position_xy_rmse_m": 0.09327712902866978
+     },
+     "n_dagger_windows_by_scene": {
+      "open-3drone": 13572,
+      "g2-pillar": 1819
+     },
+     "g2_weight": 1.0,
+     "n_base_train_windows": 3015
+    },
+    {
+     "seed": 2,
+     "weights_sha256": "3629cfe654daa244c0471738658625db6eda3627c68c430e8b7130900960ef6d",
+     "holdout": {
+      "n_windows": 1126,
+      "n_runs": 2,
+      "loss": 0.04502029384140647,
+      "position_mse": 0.03192727955233564,
+      "velocity_mse": 0.05144615516357693,
+      "yaw_mse": 0.004629505512455137,
+      "position_rmse_m": 0.17868206276046747,
+      "position_xy_mse": 0.009173748015589867,
+      "position_xy_rmse_m": 0.09577968477495563
+     },
+     "n_dagger_windows_by_scene": {
+      "open-3drone": 13572,
+      "g2-pillar": 1819
+     },
+     "g2_weight": 1.0,
+     "n_base_train_windows": 3015
+    }
+   ],
+   "student_extra": {},
+   "cells": [
+    {
+     "scene": "open-3drone",
+     "altitude_m": 1.0,
+     "denom": 30,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       10.0,
+       20.0,
+       0.0
+      ],
+      "mean": 10.0,
+      "min": 0.0,
+      "max": 20.0,
+      "range": 20.0
+     },
+     "obstacle": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       10.0,
+       10.0,
+       10.0
+      ],
+      "mean": 10.0,
+      "min": 10.0,
+      "max": 10.0,
+      "range": 0.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.015833333333333335,
+       0.030416666666666665,
+       0.03375
+      ],
+      "mean": 0.02666666666666667,
+      "min": 0.015833333333333335,
+      "max": 0.03375,
+      "range": 0.017916666666666668
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       12.116303855102892,
+       4.412962839582413,
+       8.918132334164259
+      ],
+      "mean": 8.482466342949854,
+      "min": 4.412962839582413,
+      "max": 12.116303855102892,
+      "range": 7.703341015520479
+     },
+     "max_speed_median_mps": {
+      "values": [
+       4.6162976016656785,
+       4.088570611134077,
+       3.3241603819236953
+      ],
+      "mean": 4.00967619824115,
+      "min": 3.3241603819236953,
+      "max": 4.6162976016656785,
+      "range": 1.2921372197419831
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       3.6724321308844514,
+       3.4734946641908175,
+       3.3241603819236953
+      ],
+      "mean": 3.4900290589996548,
+      "min": 3.3241603819236953,
+      "max": 3.6724321308844514,
+      "range": 0.3482717489607561
+     },
+     "collision_t_median_s": {
+      "values": [
+       null,
+       null,
+       null
+      ]
+     }
+    },
+    {
+     "scene": "open-3drone",
+     "altitude_m": 1.5,
+     "denom": 30,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       0.0,
+       10.0,
+       0.0
+      ],
+      "mean": 3.3333333333333335,
+      "min": 0.0,
+      "max": 10.0,
+      "range": 10.0
+     },
+     "obstacle": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       10.0,
+       10.0,
+       10.0
+      ],
+      "mean": 10.0,
+      "min": 10.0,
+      "max": 10.0,
+      "range": 0.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.026666666666666665,
+       0.02416666666666667,
+       0.036166666666666666
+      ],
+      "mean": 0.028999999999999998,
+      "min": 0.02416666666666667,
+      "max": 0.036166666666666666,
+      "range": 0.011999999999999997
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       10.066318166923658,
+       6.762439553792935,
+       5.917210028378131
+      ],
+      "mean": 7.581989249698242,
+      "min": 5.917210028378131,
+      "max": 10.066318166923658,
+      "range": 4.149108138545527
+     },
+     "max_speed_median_mps": {
+      "values": [
+       3.977291584568377,
+       4.123097680000091,
+       3.3244696229532344
+      ],
+      "mean": 3.8082862958405674,
+      "min": 3.3244696229532344,
+      "max": 4.123097680000091,
+      "range": 0.7986280570468569
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       3.6739646107959363,
+       3.443423149094784,
+       3.3244696229532344
+      ],
+      "mean": 3.4806191276146516,
+      "min": 3.3244696229532344,
+      "max": 3.6739646107959363,
+      "range": 0.34949498784270183
+     },
+     "collision_t_median_s": {
+      "values": [
+       null,
+       null,
+       null
+      ]
+     }
+    },
+    {
+     "scene": "g2-pillar",
+     "altitude_m": 1.0,
+     "denom": 5,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       0.0,
+       5.0,
+       0.0
+      ],
+      "mean": 1.6666666666666667,
+      "min": 0.0,
+      "max": 5.0,
+      "range": 5.0
+     },
+     "obstacle": {
+      "values": [
+       5.0,
+       0.0,
+       5.0
+      ],
+      "mean": 3.3333333333333335,
+      "min": 0.0,
+      "max": 5.0,
+      "range": 5.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.04484304932735426,
+       0.027883396704689485,
+       0.09641873278236915
+      ],
+      "mean": 0.05638172627147096,
+      "min": 0.027883396704689485,
+      "max": 0.09641873278236915,
+      "range": 0.06853533607767967
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       4.335664857484154,
+       0.02322947206734348,
+       6.449481944563298
+      ],
+      "mean": 3.6027920913715987,
+      "min": 0.02322947206734348,
+      "max": 6.449481944563298,
+      "range": 6.426252472495955
+     },
+     "max_speed_median_mps": {
+      "values": [
+       3.1771853159047962,
+       3.352027520797925,
+       2.966380556627114
+      ],
+      "mean": 3.1651977977766115,
+      "min": 2.966380556627114,
+      "max": 3.352027520797925,
+      "range": 0.3856469641708107
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       3.1771853159047962,
+       3.352027520797925,
+       2.966380556627114
+      ],
+      "mean": 3.1651977977766115,
+      "min": 2.966380556627114,
+      "max": 3.352027520797925,
+      "range": 0.3856469641708107
+     },
+     "collision_t_median_s": {
+      "values": [
+       2.23,
+       null,
+       3.63
+      ]
+     }
+    },
+    {
+     "scene": "g2-pillar",
+     "altitude_m": 1.5,
+     "denom": 5,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "obstacle": {
+      "values": [
+       5.0,
+       5.0,
+       5.0
+      ],
+      "mean": 5.0,
+      "min": 5.0,
+      "max": 5.0,
+      "range": 0.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.046296296296296294,
+       0.08682634730538923,
+       0.09641873278236915
+      ],
+      "mean": 0.07651379212801822,
+      "min": 0.046296296296296294,
+      "max": 0.09641873278236915,
+      "range": 0.050122436486072855
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       4.416493784130217,
+       3.6577225324169196,
+       6.435763895261289
+      ],
+      "mean": 4.836660070602808,
+      "min": 3.6577225324169196,
+      "max": 6.435763895261289,
+      "range": 2.778041362844369
+     },
+     "max_speed_median_mps": {
+      "values": [
+       3.201226077626656,
+       3.352765387097977,
+       2.9701615846030194
+      ],
+      "mean": 3.174717683109217,
+      "min": 2.9701615846030194,
+      "max": 3.352765387097977,
+      "range": 0.3826038024949576
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       3.201226077626656,
+       3.352765387097977,
+       2.9701615846030194
+      ],
+      "mean": 3.174717683109217,
+      "min": 2.9701615846030194,
+      "max": 3.352765387097977,
+      "range": 0.3826038024949576
+     },
+     "collision_t_median_s": {
+      "values": [
+       2.16,
+       3.34,
+       3.63
+      ],
+      "mean": 3.043333333333333,
+      "min": 2.16,
+      "max": 3.63,
+      "range": 1.4699999999999998
+     }
+    }
+   ],
+   "per_seed_groups": [
+    [
+     {
+      "arm": "r3-s0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.04484304932735426,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 3.1771853159047962,
+      "final_goal_error_median_m": 4.335664857484154,
+      "early_max_speed_median_mps": 3.1771853159047962,
+      "collision_t_median_s": 2.23
+     },
+     {
+      "arm": "r3-s0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.046296296296296294,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 3.201226077626656,
+      "final_goal_error_median_m": 4.416493784130217,
+      "early_max_speed_median_mps": 3.201226077626656,
+      "collision_t_median_s": 2.16
+     },
+     {
+      "arm": "r3-s0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 10,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.015833333333333335,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 4.6162976016656785,
+      "final_goal_error_median_m": 12.116303855102892,
+      "early_max_speed_median_mps": 3.6724321308844514,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "r3-s0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.026666666666666665,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.977291584568377,
+      "final_goal_error_median_m": 10.066318166923658,
+      "early_max_speed_median_mps": 3.6739646107959363,
+      "collision_t_median_s": null
+     }
+    ],
+    [
+     {
+      "arm": "r3-s1",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.027883396704689485,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 3.352027520797925,
+      "final_goal_error_median_m": 0.02322947206734348,
+      "early_max_speed_median_mps": 3.352027520797925,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "r3-s1",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.08682634730538923,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 3.352765387097977,
+      "final_goal_error_median_m": 3.6577225324169196,
+      "early_max_speed_median_mps": 3.352765387097977,
+      "collision_t_median_s": 3.34
+     },
+     {
+      "arm": "r3-s1",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.030416666666666665,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 4.088570611134077,
+      "final_goal_error_median_m": 4.412962839582413,
+      "early_max_speed_median_mps": 3.4734946641908175,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "r3-s1",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 10,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.02416666666666667,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 4.123097680000091,
+      "final_goal_error_median_m": 6.762439553792935,
+      "early_max_speed_median_mps": 3.443423149094784,
+      "collision_t_median_s": null
+     }
+    ],
+    [
+     {
+      "arm": "r3-s2",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.09641873278236915,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.966380556627114,
+      "final_goal_error_median_m": 6.449481944563298,
+      "early_max_speed_median_mps": 2.966380556627114,
+      "collision_t_median_s": 3.63
+     },
+     {
+      "arm": "r3-s2",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.09641873278236915,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.9701615846030194,
+      "final_goal_error_median_m": 6.435763895261289,
+      "early_max_speed_median_mps": 2.9701615846030194,
+      "collision_t_median_s": 3.63
+     },
+     {
+      "arm": "r3-s2",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.03375,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.3241603819236953,
+      "final_goal_error_median_m": 8.918132334164259,
+      "early_max_speed_median_mps": 3.3241603819236953,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "r3-s2",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.036166666666666666,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.3244696229532344,
+      "final_goal_error_median_m": 5.917210028378131,
+      "early_max_speed_median_mps": 3.3244696229532344,
+      "collision_t_median_s": null
+     }
+    ]
+   ]
+  },
+  "r3-cap": {
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "train": [
+    {
+     "seed": 0,
+     "weights_sha256": "8107770efd2d5845d254b728e6749799a2653130d05da2c9909f513ec32be9d1",
+     "holdout": {
+      "n_windows": 1126,
+      "n_runs": 2,
+      "loss": 0.06349305083998355,
+      "position_mse": 0.04912869514464062,
+      "velocity_mse": 0.05658469149316818,
+      "yaw_mse": 0.004363687214363849,
+      "position_rmse_m": 0.2216499382915335,
+      "position_xy_mse": 0.013162313087067532,
+      "position_xy_rmse_m": 0.11472712446090302
+     },
+     "n_dagger_windows_by_scene": {
+      "open-3drone": 13572,
+      "g2-pillar": 1819
+     },
+     "g2_weight": 1.0,
+     "n_base_train_windows": 3015
+    },
+    {
+     "seed": 1,
+     "weights_sha256": "46e70b26e07dd12f9fa4e20a3403afe62fc95c62333e3c5a53b92a3731e9b5e5",
+     "holdout": {
+      "n_windows": 1126,
+      "n_runs": 2,
+      "loss": 0.09968685620790264,
+      "position_mse": 0.0859469389857238,
+      "velocity_mse": 0.05432906023641886,
+      "yaw_mse": 0.003153022567263505,
+      "position_rmse_m": 0.293167083735067,
+      "position_xy_mse": 0.00870062279983111,
+      "position_xy_rmse_m": 0.09327712902866978
+     },
+     "n_dagger_windows_by_scene": {
+      "open-3drone": 13572,
+      "g2-pillar": 1819
+     },
+     "g2_weight": 1.0,
+     "n_base_train_windows": 3015
+    },
+    {
+     "seed": 2,
+     "weights_sha256": "3629cfe654daa244c0471738658625db6eda3627c68c430e8b7130900960ef6d",
+     "holdout": {
+      "n_windows": 1126,
+      "n_runs": 2,
+      "loss": 0.04502029384140647,
+      "position_mse": 0.03192727955233564,
+      "velocity_mse": 0.05144615516357693,
+      "yaw_mse": 0.004629505512455137,
+      "position_rmse_m": 0.17868206276046747,
+      "position_xy_mse": 0.009173748015589867,
+      "position_xy_rmse_m": 0.09577968477495563
+     },
+     "n_dagger_windows_by_scene": {
+      "open-3drone": 13572,
+      "g2-pillar": 1819
+     },
+     "g2_weight": 1.0,
+     "n_base_train_windows": 3015
+    }
+   ],
+   "student_extra": {
+    "knot_speed_cap_mps": 2.0
+   },
+   "cells": [
+    {
+     "scene": "open-3drone",
+     "altitude_m": 1.0,
+     "denom": 30,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       10.0,
+       20.0,
+       0.0
+      ],
+      "mean": 10.0,
+      "min": 0.0,
+      "max": 20.0,
+      "range": 20.0
+     },
+     "obstacle": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       10.0,
+       10.0,
+       10.0
+      ],
+      "mean": 10.0,
+      "min": 10.0,
+      "max": 10.0,
+      "range": 0.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.015416666666666667,
+       0.018333333333333337,
+       0.03125
+      ],
+      "mean": 0.021666666666666667,
+      "min": 0.015416666666666667,
+      "max": 0.03125,
+      "range": 0.01583333333333333
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       1.7312696080872954,
+       0.17961922830182156,
+       9.441077235546931
+      ],
+      "mean": 3.7839886906453493,
+      "min": 0.17961922830182156,
+      "max": 9.441077235546931,
+      "range": 9.26145800724511
+     },
+     "max_speed_median_mps": {
+      "values": [
+       2.499323048047259,
+       2.3775771942757227,
+       2.352361445510833
+      ],
+      "mean": 2.409753895944605,
+      "min": 2.352361445510833,
+      "max": 2.499323048047259,
+      "range": 0.1469616025364262
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       2.325159585955137,
+       2.3537481182563464,
+       2.3328332392166233
+      ],
+      "mean": 2.337246981142702,
+      "min": 2.325159585955137,
+      "max": 2.3537481182563464,
+      "range": 0.02858853230120939
+     },
+     "collision_t_median_s": {
+      "values": [
+       null,
+       null,
+       null
+      ]
+     }
+    },
+    {
+     "scene": "open-3drone",
+     "altitude_m": 1.5,
+     "denom": 30,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       20.0,
+       20.0,
+       0.0
+      ],
+      "mean": 13.333333333333334,
+      "min": 0.0,
+      "max": 20.0,
+      "range": 20.0
+     },
+     "obstacle": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       10.0,
+       10.0,
+       10.0
+      ],
+      "mean": 10.0,
+      "min": 10.0,
+      "max": 10.0,
+      "range": 0.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.015000000000000003,
+       0.03145833333333334,
+       0.035833333333333335
+      ],
+      "mean": 0.02743055555555556,
+      "min": 0.015000000000000003,
+      "max": 0.035833333333333335,
+      "range": 0.020833333333333332
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       0.498367297922124,
+       0.09262960131123626,
+       6.098503209246497
+      ],
+      "mean": 2.2298333694932855,
+      "min": 0.09262960131123626,
+      "max": 6.098503209246497,
+      "range": 6.005873607935261
+     },
+     "max_speed_median_mps": {
+      "values": [
+       2.4245476902749443,
+       2.392711182676609,
+       2.3789399368232544
+      ],
+      "mean": 2.398732936591603,
+      "min": 2.3789399368232544,
+      "max": 2.4245476902749443,
+      "range": 0.04560775345168988
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       2.325729470791437,
+       2.33781610574417,
+       2.3333449613358006
+      ],
+      "mean": 2.332296845957136,
+      "min": 2.325729470791437,
+      "max": 2.33781610574417,
+      "range": 0.0120866349527331
+     },
+     "collision_t_median_s": {
+      "values": [
+       null,
+       null,
+       null
+      ]
+     }
+    },
+    {
+     "scene": "g2-pillar",
+     "altitude_m": 1.0,
+     "denom": 5,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       0.0,
+       5.0,
+       0.0
+      ],
+      "mean": 1.6666666666666667,
+      "min": 0.0,
+      "max": 5.0,
+      "range": 5.0
+     },
+     "obstacle": {
+      "values": [
+       5.0,
+       0.0,
+       5.0
+      ],
+      "mean": 3.3333333333333335,
+      "min": 0.0,
+      "max": 5.0,
+      "range": 5.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.029498525073746312,
+       0.03949730700179533,
+       0.07988980716253444
+      ],
+      "mean": 0.04962854641269202,
+      "min": 0.029498525073746312,
+      "max": 0.07988980716253444,
+      "range": 0.050391282088788125
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       1.649958070225381,
+       0.0189266985959463,
+       2.65909161155681
+      ],
+      "mean": 1.442658793459379,
+      "min": 0.0189266985959463,
+      "max": 2.65909161155681,
+      "range": 2.6401649129608638
+     },
+     "max_speed_median_mps": {
+      "values": [
+       2.322233596619425,
+       2.353797013529869,
+       2.3453631868978384
+      ],
+      "mean": 2.3404645990157107,
+      "min": 2.322233596619425,
+      "max": 2.353797013529869,
+      "range": 0.03156341691044373
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       2.322233596619425,
+       2.353797013529869,
+       2.3453631868978384
+      ],
+      "mean": 2.3404645990157107,
+      "min": 2.322233596619425,
+      "max": 2.353797013529869,
+      "range": 0.03156341691044373
+     },
+     "collision_t_median_s": {
+      "values": [
+       3.39,
+       null,
+       3.63
+      ]
+     }
+    },
+    {
+     "scene": "g2-pillar",
+     "altitude_m": 1.5,
+     "denom": 5,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       5.0,
+       5.0,
+       0.0
+      ],
+      "mean": 3.3333333333333335,
+      "min": 0.0,
+      "max": 5.0,
+      "range": 5.0
+     },
+     "obstacle": {
+      "values": [
+       0.0,
+       0.0,
+       5.0
+      ],
+      "mean": 1.6666666666666667,
+      "min": 0.0,
+      "max": 5.0,
+      "range": 5.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.01658374792703151,
+       0.039285714285714285,
+       0.07967032967032966
+      ],
+      "mean": 0.04517993062769182,
+      "min": 0.01658374792703151,
+      "max": 0.07967032967032966,
+      "range": 0.06308658174329815
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       0.020917319797237086,
+       0.02084513252999227,
+       2.656681109402574
+      ],
+      "mean": 0.8994811872432678,
+      "min": 0.02084513252999227,
+      "max": 2.656681109402574,
+      "range": 2.6358359768725816
+     },
+     "max_speed_median_mps": {
+      "values": [
+       2.3223056688573522,
+       2.3492320189772986,
+       2.3458056687792896
+      ],
+      "mean": 2.339114452204647,
+      "min": 2.3223056688573522,
+      "max": 2.3492320189772986,
+      "range": 0.026926350119946374
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       2.3223056688573522,
+       2.3492320189772986,
+       2.3458056687792896
+      ],
+      "mean": 2.339114452204647,
+      "min": 2.3223056688573522,
+      "max": 2.3492320189772986,
+      "range": 0.026926350119946374
+     },
+     "collision_t_median_s": {
+      "values": [
+       null,
+       null,
+       3.64
+      ]
+     }
+    }
+   ],
+   "per_seed_groups": [
+    [
+     {
+      "arm": "r3-s0-cap",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.029498525073746312,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.322233596619425,
+      "final_goal_error_median_m": 1.649958070225381,
+      "early_max_speed_median_mps": 2.322233596619425,
+      "collision_t_median_s": 3.39
+     },
+     {
+      "arm": "r3-s0-cap",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.01658374792703151,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.3223056688573522,
+      "final_goal_error_median_m": 0.020917319797237086,
+      "early_max_speed_median_mps": 2.3223056688573522,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "r3-s0-cap",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 10,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.015416666666666667,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.499323048047259,
+      "final_goal_error_median_m": 1.7312696080872954,
+      "early_max_speed_median_mps": 2.325159585955137,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "r3-s0-cap",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.015000000000000003,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.4245476902749443,
+      "final_goal_error_median_m": 0.498367297922124,
+      "early_max_speed_median_mps": 2.325729470791437,
+      "collision_t_median_s": null
+     }
+    ],
+    [
+     {
+      "arm": "r3-s1-cap",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.03949730700179533,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.353797013529869,
+      "final_goal_error_median_m": 0.0189266985959463,
+      "early_max_speed_median_mps": 2.353797013529869,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "r3-s1-cap",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.039285714285714285,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.3492320189772986,
+      "final_goal_error_median_m": 0.02084513252999227,
+      "early_max_speed_median_mps": 2.3492320189772986,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "r3-s1-cap",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.018333333333333337,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.3775771942757227,
+      "final_goal_error_median_m": 0.17961922830182156,
+      "early_max_speed_median_mps": 2.3537481182563464,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "r3-s1-cap",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.03145833333333334,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.392711182676609,
+      "final_goal_error_median_m": 0.09262960131123626,
+      "early_max_speed_median_mps": 2.33781610574417,
+      "collision_t_median_s": null
+     }
+    ],
+    [
+     {
+      "arm": "r3-s2-cap",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.07988980716253444,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.3453631868978384,
+      "final_goal_error_median_m": 2.65909161155681,
+      "early_max_speed_median_mps": 2.3453631868978384,
+      "collision_t_median_s": 3.63
+     },
+     {
+      "arm": "r3-s2-cap",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.07967032967032966,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.3458056687792896,
+      "final_goal_error_median_m": 2.656681109402574,
+      "early_max_speed_median_mps": 2.3458056687792896,
+      "collision_t_median_s": 3.64
+     },
+     {
+      "arm": "r3-s2-cap",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.03125,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.352361445510833,
+      "final_goal_error_median_m": 9.441077235546931,
+      "early_max_speed_median_mps": 2.3328332392166233,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "r3-s2-cap",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.035833333333333335,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.3789399368232544,
+      "final_goal_error_median_m": 6.098503209246497,
+      "early_max_speed_median_mps": 2.3333449613358006,
+      "collision_t_median_s": null
+     }
+    ]
+   ]
+  },
+  "g2w": {
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "train": [
+    {
+     "seed": 0,
+     "weights_sha256": "528f1f9121b0664575afe7d06bed9066d945981ac420264dcef40c8e906e930b",
+     "holdout": {
+      "n_windows": 1126,
+      "n_runs": 2,
+      "loss": 0.059551431623752336,
+      "position_mse": 0.04872905817643787,
+      "velocity_mse": 0.042538195372051286,
+      "yaw_mse": 0.003756471778899696,
+      "position_rmse_m": 0.22074659267231708,
+      "position_xy_mse": 0.010998232261199987,
+      "position_xy_rmse_m": 0.10487245711434431
+     },
+     "n_dagger_windows_by_scene": {
+      "open-3drone": 13572,
+      "g2-pillar": 1819
+     },
+     "g2_weight": 4.0,
+     "n_base_train_windows": 3015
+    },
+    {
+     "seed": 1,
+     "weights_sha256": "fff01d1ac684c15bc4a4c21e97cdf03ac0406a5aa3a7e6a0c4671d6cacc554b1",
+     "holdout": {
+      "n_windows": 1126,
+      "n_runs": 2,
+      "loss": 0.07518885418322752,
+      "position_mse": 0.06058988133263418,
+      "velocity_mse": 0.057983887866536424,
+      "yaw_mse": 0.0020600073907994145,
+      "position_rmse_m": 0.24615011950562646,
+      "position_xy_mse": 0.008807179164869271,
+      "position_xy_rmse_m": 0.09384657247267622
+     },
+     "n_dagger_windows_by_scene": {
+      "open-3drone": 13572,
+      "g2-pillar": 1819
+     },
+     "g2_weight": 4.0,
+     "n_base_train_windows": 3015
+    },
+    {
+     "seed": 2,
+     "weights_sha256": "f3d85591b63e3cda3239f8a976eaa571bc849250c0426203dd7aa1069876b39a",
+     "holdout": {
+      "n_windows": 1126,
+      "n_runs": 2,
+      "loss": 0.03991236339850917,
+      "position_mse": 0.028571050577725864,
+      "velocity_mse": 0.043489886881191396,
+      "yaw_mse": 0.0093768130612376,
+      "position_rmse_m": 0.1690297328215538,
+      "position_xy_mse": 0.009060036037845097,
+      "position_xy_rmse_m": 0.0951842215802866
+     },
+     "n_dagger_windows_by_scene": {
+      "open-3drone": 13572,
+      "g2-pillar": 1819
+     },
+     "g2_weight": 4.0,
+     "n_base_train_windows": 3015
+    }
+   ],
+   "student_extra": {},
+   "cells": [
+    {
+     "scene": "open-3drone",
+     "altitude_m": 1.0,
+     "denom": 30,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       20.0,
+       10.0,
+       30.0
+      ],
+      "mean": 20.0,
+      "min": 10.0,
+      "max": 30.0,
+      "range": 20.0
+     },
+     "obstacle": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       10.0,
+       10.0,
+       0.0
+      ],
+      "mean": 6.666666666666667,
+      "min": 0.0,
+      "max": 10.0,
+      "range": 10.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.018749999999999996,
+       0.03875,
+       0.029770619814543674
+      ],
+      "mean": 0.02909020660484789,
+      "min": 0.018749999999999996,
+      "max": 0.03875,
+      "range": 0.020000000000000004
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       1.3628565285916379,
+       2.227169309476195,
+       0.02862226295375398
+      ],
+      "mean": 1.206216033673862,
+      "min": 0.02862226295375398,
+      "max": 2.227169309476195,
+      "range": 2.198547046522441
+     },
+     "max_speed_median_mps": {
+      "values": [
+       3.263831526476724,
+       2.7418593619661733,
+       3.0492292091407114
+      ],
+      "mean": 3.018306699194536,
+      "min": 2.7418593619661733,
+      "max": 3.263831526476724,
+      "range": 0.5219721645105508
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       2.939742813412793,
+       2.660314504161957,
+       3.0492292091407114
+      ],
+      "mean": 2.8830955089051535,
+      "min": 2.660314504161957,
+      "max": 3.0492292091407114,
+      "range": 0.38891470497875424
+     },
+     "collision_t_median_s": {
+      "values": [
+       null,
+       null,
+       null
+      ]
+     }
+    },
+    {
+     "scene": "open-3drone",
+     "altitude_m": 1.5,
+     "denom": 30,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       20.0,
+       0.0,
+       30.0
+      ],
+      "mean": 16.666666666666668,
+      "min": 0.0,
+      "max": 30.0,
+      "range": 30.0
+     },
+     "obstacle": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       10.0,
+       10.0,
+       0.0
+      ],
+      "mean": 6.666666666666667,
+      "min": 0.0,
+      "max": 10.0,
+      "range": 10.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.018333333333333333,
+       0.06412500000000002,
+       0.04273506449783074
+      ],
+      "mean": 0.04173113261038803,
+      "min": 0.018333333333333333,
+      "max": 0.06412500000000002,
+      "range": 0.04579166666666668
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       0.9299861324763973,
+       3.8359037021965676,
+       0.026640670062259127
+      ],
+      "mean": 1.5975101682450747,
+      "min": 0.026640670062259127,
+      "max": 3.8359037021965676,
+      "range": 3.8092630321343086
+     },
+     "max_speed_median_mps": {
+      "values": [
+       3.275286180949705,
+       2.2230308477985243,
+       3.0493469364559296
+      ],
+      "mean": 2.8492213217347193,
+      "min": 2.2230308477985243,
+      "max": 3.275286180949705,
+      "range": 1.0522553331511806
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       2.959495127316852,
+       1.8368228828261377,
+       3.0493469364559296
+      ],
+      "mean": 2.6152216488663065,
+      "min": 1.8368228828261377,
+      "max": 3.0493469364559296,
+      "range": 1.2125240536297919
+     },
+     "collision_t_median_s": {
+      "values": [
+       null,
+       null,
+       null
+      ]
+     }
+    },
+    {
+     "scene": "g2-pillar",
+     "altitude_m": 1.0,
+     "denom": 5,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       0.0,
+       0.0,
+       5.0
+      ],
+      "mean": 1.6666666666666667,
+      "min": 0.0,
+      "max": 5.0,
+      "range": 5.0
+     },
+     "obstacle": {
+      "values": [
+       5.0,
+       5.0,
+       0.0
+      ],
+      "mean": 3.3333333333333335,
+      "min": 0.0,
+      "max": 5.0,
+      "range": 5.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.1246684350132626,
+       0.0851063829787234,
+       0.04036697247706422
+      ],
+      "mean": 0.08338059682301674,
+      "min": 0.04036697247706422,
+      "max": 0.1246684350132626,
+      "range": 0.08430146253619837
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       2.67119281755438,
+       2.6565466769072614,
+       0.023433068328070978
+      ],
+      "mean": 1.7837241875965708,
+      "min": 0.023433068328070978,
+      "max": 2.67119281755438,
+      "range": 2.647759749226309
+     },
+     "max_speed_median_mps": {
+      "values": [
+       1.657358967112652,
+       2.1355614014620325,
+       2.7983118820600112
+      ],
+      "mean": 2.197077416878232,
+      "min": 1.657358967112652,
+      "max": 2.7983118820600112,
+      "range": 1.1409529149473592
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       1.657358967112652,
+       2.1355614014620325,
+       2.7983118820600112
+      ],
+      "mean": 2.197077416878232,
+      "min": 1.657358967112652,
+      "max": 2.7983118820600112,
+      "range": 1.1409529149473592
+     },
+     "collision_t_median_s": {
+      "values": [
+       3.77,
+       2.35,
+       null
+      ]
+     }
+    },
+    {
+     "scene": "g2-pillar",
+     "altitude_m": 1.5,
+     "denom": 5,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       0.0,
+       0.0,
+       5.0
+      ],
+      "mean": 1.6666666666666667,
+      "min": 0.0,
+      "max": 5.0,
+      "range": 5.0
+     },
+     "obstacle": {
+      "values": [
+       5.0,
+       5.0,
+       0.0
+      ],
+      "mean": 3.3333333333333335,
+      "min": 0.0,
+      "max": 5.0,
+      "range": 5.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.14285714285714285,
+       0.08189655172413793,
+       0.035897435897435895
+      ],
+      "mean": 0.08688371015957223,
+      "min": 0.035897435897435895,
+      "max": 0.14285714285714285,
+      "range": 0.10695970695970695
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       2.6607632999621,
+       2.673213884457764,
+       0.009822470734219635
+      ],
+      "mean": 1.7812665517180275,
+      "min": 0.009822470734219635,
+      "max": 2.673213884457764,
+      "range": 2.663391413723544
+     },
+     "max_speed_median_mps": {
+      "values": [
+       1.8244146326328694,
+       2.1583989078519994,
+       2.799632475393186
+      ],
+      "mean": 2.2608153386260184,
+      "min": 1.8244146326328694,
+      "max": 2.799632475393186,
+      "range": 0.9752178427603166
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       1.6597001950518186,
+       2.02826566559058,
+       2.799632475393186
+      ],
+      "mean": 2.1625327786785284,
+      "min": 1.6597001950518186,
+      "max": 2.799632475393186,
+      "range": 1.1399322803413674
+     },
+     "collision_t_median_s": {
+      "values": [
+       3.57,
+       2.32,
+       null
+      ]
+     }
+    }
+   ],
+   "per_seed_groups": [
+    [
+     {
+      "arm": "g2w-s0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.1246684350132626,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.657358967112652,
+      "final_goal_error_median_m": 2.67119281755438,
+      "early_max_speed_median_mps": 1.657358967112652,
+      "collision_t_median_s": 3.77
+     },
+     {
+      "arm": "g2w-s0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.14285714285714285,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.8244146326328694,
+      "final_goal_error_median_m": 2.6607632999621,
+      "early_max_speed_median_mps": 1.6597001950518186,
+      "collision_t_median_s": 3.57
+     },
+     {
+      "arm": "g2w-s0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.018749999999999996,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.263831526476724,
+      "final_goal_error_median_m": 1.3628565285916379,
+      "early_max_speed_median_mps": 2.939742813412793,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "g2w-s0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.018333333333333333,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.275286180949705,
+      "final_goal_error_median_m": 0.9299861324763973,
+      "early_max_speed_median_mps": 2.959495127316852,
+      "collision_t_median_s": null
+     }
+    ],
+    [
+     {
+      "arm": "g2w-s1",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.0851063829787234,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.1355614014620325,
+      "final_goal_error_median_m": 2.6565466769072614,
+      "early_max_speed_median_mps": 2.1355614014620325,
+      "collision_t_median_s": 2.35
+     },
+     {
+      "arm": "g2w-s1",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.08189655172413793,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.1583989078519994,
+      "final_goal_error_median_m": 2.673213884457764,
+      "early_max_speed_median_mps": 2.02826566559058,
+      "collision_t_median_s": 2.32
+     },
+     {
+      "arm": "g2w-s1",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 10,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.03875,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.7418593619661733,
+      "final_goal_error_median_m": 2.227169309476195,
+      "early_max_speed_median_mps": 2.660314504161957,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "g2w-s1",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.06412500000000002,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.2230308477985243,
+      "final_goal_error_median_m": 3.8359037021965676,
+      "early_max_speed_median_mps": 1.8368228828261377,
+      "collision_t_median_s": null
+     }
+    ],
+    [
+     {
+      "arm": "g2w-s2",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.04036697247706422,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.7983118820600112,
+      "final_goal_error_median_m": 0.023433068328070978,
+      "early_max_speed_median_mps": 2.7983118820600112,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "g2w-s2",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.035897435897435895,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.799632475393186,
+      "final_goal_error_median_m": 0.009822470734219635,
+      "early_max_speed_median_mps": 2.799632475393186,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "g2w-s2",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 30,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.029770619814543674,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.0492292091407114,
+      "final_goal_error_median_m": 0.02862226295375398,
+      "early_max_speed_median_mps": 3.0492292091407114,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "g2w-s2",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 30,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.04273506449783074,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.0493469364559296,
+      "final_goal_error_median_m": 0.026640670062259127,
+      "early_max_speed_median_mps": 3.0493469364559296,
+      "collision_t_median_s": null
+     }
+    ]
+   ]
+  },
+  "exact": {
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "train": [
+    {
+     "seed": 0,
+     "weights_sha256": "69a17a7d2c744b444e2fe8a3274a410ac98eb4172c1cd1c45e7e5c00e97bda0a",
+     "holdout": {
+      "n_windows": 1126,
+      "n_runs": 2,
+      "loss": 0.08103595126823887,
+      "position_mse": 0.06302533501206664,
+      "velocity_mse": 0.07097197906982623,
+      "yaw_mse": 0.0053524315095842415,
+      "position_rmse_m": 0.2510484714394147,
+      "position_xy_mse": 0.012854193643291297,
+      "position_xy_rmse_m": 0.1133763363462204
+     },
+     "n_dagger_windows_by_scene": {
+      "open-3drone": 13572,
+      "g2-pillar": 1850
+     },
+     "g2_weight": 1.0,
+     "n_base_train_windows": 3015
+    },
+    {
+     "seed": 1,
+     "weights_sha256": "b5b4fd76a35ecfbdd6239fa051e6f6fc21ea14e2a320cc30f114a13ccdb70e5a",
+     "holdout": {
+      "n_windows": 1126,
+      "n_runs": 2,
+      "loss": 0.1059439991126052,
+      "position_mse": 0.08856631286084969,
+      "velocity_mse": 0.068733772511063,
+      "yaw_mse": 0.0038848458826508817,
+      "position_rmse_m": 0.2976009288642253,
+      "position_xy_mse": 0.01059873249269294,
+      "position_xy_rmse_m": 0.10295014566620554
+     },
+     "n_dagger_windows_by_scene": {
+      "open-3drone": 13572,
+      "g2-pillar": 1850
+     },
+     "g2_weight": 1.0,
+     "n_base_train_windows": 3015
+    },
+    {
+     "seed": 2,
+     "weights_sha256": "794cb9ef8587c57ef2dd8fb5465efb7dbf5970ce4c505f03331296aebcdeadb2",
+     "holdout": {
+      "n_windows": 1126,
+      "n_runs": 2,
+      "loss": 0.045644904081552536,
+      "position_mse": 0.037024828458128774,
+      "velocity_mse": 0.03366885636974503,
+      "yaw_mse": 0.004057253770063735,
+      "position_rmse_m": 0.1924183682971269,
+      "position_xy_mse": 0.00924034806904689,
+      "position_xy_rmse_m": 0.0961267292122586
+     },
+     "n_dagger_windows_by_scene": {
+      "open-3drone": 13572,
+      "g2-pillar": 1850
+     },
+     "g2_weight": 1.0,
+     "n_base_train_windows": 3015
+    }
+   ],
+   "student_extra": {},
+   "cells": [
+    {
+     "scene": "open-3drone",
+     "altitude_m": 1.0,
+     "denom": 30,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       0.0,
+       0.0,
+       20.0
+      ],
+      "mean": 6.666666666666667,
+      "min": 0.0,
+      "max": 20.0,
+      "range": 20.0
+     },
+     "obstacle": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "inter_drone": {
+      "values": [
+       10.0,
+       0.0,
+       0.0
+      ],
+      "mean": 3.3333333333333335,
+      "min": 0.0,
+      "max": 10.0,
+      "range": 10.0
+     },
+     "timeout": {
+      "values": [
+       0.0,
+       10.0,
+       10.0
+      ],
+      "mean": 6.666666666666667,
+      "min": 0.0,
+      "max": 10.0,
+      "range": 10.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.07279693486590037,
+       0.033666666666666664,
+       0.03200000000000001
+      ],
+      "mean": 0.046154533844189015,
+      "min": 0.03200000000000001,
+      "max": 0.07279693486590037,
+      "range": 0.040796934865900365
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       7.600362541781411,
+       20.11284400747,
+       2.0098707247238474
+      ],
+      "mean": 9.90769242465842,
+      "min": 2.0098707247238474,
+      "max": 20.11284400747,
+      "range": 18.102973282746152
+     },
+     "max_speed_median_mps": {
+      "values": [
+       4.930405245525052,
+       4.128176085818942,
+       2.7149745683779356
+      ],
+      "mean": 3.9245186332406434,
+      "min": 2.7149745683779356,
+      "max": 4.930405245525052,
+      "range": 2.2154306771471166
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       2.5320392554574944,
+       3.45295881671984,
+       2.3899199047227335
+      ],
+      "mean": 2.7916393256333563,
+      "min": 2.3899199047227335,
+      "max": 3.45295881671984,
+      "range": 1.0630389119971064
+     },
+     "collision_t_median_s": {
+      "values": [
+       null,
+       null,
+       null
+      ]
+     }
+    },
+    {
+     "scene": "open-3drone",
+     "altitude_m": 1.5,
+     "denom": 30,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       0.0,
+       0.0,
+       20.0
+      ],
+      "mean": 6.666666666666667,
+      "min": 0.0,
+      "max": 20.0,
+      "range": 20.0
+     },
+     "obstacle": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "inter_drone": {
+      "values": [
+       10.0,
+       0.0,
+       0.0
+      ],
+      "mean": 3.3333333333333335,
+      "min": 0.0,
+      "max": 10.0,
+      "range": 10.0
+     },
+     "timeout": {
+      "values": [
+       0.0,
+       10.0,
+       10.0
+      ],
+      "mean": 6.666666666666667,
+      "min": 0.0,
+      "max": 10.0,
+      "range": 10.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.07761194029850746,
+       0.03166666666666667,
+       0.030374999999999996
+      ],
+      "mean": 0.04655120232172471,
+      "min": 0.030374999999999996,
+      "max": 0.07761194029850746,
+      "range": 0.04723694029850746
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       7.5665407437661045,
+       19.247242828108817,
+       3.270961222903314
+      ],
+      "mean": 10.028248264926079,
+      "min": 3.270961222903314,
+      "max": 19.247242828108817,
+      "range": 15.976281605205504
+     },
+     "max_speed_median_mps": {
+      "values": [
+       5.021817306575186,
+       4.129394101163273,
+       2.419754032859063
+      ],
+      "mean": 3.856988480199174,
+      "min": 2.419754032859063,
+      "max": 5.021817306575186,
+      "range": 2.602063273716123
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       2.524149278970164,
+       3.425432967408057,
+       2.419754032859063
+      ],
+      "mean": 2.7897787597457615,
+      "min": 2.419754032859063,
+      "max": 3.425432967408057,
+      "range": 1.0056789345489938
+     },
+     "collision_t_median_s": {
+      "values": [
+       null,
+       null,
+       null
+      ]
+     }
+    },
+    {
+     "scene": "g2-pillar",
+     "altitude_m": 1.0,
+     "denom": 5,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "obstacle": {
+      "values": [
+       5.0,
+       5.0,
+       5.0
+      ],
+      "mean": 5.0,
+      "min": 5.0,
+      "max": 5.0,
+      "range": 0.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.025882352941176474,
+       0.05741626794258373,
+       0.05422993492407809
+      ],
+      "mean": 0.045842851935946095,
+      "min": 0.025882352941176474,
+      "max": 0.05741626794258373,
+      "range": 0.03153391500140726
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       4.824478171465777,
+       7.709788612690183,
+       4.061604120961375
+      ],
+      "mean": 5.531956968372445,
+      "min": 4.061604120961375,
+      "max": 7.709788612690183,
+      "range": 3.6481844917288075
+     },
+     "max_speed_median_mps": {
+      "values": [
+       1.8441466040383572,
+       3.6372507145357638,
+       2.28222775846292
+      ],
+      "mean": 2.5878750256790135,
+      "min": 1.8441466040383572,
+      "max": 3.6372507145357638,
+      "range": 1.7931041104974066
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       1.158403568714716,
+       3.574263650085102,
+       2.28222775846292
+      ],
+      "mean": 2.3382983257542462,
+      "min": 1.158403568714716,
+      "max": 3.574263650085102,
+      "range": 2.415860081370386
+     },
+     "collision_t_median_s": {
+      "values": [
+       4.25,
+       2.09,
+       4.61
+      ],
+      "mean": 3.65,
+      "min": 2.09,
+      "max": 4.61,
+      "range": 2.5200000000000005
+     }
+    },
+    {
+     "scene": "g2-pillar",
+     "altitude_m": 1.5,
+     "denom": 5,
+     "seeds": 3,
+     "arrived": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "obstacle": {
+      "values": [
+       5.0,
+       5.0,
+       5.0
+      ],
+      "mean": 5.0,
+      "min": 5.0,
+      "max": 5.0,
+      "range": 0.0
+     },
+     "inter_drone": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "timeout": {
+      "values": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "range": 0.0
+     },
+     "hover_frac_mean": {
+      "values": [
+       0.026128266033254154,
+       0.061224489795918366,
+       0.05194805194805195
+      ],
+      "mean": 0.04643360259240816,
+      "min": 0.026128266033254154,
+      "max": 0.061224489795918366,
+      "range": 0.03509622376266421
+     },
+     "final_goal_error_median_m": {
+      "values": [
+       4.839534390405867,
+       7.6973168906032585,
+       4.040378586019415
+      ],
+      "mean": 5.525743289009514,
+      "min": 4.040378586019415,
+      "max": 7.6973168906032585,
+      "range": 3.6569383045838437
+     },
+     "max_speed_median_mps": {
+      "values": [
+       1.923354971933877,
+       3.6158775987886145,
+       2.27933135968126
+      ],
+      "mean": 2.6061879768012504,
+      "min": 1.923354971933877,
+      "max": 3.6158775987886145,
+      "range": 1.6925226268547375
+     },
+     "early_max_speed_median_mps": {
+      "values": [
+       1.2515395854495477,
+       3.6158775987886145,
+       2.27933135968126
+      ],
+      "mean": 2.3822495146398075,
+      "min": 1.2515395854495477,
+      "max": 3.6158775987886145,
+      "range": 2.364338013339067
+     },
+     "collision_t_median_s": {
+      "values": [
+       4.21,
+       1.96,
+       4.62
+      ],
+      "mean": 3.5966666666666662,
+      "min": 1.96,
+      "max": 4.62,
+      "range": 2.66
+     }
+    }
+   ],
+   "per_seed_groups": [
+    [
+     {
+      "arm": "exact-s0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.025882352941176474,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.8441466040383572,
+      "final_goal_error_median_m": 4.824478171465777,
+      "early_max_speed_median_mps": 1.158403568714716,
+      "collision_t_median_s": 4.25
+     },
+     {
+      "arm": "exact-s0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.026128266033254154,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.923354971933877,
+      "final_goal_error_median_m": 4.839534390405867,
+      "early_max_speed_median_mps": 1.2515395854495477,
+      "collision_t_median_s": 4.21
+     },
+     {
+      "arm": "exact-s0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 10,
+      "timeout": 0,
+      "hover_frac_mean": 0.07279693486590037,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 4.930405245525052,
+      "final_goal_error_median_m": 7.600362541781411,
+      "early_max_speed_median_mps": 2.5320392554574944,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "exact-s0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 10,
+      "timeout": 0,
+      "hover_frac_mean": 0.07761194029850746,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 5.021817306575186,
+      "final_goal_error_median_m": 7.5665407437661045,
+      "early_max_speed_median_mps": 2.524149278970164,
+      "collision_t_median_s": null
+     }
+    ],
+    [
+     {
+      "arm": "exact-s1",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.05741626794258373,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 3.6372507145357638,
+      "final_goal_error_median_m": 7.709788612690183,
+      "early_max_speed_median_mps": 3.574263650085102,
+      "collision_t_median_s": 2.09
+     },
+     {
+      "arm": "exact-s1",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.061224489795918366,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 3.6158775987886145,
+      "final_goal_error_median_m": 7.6973168906032585,
+      "early_max_speed_median_mps": 3.6158775987886145,
+      "collision_t_median_s": 1.96
+     },
+     {
+      "arm": "exact-s1",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.033666666666666664,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 4.128176085818942,
+      "final_goal_error_median_m": 20.11284400747,
+      "early_max_speed_median_mps": 3.45295881671984,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "exact-s1",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.03166666666666667,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 4.129394101163273,
+      "final_goal_error_median_m": 19.247242828108817,
+      "early_max_speed_median_mps": 3.425432967408057,
+      "collision_t_median_s": null
+     }
+    ],
+    [
+     {
+      "arm": "exact-s2",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.05422993492407809,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.28222775846292,
+      "final_goal_error_median_m": 4.061604120961375,
+      "early_max_speed_median_mps": 2.28222775846292,
+      "collision_t_median_s": 4.61
+     },
+     {
+      "arm": "exact-s2",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.05194805194805195,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.27933135968126,
+      "final_goal_error_median_m": 4.040378586019415,
+      "early_max_speed_median_mps": 2.27933135968126,
+      "collision_t_median_s": 4.62
+     },
+     {
+      "arm": "exact-s2",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.03200000000000001,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.7149745683779356,
+      "final_goal_error_median_m": 2.0098707247238474,
+      "early_max_speed_median_mps": 2.3899199047227335,
+      "collision_t_median_s": null
+     },
+     {
+      "arm": "exact-s2",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.030374999999999996,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.419754032859063,
+      "final_goal_error_median_m": 3.270961222903314,
+      "early_max_speed_median_mps": 2.419754032859063,
+      "collision_t_median_s": null
+     }
+    ]
+   ]
+  }
+ },
+ "select": {
+  "r2": {
+   "candidates": [
+    {
+     "seed": 0,
+     "score": [
+      36,
+      -12,
+      -0.02336241247734388
+     ],
+     "groups": [
+      {
+       "arm": "sel-r2-s0",
+       "scene": "g2-pillar",
+       "label": "g2 柱子",
+       "altitude_m": 1.0,
+       "seeds": 6,
+       "arrived": 0,
+       "denom": 6,
+       "obstacle": 6,
+       "inter_drone": 0,
+       "timeout": 0,
+       "hover_frac_mean": 0.05555555555555556,
+       "n_never_left_hover": 0,
+       "n_drones": 6,
+       "max_speed_median_mps": 2.3430345190500823,
+       "final_goal_error_median_m": 2.66166375595245,
+       "early_max_speed_median_mps": 2.3430345190500823,
+       "collision_t_median_s": 1.98
+      },
+      {
+       "arm": "sel-r2-s0",
+       "scene": "g2-pillar",
+       "label": "g2 柱子",
+       "altitude_m": 1.5,
+       "seeds": 6,
+       "arrived": 0,
+       "denom": 6,
+       "obstacle": 6,
+       "inter_drone": 0,
+       "timeout": 0,
+       "hover_frac_mean": 0.05759162303664921,
+       "n_never_left_hover": 0,
+       "n_drones": 6,
+       "max_speed_median_mps": 2.4078286840195506,
+       "final_goal_error_median_m": 2.6591306406305257,
+       "early_max_speed_median_mps": 2.4078286840195506,
+       "collision_t_median_s": 1.91
+      },
+      {
+       "arm": "sel-r2-s0",
+       "scene": "open-3drone",
+       "label": "开阔三机平行",
+       "altitude_m": 1.0,
+       "seeds": 9,
+       "arrived": 18,
+       "denom": 27,
+       "obstacle": 0,
+       "inter_drone": 0,
+       "timeout": 9,
+       "hover_frac_mean": 0.015000000000000001,
+       "n_never_left_hover": 0,
+       "n_drones": 27,
+       "max_speed_median_mps": 3.102849403105194,
+       "final_goal_error_median_m": 0.023361344524940982,
+       "early_max_speed_median_mps": 3.102849403105194,
+       "collision_t_median_s": null
+      },
+      {
+       "arm": "sel-r2-s0",
+       "scene": "open-3drone",
+       "label": "开阔三机平行",
+       "altitude_m": 1.5,
+       "seeds": 9,
+       "arrived": 18,
+       "denom": 27,
+       "obstacle": 0,
+       "inter_drone": 0,
+       "timeout": 9,
+       "hover_frac_mean": 0.01375,
+       "n_never_left_hover": 0,
+       "n_drones": 27,
+       "max_speed_median_mps": 3.1214119001196585,
+       "final_goal_error_median_m": 0.023171928769396246,
+       "early_max_speed_median_mps": 3.1214119001196585,
+       "collision_t_median_s": null
+      }
+     ]
+    },
+    {
+     "seed": 1,
+     "score": [
+      18,
+      -12,
+      -2.6718963053662526
+     ],
+     "groups": [
+      {
+       "arm": "sel-r2-s1",
+       "scene": "g2-pillar",
+       "label": "g2 柱子",
+       "altitude_m": 1.0,
+       "seeds": 6,
+       "arrived": 0,
+       "denom": 6,
+       "obstacle": 6,
+       "inter_drone": 0,
+       "timeout": 0,
+       "hover_frac_mean": 0.07352941176470588,
+       "n_never_left_hover": 0,
+       "n_drones": 6,
+       "max_speed_median_mps": 2.955371787827418,
+       "final_goal_error_median_m": 2.6718952329647685,
+       "early_max_speed_median_mps": 2.955371787827418,
+       "collision_t_median_s": 1.36
+      },
+      {
+       "arm": "sel-r2-s1",
+       "scene": "g2-pillar",
+       "label": "g2 柱子",
+       "altitude_m": 1.5,
+       "seeds": 6,
+       "arrived": 0,
+       "denom": 6,
+       "obstacle": 6,
+       "inter_drone": 0,
+       "timeout": 0,
+       "hover_frac_mean": 0.07299270072992702,
+       "n_never_left_hover": 0,
+       "n_drones": 6,
+       "max_speed_median_mps": 2.9407743868936294,
+       "final_goal_error_median_m": 2.6696611885195223,
+       "early_max_speed_median_mps": 2.9407743868936294,
+       "collision_t_median_s": 1.37
+      },
+      {
+       "arm": "sel-r2-s1",
+       "scene": "open-3drone",
+       "label": "开阔三机平行",
+       "altitude_m": 1.0,
+       "seeds": 9,
+       "arrived": 9,
+       "denom": 27,
+       "obstacle": 0,
+       "inter_drone": 0,
+       "timeout": 9,
+       "hover_frac_mean": 0.028425925925925927,
+       "n_never_left_hover": 0,
+       "n_drones": 27,
+       "max_speed_median_mps": 2.6170918227139643,
+       "final_goal_error_median_m": 2.467768973522061,
+       "early_max_speed_median_mps": 2.4996589758689107,
+       "collision_t_median_s": null
+      },
+      {
+       "arm": "sel-r2-s1",
+       "scene": "open-3drone",
+       "label": "开阔三机平行",
+       "altitude_m": 1.5,
+       "seeds": 9,
+       "arrived": 9,
+       "denom": 27,
+       "obstacle": 0,
+       "inter_drone": 0,
+       "timeout": 9,
+       "hover_frac_mean": 0.05736111111111111,
+       "n_never_left_hover": 0,
+       "n_drones": 27,
+       "max_speed_median_mps": 3.109793662585606,
+       "final_goal_error_median_m": 5.982435359124319,
+       "early_max_speed_median_mps": 2.922059118281497,
+       "collision_t_median_s": null
+      }
+     ]
+    },
+    {
+     "seed": 2,
+     "score": [
+      9,
+      -12,
+      -2.6662132645349192
+     ],
+     "groups": [
+      {
+       "arm": "sel-r2-s2",
+       "scene": "g2-pillar",
+       "label": "g2 柱子",
+       "altitude_m": 1.0,
+       "seeds": 6,
+       "arrived": 0,
+       "denom": 6,
+       "obstacle": 6,
+       "inter_drone": 0,
+       "timeout": 0,
+       "hover_frac_mean": 0.04861111111111111,
+       "n_never_left_hover": 0,
+       "n_drones": 6,
+       "max_speed_median_mps": 1.7946447000349242,
+       "final_goal_error_median_m": 2.666541022510188,
+       "early_max_speed_median_mps": 0.8605826200213411,
+       "collision_t_median_s": 4.32
+      },
+      {
+       "arm": "sel-r2-s2",
+       "scene": "g2-pillar",
+       "label": "g2 柱子",
+       "altitude_m": 1.5,
+       "seeds": 6,
+       "arrived": 0,
+       "denom": 6,
+       "obstacle": 6,
+       "inter_drone": 0,
+       "timeout": 0,
+       "hover_frac_mean": 0.04895104895104895,
+       "n_never_left_hover": 0,
+       "n_drones": 6,
+       "max_speed_median_mps": 1.7765422668392075,
+       "final_goal_error_median_m": 2.6608633920382436,
+       "early_max_speed_median_mps": 0.8577565104757026,
+       "collision_t_median_s": 4.29
+      },
+      {
+       "arm": "sel-r2-s2",
+       "scene": "open-3drone",
+       "label": "开阔三机平行",
+       "altitude_m": 1.0,
+       "seeds": 9,
+       "arrived": 9,
+       "denom": 27,
+       "obstacle": 0,
+       "inter_drone": 0,
+       "timeout": 9,
+       "hover_frac_mean": 0.027546296296296298,
+       "n_never_left_hover": 0,
+       "n_drones": 27,
+       "max_speed_median_mps": 3.786358142642569,
+       "final_goal_error_median_m": 7.4872758962062305,
+       "early_max_speed_median_mps": 3.786358142642569,
+       "collision_t_median_s": null
+      },
+      {
+       "arm": "sel-r2-s2",
+       "scene": "open-3drone",
+       "label": "开阔三机平行",
+       "altitude_m": 1.5,
+       "seeds": 9,
+       "arrived": 0,
+       "denom": 27,
+       "obstacle": 0,
+       "inter_drone": 0,
+       "timeout": 9,
+       "hover_frac_mean": 0.03208333333333333,
+       "n_never_left_hover": 0,
+       "n_drones": 27,
+       "max_speed_median_mps": 3.7676538427928934,
+       "final_goal_error_median_m": 2.6607499423579095,
+       "early_max_speed_median_mps": 3.7676538427928934,
+       "collision_t_median_s": null
+      }
+     ]
+    }
+   ],
+   "picked_seed": 0,
+   "picked_eval_groups": [
+    {
+     "arm": "r2-s0",
+     "scene": "g2-pillar",
+     "label": "g2 柱子",
+     "altitude_m": 1.0,
+     "seeds": 5,
+     "arrived": 0,
+     "denom": 5,
+     "obstacle": 5,
+     "inter_drone": 0,
+     "timeout": 0,
+     "hover_frac_mean": 0.05555555555555556,
+     "n_never_left_hover": 0,
+     "n_drones": 5,
+     "max_speed_median_mps": 2.3430465878609867,
+     "final_goal_error_median_m": 2.6616220232815353,
+     "early_max_speed_median_mps": 2.3430465878609867,
+     "collision_t_median_s": 1.98
+    },
+    {
+     "arm": "r2-s0",
+     "scene": "g2-pillar",
+     "label": "g2 柱子",
+     "altitude_m": 1.5,
+     "seeds": 5,
+     "arrived": 0,
+     "denom": 5,
+     "obstacle": 5,
+     "inter_drone": 0,
+     "timeout": 0,
+     "hover_frac_mean": 0.057591623036649206,
+     "n_never_left_hover": 0,
+     "n_drones": 5,
+     "max_speed_median_mps": 2.407837431170086,
+     "final_goal_error_median_m": 2.659112253466967,
+     "early_max_speed_median_mps": 2.407837431170086,
+     "collision_t_median_s": 1.91
+    },
+    {
+     "arm": "r2-s0",
+     "scene": "open-3drone",
+     "label": "开阔三机平行",
+     "altitude_m": 1.0,
+     "seeds": 10,
+     "arrived": 20,
+     "denom": 30,
+     "obstacle": 0,
+     "inter_drone": 0,
+     "timeout": 10,
+     "hover_frac_mean": 0.015000000000000003,
+     "n_never_left_hover": 0,
+     "n_drones": 30,
+     "max_speed_median_mps": 3.102844194810601,
+     "final_goal_error_median_m": 0.023360823038973563,
+     "early_max_speed_median_mps": 3.102844194810601,
+     "collision_t_median_s": null
+    },
+    {
+     "arm": "r2-s0",
+     "scene": "open-3drone",
+     "label": "开阔三机平行",
+     "altitude_m": 1.5,
+     "seeds": 10,
+     "arrived": 20,
+     "denom": 30,
+     "obstacle": 0,
+     "inter_drone": 0,
+     "timeout": 10,
+     "hover_frac_mean": 0.013750000000000002,
+     "n_never_left_hover": 0,
+     "n_drones": 30,
+     "max_speed_median_mps": 3.121414801803663,
+     "final_goal_error_median_m": 0.023172043601823157,
+     "early_max_speed_median_mps": 3.121414801803663,
+     "collision_t_median_s": null
+    }
+   ]
+  },
+  "r3": {
+   "candidates": [
+    {
+     "seed": 0,
+     "score": [
+      9,
+      -12,
+      -10.064116221659258
+     ],
+     "groups": [
+      {
+       "arm": "sel-r3-s0",
+       "scene": "g2-pillar",
+       "label": "g2 柱子",
+       "altitude_m": 1.0,
+       "seeds": 6,
+       "arrived": 0,
+       "denom": 6,
+       "obstacle": 6,
+       "inter_drone": 0,
+       "timeout": 0,
+       "hover_frac_mean": 0.04484304932735426,
+       "n_never_left_hover": 0,
+       "n_drones": 6,
+       "max_speed_median_mps": 3.1771892567035938,
+       "final_goal_error_median_m": 4.335670618373838,
+       "early_max_speed_median_mps": 3.1771892567035938,
+       "collision_t_median_s": 2.23
+      },
+      {
+       "arm": "sel-r3-s0",
+       "scene": "g2-pillar",
+       "label": "g2 柱子",
+       "altitude_m": 1.5,
+       "seeds": 6,
+       "arrived": 0,
+       "denom": 6,
+       "obstacle": 6,
+       "inter_drone": 0,
+       "timeout": 0,
+       "hover_frac_mean": 0.04629629629629629,
+       "n_never_left_hover": 0,
+       "n_drones": 6,
+       "max_speed_median_mps": 3.201229891515764,
+       "final_goal_error_median_m": 4.416497929820508,
+       "early_max_speed_median_mps": 3.201229891515764,
+       "collision_t_median_s": 2.16
+      },
+      {
+       "arm": "sel-r3-s0",
+       "scene": "open-3drone",
+       "label": "开阔三机平行",
+       "altitude_m": 1.0,
+       "seeds": 9,
+       "arrived": 9,
+       "denom": 27,
+       "obstacle": 0,
+       "inter_drone": 0,
+       "timeout": 9,
+       "hover_frac_mean": 0.015833333333333335,
+       "n_never_left_hover": 0,
+       "n_drones": 27,
+       "max_speed_median_mps": 4.614517918686729,
+       "final_goal_error_median_m": 12.115534372829782,
+       "early_max_speed_median_mps": 3.6724266429074146,
+       "collision_t_median_s": null
+      },
+      {
+       "arm": "sel-r3-s0",
+       "scene": "open-3drone",
+       "label": "开阔三机平行",
+       "altitude_m": 1.5,
+       "seeds": 9,
+       "arrived": 0,
+       "denom": 27,
+       "obstacle": 0,
+       "inter_drone": 0,
+       "timeout": 9,
+       "hover_frac_mean": 0.02666666666666667,
+       "n_never_left_hover": 0,
+       "n_drones": 27,
+       "max_speed_median_mps": 3.9773926946678957,
+       "final_goal_error_median_m": 10.064937970282369,
+       "early_max_speed_median_mps": 3.673965319773379,
+       "collision_t_median_s": null
+      }
+     ]
+    },
+    {
+     "seed": 1,
+     "score": [
+      33,
+      -6,
+      -4.412926890547524
+     ],
+     "groups": [
+      {
+       "arm": "sel-r3-s1",
+       "scene": "g2-pillar",
+       "label": "g2 柱子",
+       "altitude_m": 1.0,
+       "seeds": 6,
+       "arrived": 6,
+       "denom": 6,
+       "obstacle": 0,
+       "inter_drone": 0,
+       "timeout": 0,
+       "hover_frac_mean": 0.02788339670468948,
+       "n_never_left_hover": 0,
+       "n_drones": 6,
+       "max_speed_median_mps": 3.352030745324342,
+       "final_goal_error_median_m": 0.023228859352367952,
+       "early_max_speed_median_mps": 3.352030745324342,
+       "collision_t_median_s": null
+      },
+      {
+       "arm": "sel-r3-s1",
+       "scene": "g2-pillar",
+       "label": "g2 柱子",
+       "altitude_m": 1.5,
+       "seeds": 6,
+       "arrived": 0,
+       "denom": 6,
+       "obstacle": 6,
+       "inter_drone": 0,
+       "timeout": 0,
+       "hover_frac_mean": 0.08682634730538923,
+       "n_never_left_hover": 0,
+       "n_drones": 6,
+       "max_speed_median_mps": 3.352768361988114,
+       "final_goal_error_median_m": 3.657718717375708,
+       "early_max_speed_median_mps": 3.352768361988114,
+       "collision_t_median_s": 3.34
+      },
+      {
+       "arm": "sel-r3-s1",
+       "scene": "open-3drone",
+       "label": "开阔三机平行",
+       "altitude_m": 1.0,
+       "seeds": 9,
+       "arrived": 18,
+       "denom": 27,
+       "obstacle": 0,
+       "inter_drone": 0,
+       "timeout": 9,
+       "hover_frac_mean": 0.030416666666666665,
+       "n_never_left_hover": 0,
+       "n_drones": 27,
+       "max_speed_median_mps": 4.088571202695481,
+       "final_goal_error_median_m": 4.41297565233633,
+       "early_max_speed_median_mps": 3.4735045976825876,
+       "collision_t_median_s": null
+      },
+      {
+       "arm": "sel-r3-s1",
+       "scene": "open-3drone",
+       "label": "开阔三机平行",
+       "altitude_m": 1.5,
+       "seeds": 9,
+       "arrived": 9,
+       "denom": 27,
+       "obstacle": 0,
+       "inter_drone": 0,
+       "timeout": 9,
+       "hover_frac_mean": 0.02416666666666667,
+       "n_never_left_hover": 0,
+       "n_drones": 27,
+       "max_speed_median_mps": 4.123242880588776,
+       "final_goal_error_median_m": 6.874219728681155,
+       "early_max_speed_median_mps": 3.443428720840641,
+       "collision_t_median_s": null
+      }
+     ]
+    },
+    {
+     "seed": 2,
+     "score": [
+      0,
+      -12,
+      -6.442491348565685
+     ],
+     "groups": [
+      {
+       "arm": "sel-r3-s2",
+       "scene": "g2-pillar",
+       "label": "g2 柱子",
+       "altitude_m": 1.0,
+       "seeds": 6,
+       "arrived": 0,
+       "denom": 6,
+       "obstacle": 6,
+       "inter_drone": 0,
+       "timeout": 0,
+       "hover_frac_mean": 0.09641873278236913,
+       "n_never_left_hover": 0,
+       "n_drones": 6,
+       "max_speed_median_mps": 2.966382557306815,
+       "final_goal_error_median_m": 6.4494593764857475,
+       "early_max_speed_median_mps": 2.966382557306815,
+       "collision_t_median_s": 3.63
+      },
+      {
+       "arm": "sel-r3-s2",
+       "scene": "g2-pillar",
+       "label": "g2 柱子",
+       "altitude_m": 1.5,
+       "seeds": 6,
+       "arrived": 0,
+       "denom": 6,
+       "obstacle": 6,
+       "inter_drone": 0,
+       "timeout": 0,
+       "hover_frac_mean": 0.09641873278236913,
+       "n_never_left_hover": 0,
+       "n_drones": 6,
+       "max_speed_median_mps": 2.9701623086910898,
+       "final_goal_error_median_m": 6.4355311478726716,
+       "early_max_speed_median_mps": 2.9701623086910898,
+       "collision_t_median_s": 3.63
+      },
+      {
+       "arm": "sel-r3-s2",
+       "scene": "open-3drone",
+       "label": "开阔三机平行",
+       "altitude_m": 1.0,
+       "seeds": 9,
+       "arrived": 0,
+       "denom": 27,
+       "obstacle": 0,
+       "inter_drone": 0,
+       "timeout": 9,
+       "hover_frac_mean": 0.03375,
+       "n_never_left_hover": 0,
+       "n_drones": 27,
+       "max_speed_median_mps": 3.3241536765428656,
+       "final_goal_error_median_m": 8.911294664729398,
+       "early_max_speed_median_mps": 3.3241536765428656,
+       "collision_t_median_s": null
+      },
+      {
+       "arm": "sel-r3-s2",
+       "scene": "open-3drone",
+       "label": "开阔三机平行",
+       "altitude_m": 1.5,
+       "seeds": 9,
+       "arrived": 0,
+       "denom": 27,
+       "obstacle": 0,
+       "inter_drone": 0,
+       "timeout": 9,
+       "hover_frac_mean": 0.03606481481481481,
+       "n_never_left_hover": 0,
+       "n_drones": 27,
+       "max_speed_median_mps": 3.3244633425677304,
+       "final_goal_error_median_m": 5.911932498239824,
+       "early_max_speed_median_mps": 3.3244633425677304,
+       "collision_t_median_s": null
+      }
+     ]
+    }
+   ],
+   "picked_seed": 1,
+   "picked_eval_groups": [
+    {
+     "arm": "r3-s1",
+     "scene": "g2-pillar",
+     "label": "g2 柱子",
+     "altitude_m": 1.0,
+     "seeds": 5,
+     "arrived": 5,
+     "denom": 5,
+     "obstacle": 0,
+     "inter_drone": 0,
+     "timeout": 0,
+     "hover_frac_mean": 0.027883396704689485,
+     "n_never_left_hover": 0,
+     "n_drones": 5,
+     "max_speed_median_mps": 3.352027520797925,
+     "final_goal_error_median_m": 0.02322947206734348,
+     "early_max_speed_median_mps": 3.352027520797925,
+     "collision_t_median_s": null
+    },
+    {
+     "arm": "r3-s1",
+     "scene": "g2-pillar",
+     "label": "g2 柱子",
+     "altitude_m": 1.5,
+     "seeds": 5,
+     "arrived": 0,
+     "denom": 5,
+     "obstacle": 5,
+     "inter_drone": 0,
+     "timeout": 0,
+     "hover_frac_mean": 0.08682634730538923,
+     "n_never_left_hover": 0,
+     "n_drones": 5,
+     "max_speed_median_mps": 3.352765387097977,
+     "final_goal_error_median_m": 3.6577225324169196,
+     "early_max_speed_median_mps": 3.352765387097977,
+     "collision_t_median_s": 3.34
+    },
+    {
+     "arm": "r3-s1",
+     "scene": "open-3drone",
+     "label": "开阔三机平行",
+     "altitude_m": 1.0,
+     "seeds": 10,
+     "arrived": 20,
+     "denom": 30,
+     "obstacle": 0,
+     "inter_drone": 0,
+     "timeout": 10,
+     "hover_frac_mean": 0.030416666666666665,
+     "n_never_left_hover": 0,
+     "n_drones": 30,
+     "max_speed_median_mps": 4.088570611134077,
+     "final_goal_error_median_m": 4.412962839582413,
+     "early_max_speed_median_mps": 3.4734946641908175,
+     "collision_t_median_s": null
+    },
+    {
+     "arm": "r3-s1",
+     "scene": "open-3drone",
+     "label": "开阔三机平行",
+     "altitude_m": 1.5,
+     "seeds": 10,
+     "arrived": 10,
+     "denom": 30,
+     "obstacle": 0,
+     "inter_drone": 0,
+     "timeout": 10,
+     "hover_frac_mean": 0.02416666666666667,
+     "n_never_left_hover": 0,
+     "n_drones": 30,
+     "max_speed_median_mps": 4.123097680000091,
+     "final_goal_error_median_m": 6.762439553792935,
+     "early_max_speed_median_mps": 3.443423149094784,
+     "collision_t_median_s": null
+    }
+   ]
+  }
+ },
+ "probe_arrival": {
+  "weights": "/workspace/yopo-teacher-data/d8/train/r2-s0/student.pt",
+  "weights_sha256": "7b0b5625949ec283355ab80c39d291576fed4dfca3484025eea3b5b2eccf249c",
+  "rule": {
+   "goal_tolerance_m": 0.4,
+   "goal_speed_mps": 0.2,
+   "goal_hold_s": 1.0,
+   "duration_s": 8.0,
+   "note": "runner：每个物理步（100 Hz）距目标 ≤ 容差且三维速度 ≤ 上限，连续保持 goal_hold 才算到达"
+  },
+  "cases": [
+   {
+    "altitude_m": 1.0,
+    "seed": 0,
+    "outcome": "TIMEOUT",
+    "arrived": 2,
+    "drones": [
+     {
+      "id": "uav0",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.69,
+      "first_ok_s": 5.15,
+      "longest_hold_s": 2.2300000000000004,
+      "longest_hold_start_s": 5.77,
+      "ok_breaks_after_entry": 1,
+      "speed_at_entry_mps": 2.0183122181917175,
+      "speed_max_after_entry_mps": 2.0183122181917175,
+      "speed_min_after_entry_mps": 0.0006757851776135502,
+      "final_speed_mps": 0.0006757851776135502,
+      "final_err_m": 0.0012822124349499936,
+      "err_min_m": 0.0005232253375644584
+     },
+     {
+      "id": "uav1",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.43,
+      "first_ok_s": 5.13,
+      "longest_hold_s": 2.87,
+      "longest_hold_start_s": 5.13,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.7462833788264062,
+      "speed_max_after_entry_mps": 0.7462833788264062,
+      "speed_min_after_entry_mps": 0.00017415600437263514,
+      "final_speed_mps": 0.00035716211882307373,
+      "final_err_m": 0.0005022108179064945,
+      "err_min_m": 0.00015549618853613544
+     },
+     {
+      "id": "uav2",
+      "arrived_by_rule": false,
+      "t_enter_tol_s": 6.51,
+      "first_ok_s": 7.23,
+      "longest_hold_s": 0.7699999999999996,
+      "longest_hold_start_s": 7.23,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.8099053578647097,
+      "speed_max_after_entry_mps": 0.8099053578647097,
+      "speed_min_after_entry_mps": 0.03818457075527454,
+      "final_speed_mps": 0.03818457075527454,
+      "final_err_m": 0.023360759300563652,
+      "err_min_m": 0.006613034374032057,
+      "curve_10hz": [
+       {
+        "t": 4.0,
+        "speed_mps": 1.3011,
+        "err_m": 2.1062
+       },
+       {
+        "t": 4.1,
+        "speed_mps": 1.1668,
+        "err_m": 2.2199
+       },
+       {
+        "t": 4.2,
+        "speed_mps": 0.9373,
+        "err_m": 2.2989
+       },
+       {
+        "t": 4.3,
+        "speed_mps": 0.6188,
+        "err_m": 2.3364
+       },
+       {
+        "t": 4.4,
+        "speed_mps": 0.2895,
+        "err_m": 2.3404
+       },
+       {
+        "t": 4.5,
+        "speed_mps": 0.2581,
+        "err_m": 2.3282
+       },
+       {
+        "t": 4.6,
+        "speed_mps": 0.5264,
+        "err_m": 2.3017
+       },
+       {
+        "t": 4.7,
+        "speed_mps": 0.95,
+        "err_m": 2.2544
+       },
+       {
+        "t": 4.8,
+        "speed_mps": 1.414,
+        "err_m": 2.1791
+       },
+       {
+        "t": 4.9,
+        "speed_mps": 1.7639,
+        "err_m": 2.0736
+       },
+       {
+        "t": 5.0,
+        "speed_mps": 1.8904,
+        "err_m": 1.9455
+       },
+       {
+        "t": 5.1,
+        "speed_mps": 1.9513,
+        "err_m": 1.8075
+       },
+       {
+        "t": 5.2,
+        "speed_mps": 2.0632,
+        "err_m": 1.6592
+       },
+       {
+        "t": 5.3,
+        "speed_mps": 2.046,
+        "err_m": 1.502
+       },
+       {
+        "t": 5.4,
+        "speed_mps": 1.7877,
+        "err_m": 1.3588
+       },
+       {
+        "t": 5.5,
+        "speed_mps": 1.3968,
+        "err_m": 1.2423
+       },
+       {
+        "t": 5.6,
+        "speed_mps": 1.0895,
+        "err_m": 1.139
+       },
+       {
+        "t": 5.7,
+        "speed_mps": 1.0415,
+        "err_m": 1.0369
+       },
+       {
+        "t": 5.8,
+        "speed_mps": 1.1905,
+        "err_m": 0.9328
+       },
+       {
+        "t": 5.9,
+        "speed_mps": 1.3126,
+        "err_m": 0.8315
+       },
+       {
+        "t": 6.0,
+        "speed_mps": 1.3255,
+        "err_m": 0.7399
+       },
+       {
+        "t": 6.1,
+        "speed_mps": 1.2403,
+        "err_m": 0.6616
+       },
+       {
+        "t": 6.2,
+        "speed_mps": 1.1008,
+        "err_m": 0.5947
+       },
+       {
+        "t": 6.3,
+        "speed_mps": 0.9589,
+        "err_m": 0.5336
+       },
+       {
+        "t": 6.4,
+        "speed_mps": 0.8576,
+        "err_m": 0.4719
+       },
+       {
+        "t": 6.5,
+        "speed_mps": 0.812,
+        "err_m": 0.4056
+       },
+       {
+        "t": 6.6,
+        "speed_mps": 0.8017,
+        "err_m": 0.3338
+       },
+       {
+        "t": 6.7,
+        "speed_mps": 0.7909,
+        "err_m": 0.2584
+       },
+       {
+        "t": 6.8,
+        "speed_mps": 0.7514,
+        "err_m": 0.1833
+       },
+       {
+        "t": 6.9,
+        "speed_mps": 0.6701,
+        "err_m": 0.1135
+       },
+       {
+        "t": 7.0,
+        "speed_mps": 0.5474,
+        "err_m": 0.0538
+       },
+       {
+        "t": 7.1,
+        "speed_mps": 0.3943,
+        "err_m": 0.0099
+       },
+       {
+        "t": 7.2,
+        "speed_mps": 0.2315,
+        "err_m": 0.0234
+       },
+       {
+        "t": 7.3,
+        "speed_mps": 0.0971,
+        "err_m": 0.0369
+       },
+       {
+        "t": 7.4,
+        "speed_mps": 0.0835,
+        "err_m": 0.0381
+       },
+       {
+        "t": 7.5,
+        "speed_mps": 0.11,
+        "err_m": 0.0331
+       },
+       {
+        "t": 7.6,
+        "speed_mps": 0.1085,
+        "err_m": 0.0277
+       },
+       {
+        "t": 7.7,
+        "speed_mps": 0.0922,
+        "err_m": 0.0246
+       },
+       {
+        "t": 7.8,
+        "speed_mps": 0.0716,
+        "err_m": 0.0237
+       },
+       {
+        "t": 7.9,
+        "speed_mps": 0.0526,
+        "err_m": 0.0236
+       },
+       {
+        "t": 8.0,
+        "speed_mps": 0.0382,
+        "err_m": 0.0234
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "altitude_m": 1.0,
+    "seed": 1,
+    "outcome": "TIMEOUT",
+    "arrived": 2,
+    "drones": [
+     {
+      "id": "uav0",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.69,
+      "first_ok_s": 5.15,
+      "longest_hold_s": 2.2300000000000004,
+      "longest_hold_start_s": 5.77,
+      "ok_breaks_after_entry": 1,
+      "speed_at_entry_mps": 2.0183073769270456,
+      "speed_max_after_entry_mps": 2.0183073769270456,
+      "speed_min_after_entry_mps": 0.0006757787890708274,
+      "final_speed_mps": 0.0006757787890708274,
+      "final_err_m": 0.0012822250290381704,
+      "err_min_m": 0.0005232195520028812
+     },
+     {
+      "id": "uav1",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.43,
+      "first_ok_s": 5.13,
+      "longest_hold_s": 2.87,
+      "longest_hold_start_s": 5.13,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.7462708565630919,
+      "speed_max_after_entry_mps": 0.7462708565630919,
+      "speed_min_after_entry_mps": 0.00017415360063063672,
+      "final_speed_mps": 0.0003571719990581173,
+      "final_err_m": 0.0005022092694282475,
+      "err_min_m": 0.00015549481871739772
+     },
+     {
+      "id": "uav2",
+      "arrived_by_rule": false,
+      "t_enter_tol_s": 6.51,
+      "first_ok_s": 7.23,
+      "longest_hold_s": 0.7699999999999996,
+      "longest_hold_start_s": 7.23,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.8099036696208646,
+      "speed_max_after_entry_mps": 0.8099036696208646,
+      "speed_min_after_entry_mps": 0.03817316602419979,
+      "final_speed_mps": 0.03817316602419979,
+      "final_err_m": 0.02336487622138444,
+      "err_min_m": 0.006627553070170859
+     }
+    ]
+   },
+   {
+    "altitude_m": 1.0,
+    "seed": 2,
+    "outcome": "TIMEOUT",
+    "arrived": 2,
+    "drones": [
+     {
+      "id": "uav0",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.69,
+      "first_ok_s": 5.15,
+      "longest_hold_s": 2.2300000000000004,
+      "longest_hold_start_s": 5.77,
+      "ok_breaks_after_entry": 1,
+      "speed_at_entry_mps": 2.01831572349119,
+      "speed_max_after_entry_mps": 2.01831572349119,
+      "speed_min_after_entry_mps": 0.0006757284858601402,
+      "final_speed_mps": 0.0006757284858601402,
+      "final_err_m": 0.0012822624844908374,
+      "err_min_m": 0.000523173864263138
+     },
+     {
+      "id": "uav1",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.43,
+      "first_ok_s": 5.13,
+      "longest_hold_s": 2.87,
+      "longest_hold_start_s": 5.13,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.746273110421162,
+      "speed_max_after_entry_mps": 0.746273110421162,
+      "speed_min_after_entry_mps": 0.0001741325800538315,
+      "final_speed_mps": 0.0003571421808078095,
+      "final_err_m": 0.0005021990834385828,
+      "err_min_m": 0.0001554750149681691
+     },
+     {
+      "id": "uav2",
+      "arrived_by_rule": false,
+      "t_enter_tol_s": 6.51,
+      "first_ok_s": 7.23,
+      "longest_hold_s": 0.7699999999999996,
+      "longest_hold_start_s": 7.23,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.8098607524988893,
+      "speed_max_after_entry_mps": 0.8098607524988893,
+      "speed_min_after_entry_mps": 0.038178358251322736,
+      "final_speed_mps": 0.038178358251322736,
+      "final_err_m": 0.02336178516157228,
+      "err_min_m": 0.006619023775555733
+     }
+    ]
+   },
+   {
+    "altitude_m": 1.0,
+    "seed": 3,
+    "outcome": "TIMEOUT",
+    "arrived": 2,
+    "drones": [
+     {
+      "id": "uav0",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.69,
+      "first_ok_s": 5.15,
+      "longest_hold_s": 2.2300000000000004,
+      "longest_hold_start_s": 5.77,
+      "ok_breaks_after_entry": 1,
+      "speed_at_entry_mps": 2.0183157547578676,
+      "speed_max_after_entry_mps": 2.0183157547578676,
+      "speed_min_after_entry_mps": 0.0006757383573903478,
+      "final_speed_mps": 0.0006757383573903478,
+      "final_err_m": 0.0012822408326605096,
+      "err_min_m": 0.0005231800578604099
+     },
+     {
+      "id": "uav1",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.43,
+      "first_ok_s": 5.13,
+      "longest_hold_s": 2.87,
+      "longest_hold_start_s": 5.13,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.7462932113842786,
+      "speed_max_after_entry_mps": 0.7462932113842786,
+      "speed_min_after_entry_mps": 0.00017410711664183855,
+      "final_speed_mps": 0.0003571257896015718,
+      "final_err_m": 0.0005022035116121776,
+      "err_min_m": 0.00015545169574007232
+     },
+     {
+      "id": "uav2",
+      "arrived_by_rule": false,
+      "t_enter_tol_s": 6.51,
+      "first_ok_s": 7.23,
+      "longest_hold_s": 0.7699999999999996,
+      "longest_hold_start_s": 7.23,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.8098695296116454,
+      "speed_max_after_entry_mps": 0.8098695296116454,
+      "speed_min_after_entry_mps": 0.03818280710653868,
+      "final_speed_mps": 0.03818280710653868,
+      "final_err_m": 0.023360886777383478,
+      "err_min_m": 0.0066149030857944775
+     }
+    ]
+   },
+   {
+    "altitude_m": 1.0,
+    "seed": 4,
+    "outcome": "TIMEOUT",
+    "arrived": 2,
+    "drones": [
+     {
+      "id": "uav0",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.69,
+      "first_ok_s": 5.15,
+      "longest_hold_s": 2.2300000000000004,
+      "longest_hold_start_s": 5.77,
+      "ok_breaks_after_entry": 1,
+      "speed_at_entry_mps": 2.018361549357618,
+      "speed_max_after_entry_mps": 2.018361549357618,
+      "speed_min_after_entry_mps": 0.0006757300267969201,
+      "final_speed_mps": 0.0006757300267969201,
+      "final_err_m": 0.0012822521096896658,
+      "err_min_m": 0.0005231847603715938
+     },
+     {
+      "id": "uav1",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.43,
+      "first_ok_s": 5.13,
+      "longest_hold_s": 2.87,
+      "longest_hold_start_s": 5.13,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.7462648950032826,
+      "speed_max_after_entry_mps": 0.7462648950032826,
+      "speed_min_after_entry_mps": 0.00017411945648662826,
+      "final_speed_mps": 0.0003571444940449559,
+      "final_err_m": 0.0005021964294249753,
+      "err_min_m": 0.00015546389687891754
+     },
+     {
+      "id": "uav2",
+      "arrived_by_rule": false,
+      "t_enter_tol_s": 6.51,
+      "first_ok_s": 7.23,
+      "longest_hold_s": 0.7699999999999996,
+      "longest_hold_start_s": 7.23,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.8098760748803874,
+      "speed_max_after_entry_mps": 0.8098760748803874,
+      "speed_min_after_entry_mps": 0.038181031659669545,
+      "final_speed_mps": 0.038181031659669545,
+      "final_err_m": 0.023361300703831113,
+      "err_min_m": 0.006616422897390521
+     }
+    ]
+   },
+   {
+    "altitude_m": 1.0,
+    "seed": 5,
+    "outcome": "TIMEOUT",
+    "arrived": 2,
+    "drones": [
+     {
+      "id": "uav0",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.69,
+      "first_ok_s": 5.15,
+      "longest_hold_s": 2.2300000000000004,
+      "longest_hold_start_s": 5.77,
+      "ok_breaks_after_entry": 1,
+      "speed_at_entry_mps": 2.018296120164414,
+      "speed_max_after_entry_mps": 2.018296120164414,
+      "speed_min_after_entry_mps": 0.0006757450744830059,
+      "final_speed_mps": 0.0006757450744830059,
+      "final_err_m": 0.0012822360014230324,
+      "err_min_m": 0.0005231831368235345
+     },
+     {
+      "id": "uav1",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.43,
+      "first_ok_s": 5.13,
+      "longest_hold_s": 2.87,
+      "longest_hold_start_s": 5.13,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.746254076710809,
+      "speed_max_after_entry_mps": 0.746254076710809,
+      "speed_min_after_entry_mps": 0.00017423606602934015,
+      "final_speed_mps": 0.000357224071099628,
+      "final_err_m": 0.0005021994865561281,
+      "err_min_m": 0.00015557009877134972
+     },
+     {
+      "id": "uav2",
+      "arrived_by_rule": false,
+      "t_enter_tol_s": 6.51,
+      "first_ok_s": 7.23,
+      "longest_hold_s": 0.7699999999999996,
+      "longest_hold_start_s": 7.23,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.8099008844215743,
+      "speed_max_after_entry_mps": 0.8099008844215743,
+      "speed_min_after_entry_mps": 0.0381801074812901,
+      "final_speed_mps": 0.0381801074812901,
+      "final_err_m": 0.02336278038355419,
+      "err_min_m": 0.006619930569204931
+     }
+    ]
+   },
+   {
+    "altitude_m": 1.0,
+    "seed": 6,
+    "outcome": "TIMEOUT",
+    "arrived": 2,
+    "drones": [
+     {
+      "id": "uav0",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.69,
+      "first_ok_s": 5.15,
+      "longest_hold_s": 2.2300000000000004,
+      "longest_hold_start_s": 5.77,
+      "ok_breaks_after_entry": 1,
+      "speed_at_entry_mps": 2.018280969693426,
+      "speed_max_after_entry_mps": 2.018280969693426,
+      "speed_min_after_entry_mps": 0.0006757855088570001,
+      "final_speed_mps": 0.0006757855088570001,
+      "final_err_m": 0.0012821916219443294,
+      "err_min_m": 0.0005232144470294582
+     },
+     {
+      "id": "uav1",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.43,
+      "first_ok_s": 5.13,
+      "longest_hold_s": 2.87,
+      "longest_hold_start_s": 5.13,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.746272665953992,
+      "speed_max_after_entry_mps": 0.746272665953992,
+      "speed_min_after_entry_mps": 0.0001739649700327669,
+      "final_speed_mps": 0.0003570708710711495,
+      "final_err_m": 0.0005021975935373652,
+      "err_min_m": 0.00015532510249810182
+     },
+     {
+      "id": "uav2",
+      "arrived_by_rule": false,
+      "t_enter_tol_s": 6.51,
+      "first_ok_s": 7.23,
+      "longest_hold_s": 0.7699999999999996,
+      "longest_hold_start_s": 7.23,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.8098748308685841,
+      "speed_max_after_entry_mps": 0.8098748308685841,
+      "speed_min_after_entry_mps": 0.038188136037642095,
+      "final_speed_mps": 0.038188136037642095,
+      "final_err_m": 0.023358076197893977,
+      "err_min_m": 0.006606521657019561
+     }
+    ]
+   },
+   {
+    "altitude_m": 1.0,
+    "seed": 7,
+    "outcome": "TIMEOUT",
+    "arrived": 2,
+    "drones": [
+     {
+      "id": "uav0",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.69,
+      "first_ok_s": 5.15,
+      "longest_hold_s": 2.2300000000000004,
+      "longest_hold_start_s": 5.77,
+      "ok_breaks_after_entry": 1,
+      "speed_at_entry_mps": 2.0183187475978817,
+      "speed_max_after_entry_mps": 2.0183187475978817,
+      "speed_min_after_entry_mps": 0.0006757286278985292,
+      "final_speed_mps": 0.0006757286278985292,
+      "final_err_m": 0.001282255138761662,
+      "err_min_m": 0.0005231735106312124
+     },
+     {
+      "id": "uav1",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.43,
+      "first_ok_s": 5.13,
+      "longest_hold_s": 2.87,
+      "longest_hold_start_s": 5.13,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.746277751763514,
+      "speed_max_after_entry_mps": 0.746277751763514,
+      "speed_min_after_entry_mps": 0.0001741690883792306,
+      "final_speed_mps": 0.00035717438024921485,
+      "final_err_m": 0.0005022062257182917,
+      "err_min_m": 0.00015550851330960693
+     },
+     {
+      "id": "uav2",
+      "arrived_by_rule": false,
+      "t_enter_tol_s": 6.51,
+      "first_ok_s": 7.23,
+      "longest_hold_s": 0.7699999999999996,
+      "longest_hold_start_s": 7.23,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.8098774022552354,
+      "speed_max_after_entry_mps": 0.8098774022552354,
+      "speed_min_after_entry_mps": 0.038184834378000514,
+      "final_speed_mps": 0.038184834378000514,
+      "final_err_m": 0.023360393759139775,
+      "err_min_m": 0.006613006359423123
+     }
+    ]
+   },
+   {
+    "altitude_m": 1.0,
+    "seed": 8,
+    "outcome": "TIMEOUT",
+    "arrived": 2,
+    "drones": [
+     {
+      "id": "uav0",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.69,
+      "first_ok_s": 5.15,
+      "longest_hold_s": 2.2300000000000004,
+      "longest_hold_start_s": 5.77,
+      "ok_breaks_after_entry": 1,
+      "speed_at_entry_mps": 2.01828267318731,
+      "speed_max_after_entry_mps": 2.01828267318731,
+      "speed_min_after_entry_mps": 0.0006757895274915021,
+      "final_speed_mps": 0.0006757895274915021,
+      "final_err_m": 0.0012822245696885925,
+      "err_min_m": 0.0005232249874038039
+     },
+     {
+      "id": "uav1",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.43,
+      "first_ok_s": 5.13,
+      "longest_hold_s": 2.87,
+      "longest_hold_start_s": 5.13,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.7462595508983828,
+      "speed_max_after_entry_mps": 0.7462595508983828,
+      "speed_min_after_entry_mps": 0.00017418407534036087,
+      "final_speed_mps": 0.0003571740920775356,
+      "final_err_m": 0.0005021965935937324,
+      "err_min_m": 0.0001555218461679666
+     },
+     {
+      "id": "uav2",
+      "arrived_by_rule": false,
+      "t_enter_tol_s": 6.51,
+      "first_ok_s": 7.23,
+      "longest_hold_s": 0.7699999999999996,
+      "longest_hold_start_s": 7.23,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.8098916663592398,
+      "speed_max_after_entry_mps": 0.8098916663592398,
+      "speed_min_after_entry_mps": 0.03818932598992245,
+      "final_speed_mps": 0.03818932598992245,
+      "final_err_m": 0.02335860804424793,
+      "err_min_m": 0.006607151165789628
+     }
+    ]
+   },
+   {
+    "altitude_m": 1.0,
+    "seed": 9,
+    "outcome": "TIMEOUT",
+    "arrived": 2,
+    "drones": [
+     {
+      "id": "uav0",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.69,
+      "first_ok_s": 5.15,
+      "longest_hold_s": 2.2300000000000004,
+      "longest_hold_start_s": 5.77,
+      "ok_breaks_after_entry": 1,
+      "speed_at_entry_mps": 2.018304199557795,
+      "speed_max_after_entry_mps": 2.018304199557795,
+      "speed_min_after_entry_mps": 0.000675774427366229,
+      "final_speed_mps": 0.000675774427366229,
+      "final_err_m": 0.0012822221544219168,
+      "err_min_m": 0.0005232132180827955
+     },
+     {
+      "id": "uav1",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.43,
+      "first_ok_s": 5.13,
+      "longest_hold_s": 2.87,
+      "longest_hold_start_s": 5.13,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.7462691099107481,
+      "speed_max_after_entry_mps": 0.7462691099107481,
+      "speed_min_after_entry_mps": 0.00017423771084630865,
+      "final_speed_mps": 0.0003571801139463594,
+      "final_err_m": 0.0005021971015943884,
+      "err_min_m": 0.0001555687038644738
+     },
+     {
+      "id": "uav2",
+      "arrived_by_rule": false,
+      "t_enter_tol_s": 6.51,
+      "first_ok_s": 7.23,
+      "longest_hold_s": 0.7699999999999996,
+      "longest_hold_start_s": 7.23,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.8099025264482521,
+      "speed_max_after_entry_mps": 0.8099025264482521,
+      "speed_min_after_entry_mps": 0.0381964824645075,
+      "final_speed_mps": 0.0381964824645075,
+      "final_err_m": 0.023356218566967846,
+      "err_min_m": 0.006597950309087276
+     }
+    ]
+   },
+   {
+    "altitude_m": 1.5,
+    "seed": 0,
+    "outcome": "TIMEOUT",
+    "arrived": 2,
+    "drones": [
+     {
+      "id": "uav0",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.69,
+      "first_ok_s": 5.15,
+      "longest_hold_s": 2.2300000000000004,
+      "longest_hold_start_s": 5.77,
+      "ok_breaks_after_entry": 1,
+      "speed_at_entry_mps": 1.9800096297261398,
+      "speed_max_after_entry_mps": 1.9800096297261398,
+      "speed_min_after_entry_mps": 0.0006855983953568737,
+      "final_speed_mps": 0.0006855983953568737,
+      "final_err_m": 0.001267232555062751,
+      "err_min_m": 0.0005223456632508178
+     },
+     {
+      "id": "uav1",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.61,
+      "first_ok_s": 5.26,
+      "longest_hold_s": 2.74,
+      "longest_hold_start_s": 5.26,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.912167160151121,
+      "speed_max_after_entry_mps": 0.912167160151121,
+      "speed_min_after_entry_mps": 0.00038384887020779086,
+      "final_speed_mps": 0.00038384887020779086,
+      "final_err_m": 0.0005187765777191869,
+      "err_min_m": 0.00022350053584903887
+     },
+     {
+      "id": "uav2",
+      "arrived_by_rule": false,
+      "t_enter_tol_s": 6.32,
+      "first_ok_s": 7.11,
+      "longest_hold_s": 0.8899999999999997,
+      "longest_hold_start_s": 7.11,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.7642593542409407,
+      "speed_max_after_entry_mps": 0.7642593542409407,
+      "speed_min_after_entry_mps": 0.027846809531562922,
+      "final_speed_mps": 0.027846809531562922,
+      "final_err_m": 0.023172382152035372,
+      "err_min_m": 0.0070633096170021935,
+      "curve_10hz": [
+       {
+        "t": 4.0,
+        "speed_mps": 1.3023,
+        "err_m": 2.0256
+       },
+       {
+        "t": 4.1,
+        "speed_mps": 1.1713,
+        "err_m": 2.1394
+       },
+       {
+        "t": 4.2,
+        "speed_mps": 0.9383,
+        "err_m": 2.2186
+       },
+       {
+        "t": 4.3,
+        "speed_mps": 0.617,
+        "err_m": 2.2566
+       },
+       {
+        "t": 4.4,
+        "speed_mps": 0.2889,
+        "err_m": 2.2607
+       },
+       {
+        "t": 4.5,
+        "speed_mps": 0.2585,
+        "err_m": 2.2485
+       },
+       {
+        "t": 4.6,
+        "speed_mps": 0.5325,
+        "err_m": 2.2235
+       },
+       {
+        "t": 4.7,
+        "speed_mps": 0.9599,
+        "err_m": 2.1774
+       },
+       {
+        "t": 4.8,
+        "speed_mps": 1.4185,
+        "err_m": 2.1021
+       },
+       {
+        "t": 4.9,
+        "speed_mps": 1.7592,
+        "err_m": 1.995
+       },
+       {
+        "t": 5.0,
+        "speed_mps": 1.9068,
+        "err_m": 1.8628
+       },
+       {
+        "t": 5.1,
+        "speed_mps": 2.0388,
+        "err_m": 1.7147
+       },
+       {
+        "t": 5.2,
+        "speed_mps": 2.1443,
+        "err_m": 1.5476
+       },
+       {
+        "t": 5.3,
+        "speed_mps": 2.0,
+        "err_m": 1.3814
+       },
+       {
+        "t": 5.4,
+        "speed_mps": 1.6481,
+        "err_m": 1.239
+       },
+       {
+        "t": 5.5,
+        "speed_mps": 1.3217,
+        "err_m": 1.1134
+       },
+       {
+        "t": 5.6,
+        "speed_mps": 1.1732,
+        "err_m": 0.9947
+       },
+       {
+        "t": 5.7,
+        "speed_mps": 1.2144,
+        "err_m": 0.8791
+       },
+       {
+        "t": 5.8,
+        "speed_mps": 1.2788,
+        "err_m": 0.7696
+       },
+       {
+        "t": 5.9,
+        "speed_mps": 1.2698,
+        "err_m": 0.6721
+       },
+       {
+        "t": 6.0,
+        "speed_mps": 1.1799,
+        "err_m": 0.5901
+       },
+       {
+        "t": 6.1,
+        "speed_mps": 1.0402,
+        "err_m": 0.5228
+       },
+       {
+        "t": 6.2,
+        "speed_mps": 0.894,
+        "err_m": 0.4646
+       },
+       {
+        "t": 6.3,
+        "speed_mps": 0.7807,
+        "err_m": 0.4092
+       },
+       {
+        "t": 6.4,
+        "speed_mps": 0.7195,
+        "err_m": 0.3517
+       },
+       {
+        "t": 6.5,
+        "speed_mps": 0.6978,
+        "err_m": 0.2901
+       },
+       {
+        "t": 6.6,
+        "speed_mps": 0.6838,
+        "err_m": 0.2257
+       },
+       {
+        "t": 6.7,
+        "speed_mps": 0.6496,
+        "err_m": 0.1613
+       },
+       {
+        "t": 6.8,
+        "speed_mps": 0.5807,
+        "err_m": 0.1012
+       },
+       {
+        "t": 6.9,
+        "speed_mps": 0.476,
+        "err_m": 0.0497
+       },
+       {
+        "t": 7.0,
+        "speed_mps": 0.3446,
+        "err_m": 0.0117
+       },
+       {
+        "t": 7.1,
+        "speed_mps": 0.2053,
+        "err_m": 0.0181
+       },
+       {
+        "t": 7.2,
+        "speed_mps": 0.0941,
+        "err_m": 0.0298
+       },
+       {
+        "t": 7.3,
+        "speed_mps": 0.0831,
+        "err_m": 0.0314
+       },
+       {
+        "t": 7.4,
+        "speed_mps": 0.1008,
+        "err_m": 0.0283
+       },
+       {
+        "t": 7.5,
+        "speed_mps": 0.0959,
+        "err_m": 0.0255
+       },
+       {
+        "t": 7.6,
+        "speed_mps": 0.0794,
+        "err_m": 0.0245
+       },
+       {
+        "t": 7.7,
+        "speed_mps": 0.0604,
+        "err_m": 0.0246
+       },
+       {
+        "t": 7.8,
+        "speed_mps": 0.044,
+        "err_m": 0.0248
+       },
+       {
+        "t": 7.9,
+        "speed_mps": 0.0329,
+        "err_m": 0.0243
+       },
+       {
+        "t": 8.0,
+        "speed_mps": 0.0278,
+        "err_m": 0.0232
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "altitude_m": 1.5,
+    "seed": 1,
+    "outcome": "TIMEOUT",
+    "arrived": 2,
+    "drones": [
+     {
+      "id": "uav0",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.69,
+      "first_ok_s": 5.15,
+      "longest_hold_s": 2.2300000000000004,
+      "longest_hold_start_s": 5.77,
+      "ok_breaks_after_entry": 1,
+      "speed_at_entry_mps": 1.9799964508677805,
+      "speed_max_after_entry_mps": 1.9799964508677805,
+      "speed_min_after_entry_mps": 0.0006856254435886794,
+      "final_speed_mps": 0.0006856254435886794,
+      "final_err_m": 0.0012672167814209428,
+      "err_min_m": 0.0005223699192662129
+     },
+     {
+      "id": "uav1",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.61,
+      "first_ok_s": 5.26,
+      "longest_hold_s": 2.74,
+      "longest_hold_start_s": 5.26,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.9121859404586061,
+      "speed_max_after_entry_mps": 0.9121859404586061,
+      "speed_min_after_entry_mps": 0.0003839271656543787,
+      "final_speed_mps": 0.0003839271656543787,
+      "final_err_m": 0.0005187297154564246,
+      "err_min_m": 0.000223416338065356
+     },
+     {
+      "id": "uav2",
+      "arrived_by_rule": false,
+      "t_enter_tol_s": 6.32,
+      "first_ok_s": 7.11,
+      "longest_hold_s": 0.8899999999999997,
+      "longest_hold_start_s": 7.11,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.7642780715066706,
+      "speed_max_after_entry_mps": 0.7642780715066706,
+      "speed_min_after_entry_mps": 0.027845903956811413,
+      "final_speed_mps": 0.027845903956811413,
+      "final_err_m": 0.02317200761735296,
+      "err_min_m": 0.0070629015726232066
+     }
+    ]
+   },
+   {
+    "altitude_m": 1.5,
+    "seed": 2,
+    "outcome": "TIMEOUT",
+    "arrived": 2,
+    "drones": [
+     {
+      "id": "uav0",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.69,
+      "first_ok_s": 5.15,
+      "longest_hold_s": 2.2300000000000004,
+      "longest_hold_start_s": 5.77,
+      "ok_breaks_after_entry": 1,
+      "speed_at_entry_mps": 1.9800119302159476,
+      "speed_max_after_entry_mps": 1.9800119302159476,
+      "speed_min_after_entry_mps": 0.0006855747146512173,
+      "final_speed_mps": 0.0006855747146512173,
+      "final_err_m": 0.0012672701979934734,
+      "err_min_m": 0.0005223267552560982
+     },
+     {
+      "id": "uav1",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.61,
+      "first_ok_s": 5.26,
+      "longest_hold_s": 2.74,
+      "longest_hold_start_s": 5.26,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.9121704509784272,
+      "speed_max_after_entry_mps": 0.9121704509784272,
+      "speed_min_after_entry_mps": 0.00038381461022510716,
+      "final_speed_mps": 0.00038381461022510716,
+      "final_err_m": 0.0005187946509246872,
+      "err_min_m": 0.00022351669791394627
+     },
+     {
+      "id": "uav2",
+      "arrived_by_rule": false,
+      "t_enter_tol_s": 6.32,
+      "first_ok_s": 7.11,
+      "longest_hold_s": 0.8899999999999997,
+      "longest_hold_start_s": 7.11,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.7642342085606298,
+      "speed_max_after_entry_mps": 0.7642342085606298,
+      "speed_min_after_entry_mps": 0.027846511626851842,
+      "final_speed_mps": 0.027846511626851842,
+      "final_err_m": 0.02317168355242481,
+      "err_min_m": 0.007062501079066564
+     }
+    ]
+   },
+   {
+    "altitude_m": 1.5,
+    "seed": 3,
+    "outcome": "TIMEOUT",
+    "arrived": 2,
+    "drones": [
+     {
+      "id": "uav0",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.69,
+      "first_ok_s": 5.15,
+      "longest_hold_s": 2.2300000000000004,
+      "longest_hold_start_s": 5.77,
+      "ok_breaks_after_entry": 1,
+      "speed_at_entry_mps": 1.9799890528870916,
+      "speed_max_after_entry_mps": 1.9799890528870916,
+      "speed_min_after_entry_mps": 0.0006855882884305297,
+      "final_speed_mps": 0.0006855882884305297,
+      "final_err_m": 0.0012672254371319978,
+      "err_min_m": 0.0005223295085415247
+     },
+     {
+      "id": "uav1",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.61,
+      "first_ok_s": 5.26,
+      "longest_hold_s": 2.74,
+      "longest_hold_start_s": 5.26,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.9121787095382115,
+      "speed_max_after_entry_mps": 0.9121787095382115,
+      "speed_min_after_entry_mps": 0.0003837888451050695,
+      "final_speed_mps": 0.0003837888451050695,
+      "final_err_m": 0.0005187926501692393,
+      "err_min_m": 0.0002234903656227207
+     },
+     {
+      "id": "uav2",
+      "arrived_by_rule": false,
+      "t_enter_tol_s": 6.32,
+      "first_ok_s": 7.11,
+      "longest_hold_s": 0.8899999999999997,
+      "longest_hold_start_s": 7.11,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.7642483404709663,
+      "speed_max_after_entry_mps": 0.7642483404709663,
+      "speed_min_after_entry_mps": 0.027846352381991454,
+      "final_speed_mps": 0.027846352381991454,
+      "final_err_m": 0.023172287358049274,
+      "err_min_m": 0.007063695398369811
+     }
+    ]
+   },
+   {
+    "altitude_m": 1.5,
+    "seed": 4,
+    "outcome": "TIMEOUT",
+    "arrived": 2,
+    "drones": [
+     {
+      "id": "uav0",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.69,
+      "first_ok_s": 5.15,
+      "longest_hold_s": 2.2300000000000004,
+      "longest_hold_start_s": 5.77,
+      "ok_breaks_after_entry": 1,
+      "speed_at_entry_mps": 1.9800399015449572,
+      "speed_max_after_entry_mps": 1.9800399015449572,
+      "speed_min_after_entry_mps": 0.0006856043942617726,
+      "final_speed_mps": 0.0006856043942617726,
+      "final_err_m": 0.0012672345072157712,
+      "err_min_m": 0.0005223586664666265
+     },
+     {
+      "id": "uav1",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.61,
+      "first_ok_s": 5.26,
+      "longest_hold_s": 2.74,
+      "longest_hold_start_s": 5.26,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.9122835318772813,
+      "speed_max_after_entry_mps": 0.9122835318772813,
+      "speed_min_after_entry_mps": 0.00038394942206757205,
+      "final_speed_mps": 0.00038394942206757205,
+      "final_err_m": 0.0005187741493665054,
+      "err_min_m": 0.00022342585531480007
+     },
+     {
+      "id": "uav2",
+      "arrived_by_rule": false,
+      "t_enter_tol_s": 6.32,
+      "first_ok_s": 7.11,
+      "longest_hold_s": 0.8899999999999997,
+      "longest_hold_start_s": 7.11,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.7642794336215949,
+      "speed_max_after_entry_mps": 0.7642794336215949,
+      "speed_min_after_entry_mps": 0.027846629593205396,
+      "final_speed_mps": 0.027846629593205396,
+      "final_err_m": 0.02317211745299391,
+      "err_min_m": 0.007062538814613354
+     }
+    ]
+   },
+   {
+    "altitude_m": 1.5,
+    "seed": 5,
+    "outcome": "TIMEOUT",
+    "arrived": 2,
+    "drones": [
+     {
+      "id": "uav0",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.69,
+      "first_ok_s": 5.15,
+      "longest_hold_s": 2.2300000000000004,
+      "longest_hold_start_s": 5.77,
+      "ok_breaks_after_entry": 1,
+      "speed_at_entry_mps": 1.9799706256594762,
+      "speed_max_after_entry_mps": 1.9799706256594762,
+      "speed_min_after_entry_mps": 0.0006856009902174376,
+      "final_speed_mps": 0.0006856009902174376,
+      "final_err_m": 0.0012672226838388448,
+      "err_min_m": 0.0005223405682440948
+     },
+     {
+      "id": "uav1",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.61,
+      "first_ok_s": 5.26,
+      "longest_hold_s": 2.74,
+      "longest_hold_start_s": 5.26,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.9122125399225363,
+      "speed_max_after_entry_mps": 0.9122125399225363,
+      "speed_min_after_entry_mps": 0.0003838096812330045,
+      "final_speed_mps": 0.0003838096812330045,
+      "final_err_m": 0.0005188123503392676,
+      "err_min_m": 0.00022350682156823418
+     },
+     {
+      "id": "uav2",
+      "arrived_by_rule": false,
+      "t_enter_tol_s": 6.32,
+      "first_ok_s": 7.11,
+      "longest_hold_s": 0.8899999999999997,
+      "longest_hold_start_s": 7.11,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.764277512182017,
+      "speed_max_after_entry_mps": 0.764277512182017,
+      "speed_min_after_entry_mps": 0.027846285858591363,
+      "final_speed_mps": 0.027846285858591363,
+      "final_err_m": 0.023173150094901212,
+      "err_min_m": 0.0070644467103117186
+     }
+    ]
+   },
+   {
+    "altitude_m": 1.5,
+    "seed": 6,
+    "outcome": "TIMEOUT",
+    "arrived": 2,
+    "drones": [
+     {
+      "id": "uav0",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.69,
+      "first_ok_s": 5.15,
+      "longest_hold_s": 2.2300000000000004,
+      "longest_hold_start_s": 5.77,
+      "ok_breaks_after_entry": 1,
+      "speed_at_entry_mps": 1.980005505135443,
+      "speed_max_after_entry_mps": 1.980005505135443,
+      "speed_min_after_entry_mps": 0.0006855729849830516,
+      "final_speed_mps": 0.0006855729849830516,
+      "final_err_m": 0.0012672525006954154,
+      "err_min_m": 0.000522320022240636
+     },
+     {
+      "id": "uav1",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.61,
+      "first_ok_s": 5.26,
+      "longest_hold_s": 2.74,
+      "longest_hold_start_s": 5.26,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.9120891788696882,
+      "speed_max_after_entry_mps": 0.9120891788696882,
+      "speed_min_after_entry_mps": 0.0003838168361231253,
+      "final_speed_mps": 0.0003838168361231253,
+      "final_err_m": 0.0005187677562167618,
+      "err_min_m": 0.00022354596125015932
+     },
+     {
+      "id": "uav2",
+      "arrived_by_rule": false,
+      "t_enter_tol_s": 6.32,
+      "first_ok_s": 7.11,
+      "longest_hold_s": 0.8899999999999997,
+      "longest_hold_start_s": 7.11,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.7642291525121989,
+      "speed_max_after_entry_mps": 0.7642291525121989,
+      "speed_min_after_entry_mps": 0.02784686333786454,
+      "final_speed_mps": 0.02784686333786454,
+      "final_err_m": 0.02317175713207952,
+      "err_min_m": 0.0070627404077483824
+     }
+    ]
+   },
+   {
+    "altitude_m": 1.5,
+    "seed": 7,
+    "outcome": "TIMEOUT",
+    "arrived": 2,
+    "drones": [
+     {
+      "id": "uav0",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.69,
+      "first_ok_s": 5.15,
+      "longest_hold_s": 2.2300000000000004,
+      "longest_hold_start_s": 5.77,
+      "ok_breaks_after_entry": 1,
+      "speed_at_entry_mps": 1.9799859329038814,
+      "speed_max_after_entry_mps": 1.9799859329038814,
+      "speed_min_after_entry_mps": 0.0006856033819791158,
+      "final_speed_mps": 0.0006856033819791158,
+      "final_err_m": 0.0012672146741934294,
+      "err_min_m": 0.0005223451474580719
+     },
+     {
+      "id": "uav1",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.61,
+      "first_ok_s": 5.26,
+      "longest_hold_s": 2.74,
+      "longest_hold_start_s": 5.26,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.9122551320955885,
+      "speed_max_after_entry_mps": 0.9122551320955885,
+      "speed_min_after_entry_mps": 0.0003838944507750524,
+      "final_speed_mps": 0.0003838944507750524,
+      "final_err_m": 0.0005187729223692222,
+      "err_min_m": 0.00022343671358877835
+     },
+     {
+      "id": "uav2",
+      "arrived_by_rule": false,
+      "t_enter_tol_s": 6.32,
+      "first_ok_s": 7.11,
+      "longest_hold_s": 0.8899999999999997,
+      "longest_hold_start_s": 7.11,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.7642648349912013,
+      "speed_max_after_entry_mps": 0.7642648349912013,
+      "speed_min_after_entry_mps": 0.027846466530915336,
+      "final_speed_mps": 0.027846466530915336,
+      "final_err_m": 0.02317196283834455,
+      "err_min_m": 0.007062592194430035
+     }
+    ]
+   },
+   {
+    "altitude_m": 1.5,
+    "seed": 8,
+    "outcome": "TIMEOUT",
+    "arrived": 2,
+    "drones": [
+     {
+      "id": "uav0",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.69,
+      "first_ok_s": 5.15,
+      "longest_hold_s": 2.2300000000000004,
+      "longest_hold_start_s": 5.77,
+      "ok_breaks_after_entry": 1,
+      "speed_at_entry_mps": 1.9800084381939613,
+      "speed_max_after_entry_mps": 1.9800084381939613,
+      "speed_min_after_entry_mps": 0.0006855829308801663,
+      "final_speed_mps": 0.0006855829308801663,
+      "final_err_m": 0.0012672639166945924,
+      "err_min_m": 0.0005223328648737695
+     },
+     {
+      "id": "uav1",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.61,
+      "first_ok_s": 5.26,
+      "longest_hold_s": 2.74,
+      "longest_hold_start_s": 5.26,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.9121600035561455,
+      "speed_max_after_entry_mps": 0.9121600035561455,
+      "speed_min_after_entry_mps": 0.00038383117682401924,
+      "final_speed_mps": 0.00038383117682401924,
+      "final_err_m": 0.0005187787660411384,
+      "err_min_m": 0.00022350332450956397
+     },
+     {
+      "id": "uav2",
+      "arrived_by_rule": false,
+      "t_enter_tol_s": 6.32,
+      "first_ok_s": 7.11,
+      "longest_hold_s": 0.8899999999999997,
+      "longest_hold_start_s": 7.11,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.7642309568666361,
+      "speed_max_after_entry_mps": 0.7642309568666361,
+      "speed_min_after_entry_mps": 0.027846870861782492,
+      "final_speed_mps": 0.027846870861782492,
+      "final_err_m": 0.023171607316553468,
+      "err_min_m": 0.007062004644181558
+     }
+    ]
+   },
+   {
+    "altitude_m": 1.5,
+    "seed": 9,
+    "outcome": "TIMEOUT",
+    "arrived": 2,
+    "drones": [
+     {
+      "id": "uav0",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.69,
+      "first_ok_s": 5.15,
+      "longest_hold_s": 2.2300000000000004,
+      "longest_hold_start_s": 5.77,
+      "ok_breaks_after_entry": 1,
+      "speed_at_entry_mps": 1.9800272132869372,
+      "speed_max_after_entry_mps": 1.9800272132869372,
+      "speed_min_after_entry_mps": 0.0006855793834258388,
+      "final_speed_mps": 0.0006855793834258388,
+      "final_err_m": 0.001267247781354913,
+      "err_min_m": 0.0005223307758089668
+     },
+     {
+      "id": "uav1",
+      "arrived_by_rule": true,
+      "t_enter_tol_s": 4.61,
+      "first_ok_s": 5.26,
+      "longest_hold_s": 2.74,
+      "longest_hold_start_s": 5.26,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.9121897036232529,
+      "speed_max_after_entry_mps": 0.9121897036232529,
+      "speed_min_after_entry_mps": 0.0003838683705682175,
+      "final_speed_mps": 0.0003838683705682175,
+      "final_err_m": 0.0005187729052635521,
+      "err_min_m": 0.00022348955727883248
+     },
+     {
+      "id": "uav2",
+      "arrived_by_rule": false,
+      "t_enter_tol_s": 6.32,
+      "first_ok_s": 7.11,
+      "longest_hold_s": 0.8899999999999997,
+      "longest_hold_start_s": 7.11,
+      "ok_breaks_after_entry": 0,
+      "speed_at_entry_mps": 0.7642348036298977,
+      "speed_max_after_entry_mps": 0.7642348036298977,
+      "speed_min_after_entry_mps": 0.027847691676818033,
+      "final_speed_mps": 0.027847691676818033,
+      "final_err_m": 0.02317207958629336,
+      "err_min_m": 0.007062956270032271
+     }
+    ]
+   }
+  ]
+ },
+ "exact_relabel": {
+  "r1": {
+   "round": 1,
+   "n_jobs": 60,
+   "counts": {
+    "ok": 60
+   }
+  },
+  "r2": {
+   "round": 2,
+   "n_jobs": 20,
+   "counts": {
+    "ok": 20
+   }
+  },
+  "r3": {
+   "round": 3,
+   "n_jobs": 12,
+   "counts": {
+    "ok": 12
+   }
+  }
+ },
+ "exact_convert": {
+  "r1": {
+   "round": 1,
+   "filter": "未来 1.6 s：L0 障碍净空 ≥ 0.35 m，机间 ≥ 0.70 m；重标注跨度 ≥ 1.8 s",
+   "stats": {
+    "runs": 60,
+    "usable_runs": 60,
+    "windows_all": 1220,
+    "windows_kept": 1186,
+    "by_scene": {
+     "g2-pillar": {
+      "runs": 60,
+      "usable_runs": 60,
+      "windows_all": 1220,
+      "windows_kept": 1186,
+      "p0_err_m_median": 0.036110853682648214,
+      "v0_err_mps_median": 0.008068804738544502
+     }
+    }
+   },
+   "n_files": 60,
+   "n_windows": 1186
+  },
+  "r2": {
+   "round": 2,
+   "filter": "未来 1.6 s：L0 障碍净空 ≥ 0.35 m，机间 ≥ 0.70 m；重标注跨度 ≥ 1.8 s",
+   "stats": {
+    "runs": 20,
+    "usable_runs": 20,
+    "windows_all": 490,
+    "windows_kept": 426,
+    "by_scene": {
+     "g2-pillar": {
+      "runs": 20,
+      "usable_runs": 20,
+      "windows_all": 490,
+      "windows_kept": 426,
+      "p0_err_m_median": 0.02394211538994337,
+      "v0_err_mps_median": 0.002263641323156051
+     }
+    }
+   },
+   "n_files": 20,
+   "n_windows": 426
+  },
+  "r3": {
+   "round": 3,
+   "filter": "未来 1.6 s：L0 障碍净空 ≥ 0.35 m，机间 ≥ 0.70 m；重标注跨度 ≥ 1.8 s",
+   "stats": {
+    "runs": 12,
+    "usable_runs": 12,
+    "windows_all": 280,
+    "windows_kept": 238,
+    "by_scene": {
+     "g2-pillar": {
+      "runs": 12,
+      "usable_runs": 12,
+      "windows_all": 280,
+      "windows_kept": 238,
+      "p0_err_m_median": 0.05129000721708167,
+      "v0_err_mps_median": 0.00334481272803464
+     }
+    }
+   },
+   "n_files": 12,
+   "n_windows": 238
+  }
+ },
+ "teacher_diff": {
+  "n_pairs": 92,
+  "max_xy_diff_median_m": 0.09458842092106401,
+  "max_xy_diff_p90_m": 0.27871362681808565,
+  "max_xy_diff_max_m": 0.883424063239405
+ }
+}
