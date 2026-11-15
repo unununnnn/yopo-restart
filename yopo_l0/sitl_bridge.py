@@ -44,6 +44,7 @@ from .policy import Observation, PolicyContext, UpstreamPolicy
 from .scene import SceneCard
 from .sensor import R_BODY_CAM, CameraConfig, DepthCamera, DepthFrame
 from .shadow import DroneShadow, aggregate, aggregate_drones, approved_pva, gate_status
+from . import shadow_sitl
 
 SCHEMA = "yopo-restart/s4-sitl-bridge/1"
 SCHEMA_LIVE = "yopo-restart/s4b-sitl-live/1"
@@ -1356,6 +1357,11 @@ class LiveFleetConfig:
     settle_vel_mps: float = 0.3
     settle_hold_s: float = 1.0
     shadow: bool = True  # 默认开。只记录会否拒绝，不改批准动作
+    # 票 SH2：默认关。打开后把场景卡几何交给影子盾，结果标偏离上游。
+    shadow_env_evidence: bool = False
+    # 票 SH2：默认关。打开后 crossing / switch / formation 也记影子盾（只读）。
+    # 打开 shadow_env_evidence 时编队类策略也会开影子，否则证据接不上。
+    fleet_shadow: bool = False
     # 票 B2：默认 0（关）。>0 时编队类策略的设定点取已提交计划上 t + lead 的那一点，
     # 补 PX4 位置环的跟踪滞后。打开即偏离上游。计划、协议和深度都不变。
     setpoint_lead_s: float = 0.0
@@ -1503,12 +1509,12 @@ class LiveFleetSession:
         self._sim1: float | None = None
         self._wall0: float | None = None
         self._shadow_ticks: list[dict] = []
-        self.shadow = bool(cfg.shadow) and policy == "upstream"
+        self.shadow = shadow_sitl.shadow_enabled(cfg, policy)
         self.frame_note = frame_note(card)
         if self.shadow:
             params = dict(card.card.get("policy_params") or {})
             for slot in self.slots:
-                slot.shadow = DroneShadow(slot.bridge.drone_id, slot.bridge.start_enu, slot.bridge.goal, params)
+                shadow_sitl.bind_slot_shadow(slot, card, cfg, params)
 
     def step(self, now_s: float, inbox_by_ns: dict[str, VehicleInbox]) -> list[LiveCommand]:
         now_s = float(now_s)
@@ -1885,34 +1891,8 @@ class LiveFleetSession:
         )
 
     def _observe_shadow(self, slot: _LiveSlot, now_s: float, state: dict, *, planned: bool) -> None:
-        """只读复验本拍选出的计划和跟踪点。不改设定点。"""
-        if slot.shadow is None or not self.shadow:
-            return
-        obs = slot.bridge.last_observation
-        if planned and obs is not None and slot.bridge.plan is not None:
-            slot.shadow.on_selection(slot.bridge.plan, obs.frame, obs.state, now_s)
-        if slot.bridge.plan is None:
-            return
-        accel = state.get("acceleration_enu")
-        if accel is None:
-            accel = np.zeros(3)
-        body = State(
-            float(now_s),
-            np.asarray(state["position_enu"], dtype=float).copy(),
-            np.asarray(state["velocity_enu"], dtype=float).copy(),
-            np.asarray(accel, dtype=float).reshape(3).copy(),
-            float(state.get("yaw_enu", slot.yaw)),
-        )
-        cmd_p, _, _ = approved_pva(slot.bridge.plan, now_s)
-        codes = slot.shadow.on_tick(body, cmd_p, now_s)
-        self._shadow_ticks.append(
-            {
-                "uav": slot.bridge.drone_id,
-                "t": float(now_s),
-                "would_reject": bool(codes),
-                "reject_codes": list(codes),
-            }
-        )
+        """只读复验本拍选出的计划和跟踪点。不改设定点。逻辑在 shadow_sitl。"""
+        shadow_sitl.observe(self, slot, now_s, state, planned=planned)
 
     def _note_arrival(self, slot: _LiveSlot, now_s: float, position, velocity) -> None:
         """场景卡到达口径：距目标 ≤ 容差且速度 ≤ 上限，连续保持 goal_hold。"""
@@ -1940,6 +1920,7 @@ class LiveFleetSession:
         lead = float(self.cfg.setpoint_lead_s)
         p, v, a, yaw = sampler.sample(float(t) + lead if lead > 0.0 else float(t))
         slot.formation_sampler = sampler
+        self._observe_shadow(slot, now_s, state, planned=self.fleet.code(did) == "LOCAL_APPROVED")
         source = "scene-card" if getattr(self.fleet, "ingest", None) is not None else "formation"
         p = np.asarray(p, dtype=float).copy()
         v = np.asarray(v, dtype=float).copy()
@@ -2159,6 +2140,7 @@ class LiveFleetSession:
             payload["shadow_reject_histogram"] = hist
             payload["shadow_gates"] = gate_status()
             payload["shadow_drones"] = aggregate_drones(self._shadow_ticks, [slot.bridge.drone_id for slot in self.slots])
+        shadow_sitl.annotate_result(self, payload)
         return payload
 
 
