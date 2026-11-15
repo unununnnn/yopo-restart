@@ -93,6 +93,14 @@ B2（`b2-sitl-plan-clearance.md`）的根因是：起步加速段 PX4 机体跟�
 
 本票一开始想和 SH2 的仿真并排跑，给自己的容器换了名（`YOPO_SITL_CONTAINER_NAME`），但两个容器都在 docker 默认网桥上，DDS 和 gz-transport 的组播互相发现（话题名、世界名都一样）：16:39:53–16:45:02 这段时间里我这边的里程计在两架飞机的位置之间跳，世界步进也可能串到对方。我停掉了自己的容器，这段的 4 趟作废（`/workspace/b3lab/logs/contaminated/`，不进 runs.json）。**同一时段 SH2 的 4 趟（`/workspace/yopo-ops/sh2/sitl/runs/20261115T163856`、`164011`、`164143`、`164247`，都是 crossing-pillars-sitl80，三趟 OBSTACLE、一趟 LOCKSTEP_TIMEOUT）也可能被串，建议重跑。** 之后 `run_yopo_l0_sitl.sh` 要求自定容器名必须同时给 `YOPO_SITL_DOCKER_NETWORK`（自己的 docker 网络），否则直接退出；本票后续所有趟都在 `yopo-b3-sitl` 网络上，并且开跑前等别人的标准名仿真容器结束。缺省（不给这两个变量）的行为不变。
 
+## 回归
+
+在 6297d90（合入 origin/main 后）上跑，2026-11-15 UTC-3：
+
+- `PYTHONPATH=$PWD scripts/regress.sh`（18:14 起，`out/regress/20261115T181423`）：L0 pytest -n 4 **1 failed / 936 passed / 27 skipped**；core pytest 453 passed / 3 skipped / 4 deselected；批跑 **通过**；certified 冒烟（单 seed、4 s，report-only）g2-pillar TIMEOUT，和合并前那次一样。
+- 唯一失败是 `tests/test_l0_six_batch.py::test_repeated_seed_stays_deterministic_with_tier_metadata`：formation-6-open 0.3 s 同 seed 重跑报「不一致」。这张卡走编队机群，本票没改。单独跑、`-n 4` 跑整个文件都过；随后整套 L0 `pytest -q -n 4 -m "not slow" tests` 重跑（18:42–18:52）**937 passed / 27 skipped**。判断是机器负载下的偶发不一致，不是本票引入。
+- 更早那次 regress（17:44 起）L0 pytest 937 passed / 27 skipped、core 453 passed / 3 skipped；那次批跑失败，原因是批跑途中我在同一 worktree 解 merge 冲突，文件临时带冲突标记，所以作废重跑。
+
 ## 没做完的
 
 - 每臂只有一批 10 个 seed（(b) 0.3 m 只跑了 5 个）。锁步下同 seed 会翻，8/10 对 7/10 不能当显著差别。
