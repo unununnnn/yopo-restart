@@ -4,7 +4,7 @@
 
 不改 `core/`、`yopo_l0/` 的默认行为，不改场景卡、`scenes/suite.txt`、README、`scripts/premerge.sh`、`scripts/regress.sh`、`scripts/sitl/Dockerfile`、`docs/tickets.md`。不改 E-B2 和 E-RERUN 的原文结论段。不改已冻门。
 
-数字在 [e-b2q-evals-diag-runs.json](e-b2q-evals-diag-runs.json)。跑数代码是 `a0d8996298fd4a5dd21929b525f7d8ae80bd0dd1`，开工点是 `765e2cb`。E-RERUN 的对照来自 `origin/yopo-restart-bot/e-rerun-det` 的文末，那条分支没有合进本分支。`max_iterations` 仍是 8，没有抬高。三个进程，每个进程一个 OpenMP 线程。墙钟不参与轨迹，也不进这张表的结论。
+数字在 [e-b2q-evals-diag-runs.json](e-b2q-evals-diag-runs.json)。跑数代码是 `a0d8996298fd4a5dd21929b525f7d8ae80bd0dd1`，开工点是 `765e2cb`。跑完之后用 `git merge origin/main` 接上当时的 main（含已经合入的 E-RERUN，以及 SH1）。SH1 的 `shadow_env_evidence` 默认关，本票脚本不打开它，不进这张表。`max_iterations` 仍是 8，没有抬高。三个进程，每个进程一个 OpenMP 线程。墙钟不参与轨迹，也不进这张表的结论。
 
 ## 结论
 
@@ -132,3 +132,9 @@ git rev-parse HEAD
 ```
 
 `--check` 不跑仿真。它核对缺省仍是 10 次、五臂都不是墙钟预算、场景卡文件没有被改写。
+
+合并 main 之后：
+
+```bash
+PYTHONPATH=.:core/src .venv/bin/python -m pytest tests -q -n 4 -m "not slow"
+```
