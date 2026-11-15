@@ -15,7 +15,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -63,42 +62,9 @@ def ensure_network() -> None:
     print(f"created network {NETWORK}", flush=True)
 
 
-def write_isolated_launcher() -> Path:
-    """官方脚本在 main 上还没有自定容器名/网络（B3 尚未合入）。
-    这里写一份只给本票重跑用的副本：容器名必须带网络，避免再走默认网桥。
-    """
-    src = (ROOT / "scripts/sitl/run_yopo_l0_sitl.sh").read_text()
-    # 自定容器名，不管别人的缺省仿真是不是在跑。
-    old = 'NAME="$(sitl_container_name "$N")"\nothers="$(sitl_running_names | grep -v "^${NAME}$" || true)"\n'
-    new = (
-        'NAME="$(sitl_container_name "$N")"\n'
-        'if [[ -n "${YOPO_SITL_CONTAINER_NAME:-}" ]]; then\n'
-        '  NAME="$YOPO_SITL_CONTAINER_NAME"\n'
-        'fi\n'
-        'others=""\n'
-        '[[ -z "${YOPO_SITL_CONTAINER_NAME:-}" ]] && others="$(sitl_running_names | grep -v "^${NAME}$" || true)"\n'
-    )
-    if old not in src:
-        raise SystemExit("run_yopo_l0_sitl.sh 的 NAME 段对不上，拒绝改写")
-    src = src.replace(old, new, 1)
-    old = '"${DOCKER[@]}" run --rm --name "$NAME" \\\n'
-    new = (
-        'if [[ -n "${YOPO_SITL_CONTAINER_NAME:-}" && -z "${YOPO_SITL_DOCKER_NETWORK:-}" ]]; then\n'
-        '  echo "YOPO_SITL_CONTAINER_NAME 要和 YOPO_SITL_DOCKER_NETWORK 一起给：默认网桥上会和别的仿真串话" >&2\n'
-        '  exit 2\n'
-        'fi\n'
-        'net_args=()\n'
-        '[[ -n "${YOPO_SITL_DOCKER_NETWORK:-}" ]] && net_args=(--network "$YOPO_SITL_DOCKER_NETWORK")\n'
-        '"${DOCKER[@]}" run --rm --name "$NAME" "${net_args[@]}" \\\n'
-    )
-    if old not in src:
-        raise SystemExit("run_yopo_l0_sitl.sh 的 docker run 段对不上，拒绝改写")
-    src = src.replace(old, new, 1)
-    # 必须和官方 common.sh、Dockerfile 同一目录，SITL_DIR / REPO_ROOT 才对。
-    dest = ROOT / "scripts/sitl" / ".sh2b-run_yopo_l0_sitl.sh"
-    dest.write_text(src)
-    dest.chmod(0o755)
-    return dest
+def official_launcher() -> Path:
+    """B3 已入 main：官方启动脚本接受 YOPO_SITL_CONTAINER_NAME，且必须同时给网络。"""
+    return ROOT / "scripts/sitl/run_yopo_l0_sitl.sh"
 
 
 def sitl_cmd(launcher: Path, seed: int, evidence: bool) -> list[str]:
@@ -148,7 +114,7 @@ def _row_from_result(seed: int, evidence: bool, voided: str, run_dir: str, rc: i
 
 def cmd_run(args) -> int:
     ensure_network()
-    launcher = write_isolated_launcher()
+    launcher = official_launcher()
     STATE.mkdir(parents=True, exist_ok=True)
     OUT.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
