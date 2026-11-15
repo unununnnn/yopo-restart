@@ -35,6 +35,8 @@
 | e-b2-bspline-prototype.md | e-b2 | 单机 B 样条原型（E-B2） | 冻结 |
 | e-b2-bspline-runs.json | e-b2 | （无说明字段） | 无 |
 | e-b2p-backend-speed.md | e-b2p | E-B2p：B 样条后段提速 | report-only、冻结 |
+| e-b2q-evals-diag-runs.json | e-b2q | 票 E-B2q：密林开后段评估次数预算诊断 | report-only |
+| e-b2q-evals-diag.md | e-b2q | 票 E-B2q：密林开后段评估次数预算诊断 | report-only、冻结 |
 | e-b3-closeout.md | e-b3 | E-B3 收口 | 冻结 |
 | e-b3-swarm-penalty-runs.json | e-b3 | 这是假设，不是论文复现 | 无 |
 | e-b3-swarm-penalty.md | e-b3 | E-B3：后段机间椭球惩罚 | report-only、冻结 |
