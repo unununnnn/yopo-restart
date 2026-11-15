@@ -779,6 +779,10 @@ class StudentPolicy:
       教师记录的加速度是 fake drone 写入的指令加速度）。
     - vertical：``"network"``（D5，高度取网络位置头的 z）或 ``"hold_goal_z"``（低维动作：网络只管水平，
       结点高度按时间常数 vertical_tau_s 指数趋近目标高度）。教师 EGO-Swarm 场景是定高飞行，网络的 z 头没有学到可用的高度控制。
+
+    D8 选项（不在 DEFAULTS 里，不传时逐位不变；打开即偏离上游）：
+    - knot_speed_cap_mps：结点水平速度上限。逐结点把水平位移截到 上限×结点间隔，再按 knots 规则求结点速度，
+      结点速度的水平分量也截到上限。r4 接口（knots=position）下结点速度来自位置差分，所以截的是位置结点。
     """
 
     name = "student"
@@ -813,6 +817,7 @@ class StudentPolicy:
                              ("vertical", self.VERTICALS)):
             if self.p[key] not in allowed:
                 raise ValueError(f"policy_params.student.{key} 只能是 {allowed}，收到 {self.p[key]!r}")
+        self._speed_cap = read_knot_speed_cap(self.p)
         self.model, self.meta = load_checkpoint(weights, enabled=True)
         self.plan_obj: _TrajPlan | None = None
         self.arrived = False
@@ -923,12 +928,16 @@ class StudentPolicy:
         if self.p["vertical"] == "hold_goal_z":
             p_w[:, 2], vz = student_vertical_hold(float(s.p[2]), float(np.asarray(obs.goal, float)[2]), HORIZON_STEPS,
                                                   float(HORIZON_DT_S), float(self.p["vertical_tau_s"]))
+        if self._speed_cap is not None:
+            p_w = cap_knot_steps(np.asarray(s.p, float), p_w, float(HORIZON_DT_S), self._speed_cap)
         if self.p["knots"] == "position":
             v_w = student_knot_velocities(np.asarray(s.p, float), p_w, float(HORIZON_DT_S))
         else:
             v_w = (rot @ v_b.T).T
             if self.p["vertical"] == "hold_goal_z":
                 v_w[:, 2] = vz
+        if self._speed_cap is not None:
+            v_w = cap_horizontal(v_w, self._speed_cap)
         head = np.array([np.asarray(s.p, float), np.asarray(s.v, float), np.zeros(3)])
         segs = []
         prev = head
@@ -947,6 +956,40 @@ class StudentPolicy:
         plan_cls = _EgoLookaheadPlan if self.p["yaw_source"] == "ego_lookahead" else _TrajPlan
         self.plan_obj = plan_cls(traj, obs.goal, yaw, self.ctx.physics_dt, brake=False)
         return self.plan_obj
+
+
+def read_knot_speed_cap(params: dict) -> float | None:
+    """D8：policy_params.student.knot_speed_cap_mps。缺省或 None 为关。"""
+    cap = params.get("knot_speed_cap_mps")
+    if cap is None:
+        return None
+    cap = float(cap)
+    if not (np.isfinite(cap) and cap > 0.0):
+        raise ValueError(f"policy_params.student.knot_speed_cap_mps 必须是正的有限数，收到 {cap!r}")
+    return cap
+
+
+def cap_horizontal(v: np.ndarray, cap: float) -> np.ndarray:
+    """(K, 3) 速度的水平分量范数截到 cap，竖直分量不动。"""
+    out = np.array(v, dtype=float, copy=True)
+    n = np.linalg.norm(out[:, :2], axis=1)
+    scale = np.where(n > cap, cap / np.maximum(n, 1e-12), 1.0)
+    out[:, :2] *= scale[:, None]
+    return out
+
+
+def cap_knot_steps(p0: np.ndarray, p_w: np.ndarray, dt: float, cap: float) -> np.ndarray:
+    """位置结点 (K, 3)：从 p0 起逐段把水平位移截到 cap·dt，竖直不动。"""
+    out = np.array(p_w, dtype=float, copy=True)
+    prev = np.asarray(p0, dtype=float).reshape(3)
+    lim = float(cap) * float(dt)
+    for i in range(out.shape[0]):
+        d = out[i, :2] - prev[:2]
+        n = float(np.linalg.norm(d))
+        if n > lim:
+            out[i, :2] = prev[:2] + d * (lim / n)
+        prev = out[i]
+    return out
 
 
 def student_vertical_hold(z0: float, z_goal: float, steps: int, dt: float, tau_s: float):

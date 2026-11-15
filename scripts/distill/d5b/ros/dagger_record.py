@@ -36,8 +36,20 @@ def cylinder_points(cx, cy, radius, z_lo, z_hi, resolution):
     return pts
 
 
+def box_points(lo, hi, resolution):
+    """轴对齐盒子的实心栅格点（含边界）。D8 才用。"""
+    axes = []
+    for k in range(3):
+        n = max(1, int(math.ceil((hi[k] - lo[k]) / resolution - 1e-9)))
+        axes.append([lo[k] + (hi[k] - lo[k]) * i / n for i in range(n + 1)])
+    return [(x, y, z) for x in axes[0] for y in axes[1] for z in axes[2]]
+
+
 def cloud_points(scenario, resolution, sentinel):
     pts = []
+    # D8：场景里有 boxes 才发盒子；没有这个键时与 D5b/D7 逐位相同。
+    for box in scenario.get("boxes") or []:
+        pts.extend(box_points(box["lo"], box["hi"], resolution))
     for cyl in scenario["cylinders"]:
         pts.extend(
             cylinder_points(

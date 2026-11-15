@@ -259,7 +259,7 @@ def _docker(*args, check=True, capture=False):
     return subprocess.run(["sudo", "-n", "docker", *args], check=check, capture_output=capture, text=True)
 
 
-def ensure_containers(work: Path) -> list[str]:
+def ensure_containers(work: Path, prefix: str = "ego-teacher-d7") -> list[str]:
     work.mkdir(parents=True, exist_ok=True)
     helper = work / "kill_ros.py"
     if not helper.is_file():
@@ -268,7 +268,7 @@ def ensure_containers(work: Path) -> list[str]:
         raise SystemExit(f"缺少 {work}/linebuf.so：先跑 scripts/teacher/d2b.sh build --work {work}")
     names = []
     for i in range(N_CONTAINERS):
-        name = f"ego-teacher-d7-{i}"
+        name = f"{prefix}-{i}"
         if _docker("inspect", name, check=False, capture=True).returncode != 0:
             _docker("run", "-d", "--init", "--name", name,
                     "-v", f"{EGO_DIR}:/ego", "-v", f"{RECORDER_DIR}:/ws:ro", "-v", f"{work}:/teacher-runs",
@@ -329,14 +329,14 @@ chmod -R a+rwX {remote} || true
 """
 
 
-def relabel_one(job: dict, container: str, work: Path) -> str:
+def relabel_one(job: dict, container: str, work: Path, scenario_fn=None) -> str:
     from teacher.launch_xml import launch_xml
 
     rd = work / "runs" / job["id"]
     if (rd / "record.json").is_file():
         return "skip"
     rd.mkdir(parents=True, exist_ok=True)
-    scn = teacher_scenario(job)
+    scn = (scenario_fn or teacher_scenario)(job)
     (rd / "scenario.json").write_text(json.dumps(scn))
     (rd / "teacher.launch").write_text(launch_xml(scn))
     remote = f"/teacher-runs/runs/{job['id']}"
@@ -387,12 +387,13 @@ def relabel_one(job: dict, container: str, work: Path) -> str:
 
 
 def _relabel_worker(args) -> list[str]:
-    jobs, container, work = args
+    jobs, container, work, *rest = args
+    scenario_fn = rest[0] if rest else None
     sys.path.insert(0, str(ROOT / "scripts"))
     out = []
     for job in jobs:
         try:
-            r = relabel_one(job, container, Path(work))
+            r = relabel_one(job, container, Path(work), scenario_fn)
         except Exception as exc:  # 单场失败不拖垮整批
             r = f"err {exc!r}"
         print(time.strftime("%H:%M:%S"), container, job["id"], r, flush=True)

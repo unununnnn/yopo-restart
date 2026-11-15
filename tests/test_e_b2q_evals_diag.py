@@ -1,4 +1,7 @@
-"""票 E-B2q：诊断脚本干跑。后段缺省仍是 10 次评估，20/40 不是新默认。"""
+"""票 E-B2q：诊断脚本干跑。
+
+票 E-B2r 之后库缺省是 20 次。诊断各臂用显式 time_budget_s 保住 6/10/20/40。
+"""
 
 import importlib.util
 import json
@@ -21,7 +24,12 @@ def _load():
     return mod
 
 
-def test_default_budget_stays_ten_evals(monkeypatch):
+def test_default_budget_is_twenty_and_explicit_seconds_keep_their_count(monkeypatch):
+    """缺省期望从 E-B2q 写的 10 改成 20。显式秒数按 1 ms/次折算，不被改成 20。
+
+    诊断当时 0.040 s 是 20 次、0.080 s 是 40 次。E-B2r 之后这两档是 40 和 80。
+    要回 10 次，显式传 0.010 s。
+    """
     monkeypatch.delenv("YOPO_BACKEND_BUDGET", raising=False)
     from yopo_l0.backend.bspline import _eval_cap
     from yopo_l0.backend.config import DEFAULT_BUDGET, BackendConfig, config_from_params
@@ -31,9 +39,10 @@ def test_default_budget_stays_ten_evals(monkeypatch):
     assert cfg is not None
     assert cfg.budget == "evals"
     assert cfg.time_budget_s == pytest.approx(0.020)
-    assert _eval_cap(cfg) == 10
-    assert _eval_cap(BackendConfig(time_budget_s=0.040)) == 20
-    assert _eval_cap(BackendConfig(time_budget_s=0.080)) == 40
+    assert _eval_cap(cfg) == 20
+    assert _eval_cap(BackendConfig(time_budget_s=0.010)) == 10
+    assert _eval_cap(BackendConfig(time_budget_s=0.040)) == 40
+    assert _eval_cap(BackendConfig(time_budget_s=0.080)) == 80
     assert config_from_params({}, a_max=6.0) is None
     disk = json.loads((ROOT / "scenes" / "crossing-forest-dense-bspline.json").read_text())
     backend = disk["policy_params"]["backend"]
@@ -75,7 +84,7 @@ def test_check_is_a_dry_run_and_keeps_wall_budget_off():
     report = json.loads(proc.stdout)
     assert report["simulation"] is False
     assert report["default_budget"] == "evals"
-    assert report["default_eval_cap"] == 10
+    assert report["default_eval_cap"] == 20
     after = {rel: (ROOT / rel).read_bytes() for rel in before}
     assert after == before
 

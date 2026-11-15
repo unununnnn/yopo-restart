@@ -34,6 +34,8 @@
 | d6e-start-knot.md | d6e | 票 D6e：起步结点沿目标位移改写（只报数） | report-only |
 | d7-dagger-runs.json | d7 | 票 D7：学生网络 DAgger 在策略重标注（小规模，只报数） | report-only |
 | d7-dagger.md | d7 | 票 D7：学生网络 DAgger 在策略重标注（只报数） | report-only |
+| d8-dagger-variance-runs.json | d8 | 票 D8：DAgger 方差与 g2 退化归因（只报数） | report-only |
+| d8-dagger-variance.md | d8 | 票 D8：DAgger 方差与 g2 退化归因（只报数） | report-only |
 | e-a1-inter-drone-filter.md | e-a1 | 票 E-A1：机间过滤开关，默认关 | report-only、冻结 |
 | e-a2-inter-soft-yield-runs.json | e-a2 | 只报数。report-only。不改默认 inter_drone_soft_yield false、empty_brake false、track_clearance false。四档都打开 E-A1（阈值 1.0 m、惩罚 0）和 empty_brake；geom 两档再打开 track_clearance mode=geom、margin 0.08 m。全部偏离上游。soft_yield 默认关。hard_min_m 0.75 m 高于 0.70 m 机间碰撞球。这是假设，不是论文复现（障碍半径 0.20 m，边长 20.0 m）。未冻结，不进 scenes/suite.txt，不设 gates。 | report-only |
 | e-a2-inter-soft-yield.md | e-a2 | 票 E-A2：机间过滤防死锁软让行，默认关 | report-only、冻结 |
@@ -43,6 +45,8 @@
 | e-b2p-backend-speed.md | e-b2p | E-B2p：B 样条后段提速 | report-only、冻结 |
 | e-b2q-evals-diag-runs.json | e-b2q | 票 E-B2q：密林开后段评估次数预算诊断 | report-only |
 | e-b2q-evals-diag.md | e-b2q | 票 E-B2q：密林开后段评估次数预算诊断 | report-only、冻结 |
+| e-b2r-evals-default-runs.json | e-b2r | 票 E-B2r：后段评估预算缺省 10→20 | report-only、冻结 |
+| e-b2r-evals-default.md | e-b2r | 票 E-B2r：后段评估预算缺省 10→20 | report-only、冻结 |
 | e-b3-closeout.md | e-b3 | E-B3 收口 | 冻结 |
 | e-b3-swarm-penalty-runs.json | e-b3 | 这是假设，不是论文复现 | 无 |
 | e-b3-swarm-penalty.md | e-b3 | E-B3：后段机间椭球惩罚 | report-only、冻结 |
