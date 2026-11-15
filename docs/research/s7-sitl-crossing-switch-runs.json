@@ -1,0 +1,1522 @@
+{
+ "ticket": "S7",
+ "title": "票 S7：三机交叉与变阵 SITL 对照（M3 L1 抽检，只报数）",
+ "disclaimer": "只报数。report-only。判据未冻结。SITL 的 result.json 仍是 report_only=true、criteria_frozen=false。不改 core/、scenes/suite.txt、criteria.frozen，也不写 PX4 的 COM_/NAV_/BAT_ 参数；px4_parameters_written 全程为空。L0 的到达时间从 PLAN 起算；SITL 用 arrival_minus_formation_t0_s 和 L0 比。L0 的 wall_s 是点质量仿真墙钟，不是锁步实时因子。box 是多 agent 共享机，SITL 时段的主机负载见 host_load_*。",
+ "schema": "s7-sitl-crossing-switch/1",
+ "timezone": "America/Argentina/San_Juan (UTC-3)",
+ "images": {
+  "base": "yopo-restart-sitl:s1b-23bc262f44d8",
+  "yopo": "yopo-restart-sitl:yopo-81d084c04186"
+ },
+ "scene_cards": {
+  "formation-switch-sitl80": "scenes/formation-switch-sitl80.json",
+  "crossing-pillars-sitl80": "scenes/crossing-pillars-sitl80.json"
+ },
+ "windows_utc_minus_3": {
+  "l0": "2026-11-15 10:03–10:05",
+  "sitl_switch": "2026-11-15 10:06–10:12",
+  "sitl_crossing_eager": "2026-11-15 10:12–10:28",
+  "sitl_crossing_lazy": "2026-11-15 10:32–10:51",
+  "sitl_switch_same_load_control": "2026-11-15 10:51–10:57"
+ },
+ "l0": {
+  "formation-switch": [
+   {
+    "seed": 0,
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "n": 3,
+    "arrival_s": 27.0,
+    "formation_p95_m": 0.0356,
+    "min_inter_m": 1.5364,
+    "min_obstacle_m": 1.0427,
+    "collisions": null,
+    "wall_s": 12.48,
+    "sim_s": 28.0
+   },
+   {
+    "seed": 1,
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "n": 3,
+    "arrival_s": 27.0,
+    "formation_p95_m": 0.0356,
+    "min_inter_m": 1.5364,
+    "min_obstacle_m": 1.0427,
+    "collisions": null,
+    "wall_s": 11.79,
+    "sim_s": 28.0
+   },
+   {
+    "seed": 2,
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "n": 3,
+    "arrival_s": 27.0,
+    "formation_p95_m": 0.0356,
+    "min_inter_m": 1.5364,
+    "min_obstacle_m": 1.0427,
+    "collisions": null,
+    "wall_s": 12.04,
+    "sim_s": 28.0
+   },
+   {
+    "seed": 3,
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "n": 3,
+    "arrival_s": 27.0,
+    "formation_p95_m": 0.0356,
+    "min_inter_m": 1.5364,
+    "min_obstacle_m": 1.0427,
+    "collisions": null,
+    "wall_s": 11.78,
+    "sim_s": 28.0
+   },
+   {
+    "seed": 4,
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "n": 3,
+    "arrival_s": 27.0,
+    "formation_p95_m": 0.0356,
+    "min_inter_m": 1.5364,
+    "min_obstacle_m": 1.0427,
+    "collisions": null,
+    "wall_s": 12.06,
+    "sim_s": 28.0
+   }
+  ],
+  "crossing-pillars": [
+   {
+    "seed": 0,
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "n": 3,
+    "arrival_s": 7.06,
+    "formation_p95_m": 4.6095,
+    "min_inter_m": 7.2845,
+    "min_obstacle_m": 1.0118,
+    "collisions": null,
+    "wall_s": 21.67,
+    "sim_s": 8.06
+   },
+   {
+    "seed": 1,
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "n": 3,
+    "arrival_s": 7.06,
+    "formation_p95_m": 4.3418,
+    "min_inter_m": 7.2811,
+    "min_obstacle_m": 1.0162,
+    "collisions": null,
+    "wall_s": 20.28,
+    "sim_s": 8.06
+   },
+   {
+    "seed": 2,
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "n": 3,
+    "arrival_s": 7.06,
+    "formation_p95_m": 4.471,
+    "min_inter_m": 7.3073,
+    "min_obstacle_m": 1.3607,
+    "collisions": null,
+    "wall_s": 19.84,
+    "sim_s": 8.06
+   },
+   {
+    "seed": 3,
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "n": 3,
+    "arrival_s": 7.76,
+    "formation_p95_m": 4.1387,
+    "min_inter_m": 3.5064,
+    "min_obstacle_m": 1.2645,
+    "collisions": null,
+    "wall_s": 20.99,
+    "sim_s": 8.76
+   },
+   {
+    "seed": 4,
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "n": 3,
+    "arrival_s": 7.05,
+    "formation_p95_m": 4.2051,
+    "min_inter_m": 3.4909,
+    "min_obstacle_m": 1.2641,
+    "collisions": null,
+    "wall_s": 19.0,
+    "sim_s": 8.05
+   }
+  ]
+ },
+ "sitl": {
+  "formation-switch-sitl80": [
+   {
+    "seed": 0,
+    "rc": 0,
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "arrival_s": 37.276,
+    "formation_t0_s": 10.052,
+    "arrival_after_handover_s": 27.516,
+    "arrival_minus_formation_t0_s": 27.224,
+    "formation_p95_m": 0.3221,
+    "min_inter_m": 1.372,
+    "min_inter_plan_m": 1.372,
+    "collisions": 0,
+    "collision_reason": null,
+    "min_clear_legacy_m": 0.0216,
+    "min_clear_flight_m": 0.0219,
+    "min_clear_plan_m": 0.6525,
+    "rtf": 0.9995,
+    "sim_s": 44.45,
+    "wall_s": 44.47,
+    "landed": true,
+    "px4_parameters_written": [],
+    "proposals": 7,
+    "acks": 14,
+    "nacks": 0,
+    "skew_spread_median_s": 0.1022,
+    "skew_spread_p95_s": 0.2054,
+    "skew_spread_max_s": 0.594,
+    "skew_zero_stamp_contaminated": false,
+    "skew_offset_range_max_s": 1.161,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T100603-yopo-n3",
+    "px4_log": {
+     "px4_1": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_2": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_3": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     }
+    }
+   },
+   {
+    "seed": 1,
+    "rc": 0,
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "arrival_s": 37.168,
+    "formation_t0_s": 9.98,
+    "arrival_after_handover_s": 27.276,
+    "arrival_minus_formation_t0_s": 27.188,
+    "formation_p95_m": 0.31,
+    "min_inter_m": 1.5135,
+    "min_inter_plan_m": 1.5135,
+    "collisions": 0,
+    "collision_reason": null,
+    "min_clear_legacy_m": 0.012,
+    "min_clear_flight_m": 0.012,
+    "min_clear_plan_m": 0.6866,
+    "rtf": 0.9969,
+    "sim_s": 44.27,
+    "wall_s": 44.41,
+    "landed": true,
+    "px4_parameters_written": [],
+    "proposals": 7,
+    "acks": 14,
+    "nacks": 0,
+    "skew_spread_median_s": 0.0956,
+    "skew_spread_p95_s": 0.2026,
+    "skew_spread_max_s": 1.124,
+    "skew_zero_stamp_contaminated": false,
+    "skew_offset_range_max_s": 1.277,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T100716-yopo-n3",
+    "px4_log": {
+     "px4_1": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_2": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_3": {
+      "accel_timeout": 1,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     }
+    }
+   },
+   {
+    "seed": 2,
+    "rc": 0,
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "arrival_s": 37.492,
+    "formation_t0_s": 10.224,
+    "arrival_after_handover_s": 27.808,
+    "arrival_minus_formation_t0_s": 27.268,
+    "formation_p95_m": 0.3466,
+    "min_inter_m": 1.2875,
+    "min_inter_plan_m": 1.2875,
+    "collisions": 0,
+    "collision_reason": null,
+    "min_clear_legacy_m": 0.0045,
+    "min_clear_flight_m": 0.0045,
+    "min_clear_plan_m": 0.6156,
+    "rtf": 0.9891,
+    "sim_s": 44.73,
+    "wall_s": 45.22,
+    "landed": true,
+    "px4_parameters_written": [],
+    "proposals": 7,
+    "acks": 14,
+    "nacks": 0,
+    "skew_spread_median_s": 0.1014,
+    "skew_spread_p95_s": 0.2216,
+    "skew_spread_max_s": 1.932,
+    "skew_zero_stamp_contaminated": false,
+    "skew_offset_range_max_s": 2.418,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T100830-yopo-n3",
+    "px4_log": {
+     "px4_1": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_2": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_3": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     }
+    }
+   },
+   {
+    "seed": 3,
+    "rc": 0,
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "arrival_s": 37.104,
+    "formation_t0_s": 9.896,
+    "arrival_after_handover_s": 29.3,
+    "arrival_minus_formation_t0_s": 27.208,
+    "formation_p95_m": 0.3229,
+    "min_inter_m": 1.3622,
+    "min_inter_plan_m": 1.3622,
+    "collisions": 0,
+    "collision_reason": null,
+    "min_clear_legacy_m": 0.0177,
+    "min_clear_flight_m": 0.0177,
+    "min_clear_plan_m": 0.6743,
+    "rtf": 0.9974,
+    "sim_s": 44.55,
+    "wall_s": 44.67,
+    "landed": true,
+    "px4_parameters_written": [],
+    "proposals": 7,
+    "acks": 14,
+    "nacks": 0,
+    "skew_spread_median_s": 0.0791,
+    "skew_spread_p95_s": 0.2292,
+    "skew_spread_max_s": 1.079,
+    "skew_zero_stamp_contaminated": false,
+    "skew_offset_range_max_s": 1.747,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T100945-yopo-n3",
+    "px4_log": {
+     "px4_1": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_2": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_3": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     }
+    }
+   },
+   {
+    "seed": 4,
+    "rc": 0,
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "arrival_s": 37.208,
+    "formation_t0_s": 9.94,
+    "arrival_after_handover_s": 27.66,
+    "arrival_minus_formation_t0_s": 27.268,
+    "formation_p95_m": 0.3116,
+    "min_inter_m": 1.4984,
+    "min_inter_plan_m": 1.4984,
+    "collisions": 0,
+    "collision_reason": null,
+    "min_clear_legacy_m": 0.0033,
+    "min_clear_flight_m": 0.0033,
+    "min_clear_plan_m": 0.6613,
+    "rtf": 0.9981,
+    "sim_s": 44.46,
+    "wall_s": 44.54,
+    "landed": true,
+    "px4_parameters_written": [],
+    "proposals": 7,
+    "acks": 14,
+    "nacks": 0,
+    "skew_spread_median_s": 0.0642,
+    "skew_spread_p95_s": 0.2636,
+    "skew_spread_max_s": 1.57,
+    "skew_zero_stamp_contaminated": false,
+    "skew_offset_range_max_s": 1.778,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T101058-yopo-n3",
+    "px4_log": {
+     "px4_1": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_2": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_3": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     }
+    }
+   }
+  ],
+  "crossing-pillars-sitl80/eager-depth": [
+   {
+    "seed": 0,
+    "rc": 1,
+    "outcome": "FAIL",
+    "reason": "MAX_S 80.0",
+    "arrived": 0,
+    "arrival_s": null,
+    "formation_t0_s": 10.028,
+    "arrival_after_handover_s": null,
+    "arrival_minus_formation_t0_s": null,
+    "formation_p95_m": 19.5398,
+    "min_inter_m": 7.9121,
+    "min_inter_plan_m": 7.9875,
+    "collisions": 0,
+    "collision_reason": null,
+    "min_clear_legacy_m": 0.0073,
+    "min_clear_flight_m": 0.0073,
+    "min_clear_plan_m": 1.0029,
+    "rtf": 0.4382,
+    "sim_s": 56.37,
+    "wall_s": 128.62,
+    "landed": false,
+    "px4_parameters_written": [],
+    "proposals": 186,
+    "acks": 372,
+    "nacks": 0,
+    "skew_spread_median_s": 0.1555,
+    "skew_spread_p95_s": 0.2675,
+    "skew_spread_max_s": 25.251,
+    "skew_zero_stamp_contaminated": false,
+    "skew_offset_range_max_s": 46.344,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T101211-yopo-n3",
+    "px4_log": {
+     "px4_1": {
+      "accel_timeout": 0,
+      "failsafe_activated": 1,
+      "disarmed_by_landing": 0
+     },
+     "px4_2": {
+      "accel_timeout": 0,
+      "failsafe_activated": 1,
+      "disarmed_by_landing": 0
+     },
+     "px4_3": {
+      "accel_timeout": 1,
+      "failsafe_activated": 1,
+      "disarmed_by_landing": 0
+     }
+    }
+   },
+   {
+    "seed": 1,
+    "rc": 1,
+    "outcome": "FAIL",
+    "reason": "uav0:PLAN_TIMEOUT",
+    "arrived": 0,
+    "arrival_s": null,
+    "formation_t0_s": 9.916,
+    "arrival_after_handover_s": null,
+    "arrival_minus_formation_t0_s": null,
+    "formation_p95_m": 19.494,
+    "min_inter_m": 7.9578,
+    "min_inter_plan_m": 7.9687,
+    "collisions": 0,
+    "collision_reason": null,
+    "min_clear_legacy_m": 0.0082,
+    "min_clear_flight_m": 0.0082,
+    "min_clear_plan_m": 0.9981,
+    "rtf": 0.9858,
+    "sim_s": 196.16,
+    "wall_s": 198.98,
+    "landed": false,
+    "px4_parameters_written": [],
+    "proposals": 268,
+    "acks": 536,
+    "nacks": 0,
+    "skew_spread_median_s": 0.2527,
+    "skew_spread_p95_s": 0.563,
+    "skew_spread_max_s": 181.061,
+    "skew_zero_stamp_contaminated": false,
+    "skew_offset_range_max_s": 179.056,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T101523-yopo-n3",
+    "px4_log": {
+     "px4_1": {
+      "accel_timeout": 4,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     },
+     "px4_2": {
+      "accel_timeout": 3,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     },
+     "px4_3": {
+      "accel_timeout": 4,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     }
+    }
+   },
+   {
+    "seed": 2,
+    "rc": 1,
+    "outcome": "FAIL",
+    "reason": "uav1:TAKEOFF_TIMEOUT",
+    "arrived": 0,
+    "arrival_s": null,
+    "formation_t0_s": null,
+    "arrival_after_handover_s": null,
+    "arrival_minus_formation_t0_s": null,
+    "formation_p95_m": null,
+    "min_inter_m": 7.9037,
+    "min_inter_plan_m": 7.9565,
+    "collisions": 0,
+    "collision_reason": null,
+    "min_clear_legacy_m": 0.0115,
+    "min_clear_flight_m": 0.0115,
+    "min_clear_plan_m": 0.0115,
+    "rtf": 0.9973,
+    "sim_s": 39.04,
+    "wall_s": 39.15,
+    "landed": true,
+    "px4_parameters_written": [],
+    "proposals": 0,
+    "acks": 0,
+    "nacks": 0,
+    "skew_spread_median_s": 0.149,
+    "skew_spread_p95_s": 0.2194,
+    "skew_spread_max_s": 0.315,
+    "skew_zero_stamp_contaminated": false,
+    "skew_offset_range_max_s": 0.34,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T101922-yopo-n3",
+    "px4_log": {
+     "px4_1": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_2": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_3": {
+      "accel_timeout": 1,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     }
+    }
+   },
+   {
+    "seed": 3,
+    "rc": 1,
+    "outcome": "FAIL",
+    "reason": "MAX_S 80.0",
+    "arrived": 1,
+    "arrival_s": null,
+    "formation_t0_s": 10.072,
+    "arrival_after_handover_s": null,
+    "arrival_minus_formation_t0_s": null,
+    "formation_p95_m": 19.5238,
+    "min_inter_m": 2.8563,
+    "min_inter_plan_m": 2.8563,
+    "collisions": 0,
+    "collision_reason": null,
+    "min_clear_legacy_m": 0.0032,
+    "min_clear_flight_m": 0.0032,
+    "min_clear_plan_m": 0.3792,
+    "rtf": 0.7176,
+    "sim_s": 66.2,
+    "wall_s": 92.25,
+    "landed": false,
+    "px4_parameters_written": [],
+    "proposals": 129,
+    "acks": 258,
+    "nacks": 0,
+    "skew_spread_median_s": 0.1499,
+    "skew_spread_p95_s": 0.2819,
+    "skew_spread_max_s": 25.96,
+    "skew_zero_stamp_contaminated": false,
+    "skew_offset_range_max_s": 25.76,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T102029-yopo-n3",
+    "px4_log": {
+     "px4_1": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     },
+     "px4_2": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     },
+     "px4_3": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     }
+    }
+   },
+   {
+    "seed": 4,
+    "rc": 1,
+    "outcome": "FAIL",
+    "reason": "uav0:PLAN_TIMEOUT",
+    "arrived": 0,
+    "arrival_s": null,
+    "formation_t0_s": 10.072,
+    "arrival_after_handover_s": null,
+    "arrival_minus_formation_t0_s": null,
+    "formation_p95_m": 19.4937,
+    "min_inter_m": 7.9343,
+    "min_inter_plan_m": 8.0019,
+    "collisions": 0,
+    "collision_reason": null,
+    "min_clear_legacy_m": 0.0204,
+    "min_clear_flight_m": 0.0204,
+    "min_clear_plan_m": 1.0085,
+    "rtf": 0.914,
+    "sim_s": 253.4,
+    "wall_s": 277.24,
+    "landed": false,
+    "px4_parameters_written": [],
+    "proposals": 268,
+    "acks": 536,
+    "nacks": 0,
+    "skew_spread_median_s": 0.229,
+    "skew_spread_p95_s": 0.2776,
+    "skew_spread_max_s": 30.343,
+    "skew_zero_stamp_contaminated": false,
+    "skew_offset_range_max_s": 240.94,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T102230-yopo-n3",
+    "px4_log": {
+     "px4_1": {
+      "accel_timeout": 2,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     },
+     "px4_2": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     },
+     "px4_3": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     }
+    }
+   }
+  ],
+  "crossing-pillars-sitl80/lazy-depth": [
+   {
+    "seed": 0,
+    "rc": 1,
+    "outcome": "FAIL",
+    "reason": "uav0:PLAN_TIMEOUT",
+    "arrived": 0,
+    "arrival_s": null,
+    "formation_t0_s": 10.48,
+    "arrival_after_handover_s": null,
+    "arrival_minus_formation_t0_s": null,
+    "formation_p95_m": 19.5311,
+    "min_inter_m": 7.9534,
+    "min_inter_plan_m": 7.9534,
+    "collisions": 0,
+    "collision_reason": null,
+    "min_clear_legacy_m": 0.0034,
+    "min_clear_flight_m": 0.0034,
+    "min_clear_plan_m": 0.8009,
+    "rtf": 0.971,
+    "sim_s": 256.04,
+    "wall_s": 263.69,
+    "landed": false,
+    "px4_parameters_written": [],
+    "proposals": 278,
+    "acks": 556,
+    "nacks": 0,
+    "skew_spread_median_s": 0.1411,
+    "skew_spread_p95_s": 0.2638,
+    "skew_spread_max_s": 251.063,
+    "skew_zero_stamp_contaminated": false,
+    "skew_offset_range_max_s": 243.451,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T103242-yopo-n3",
+    "px4_log": {
+     "px4_1": {
+      "accel_timeout": 2,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     },
+     "px4_2": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     },
+     "px4_3": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     }
+    }
+   },
+   {
+    "seed": 1,
+    "rc": 1,
+    "outcome": "FAIL",
+    "reason": "uav0:PLAN_TIMEOUT",
+    "arrived": 0,
+    "arrival_s": null,
+    "formation_t0_s": 10.116,
+    "arrival_after_handover_s": null,
+    "arrival_minus_formation_t0_s": null,
+    "formation_p95_m": 19.5273,
+    "min_inter_m": 7.8848,
+    "min_inter_plan_m": 7.9651,
+    "collisions": 0,
+    "collision_reason": null,
+    "min_clear_legacy_m": 0.0099,
+    "min_clear_flight_m": 0.0099,
+    "min_clear_plan_m": 1.0056,
+    "rtf": 0.9896,
+    "sim_s": 181.11,
+    "wall_s": 183.01,
+    "landed": false,
+    "px4_parameters_written": [],
+    "proposals": 239,
+    "acks": 478,
+    "nacks": 0,
+    "skew_spread_median_s": 0.1062,
+    "skew_spread_p95_s": 0.216,
+    "skew_spread_max_s": 28.812,
+    "skew_zero_stamp_contaminated": false,
+    "skew_offset_range_max_s": 171.0,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T103735-yopo-n3",
+    "px4_log": {
+     "px4_1": {
+      "accel_timeout": 1,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     },
+     "px4_2": {
+      "accel_timeout": 2,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     },
+     "px4_3": {
+      "accel_timeout": 1,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     }
+    }
+   },
+   {
+    "seed": 2,
+    "rc": 1,
+    "outcome": "FAIL",
+    "reason": "PREFLIGHT px4_3",
+    "arrived": 0,
+    "arrival_s": null,
+    "formation_t0_s": null,
+    "arrival_after_handover_s": null,
+    "arrival_minus_formation_t0_s": null,
+    "formation_p95_m": null,
+    "min_inter_m": null,
+    "min_inter_plan_m": null,
+    "collisions": 0,
+    "collision_reason": null,
+    "min_clear_legacy_m": null,
+    "min_clear_flight_m": null,
+    "min_clear_plan_m": null,
+    "rtf": null,
+    "sim_s": null,
+    "wall_s": null,
+    "landed": false,
+    "px4_parameters_written": [],
+    "proposals": 0,
+    "acks": 0,
+    "nacks": 0,
+    "skew_spread_median_s": null,
+    "skew_spread_p95_s": null,
+    "skew_spread_max_s": null,
+    "skew_zero_stamp_contaminated": false,
+    "skew_offset_range_max_s": null,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T104107-yopo-n3",
+    "px4_log": {
+     "px4_1": {
+      "accel_timeout": 1,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     },
+     "px4_2": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     },
+     "px4_3": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     }
+    }
+   },
+   {
+    "seed": 3,
+    "rc": 1,
+    "outcome": "FAIL",
+    "reason": "MAX_S 80.0",
+    "arrived": 0,
+    "arrival_s": null,
+    "formation_t0_s": 10.18,
+    "arrival_after_handover_s": null,
+    "arrival_minus_formation_t0_s": null,
+    "formation_p95_m": 19.5262,
+    "min_inter_m": 7.9496,
+    "min_inter_plan_m": 7.9584,
+    "collisions": 0,
+    "collision_reason": null,
+    "min_clear_legacy_m": 0.0084,
+    "min_clear_flight_m": 0.0084,
+    "min_clear_plan_m": 1.0222,
+    "rtf": 0.4631,
+    "sim_s": 62.7,
+    "wall_s": 135.4,
+    "landed": false,
+    "px4_parameters_written": [],
+    "proposals": 211,
+    "acks": 422,
+    "nacks": 0,
+    "skew_spread_median_s": 0.1286,
+    "skew_spread_p95_s": 0.2445,
+    "skew_spread_max_s": 52.843,
+    "skew_zero_stamp_contaminated": false,
+    "skew_offset_range_max_s": 52.679,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T104613-yopo-n3",
+    "px4_log": {
+     "px4_1": {
+      "accel_timeout": 1,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     },
+     "px4_2": {
+      "accel_timeout": 1,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     },
+     "px4_3": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     }
+    }
+   },
+   {
+    "seed": 4,
+    "rc": 1,
+    "outcome": "FAIL",
+    "reason": "MAX_S 80.0",
+    "arrived": 0,
+    "arrival_s": null,
+    "formation_t0_s": 12.836,
+    "arrival_after_handover_s": null,
+    "arrival_minus_formation_t0_s": null,
+    "formation_p95_m": 19.5679,
+    "min_inter_m": 7.916,
+    "min_inter_plan_m": 7.916,
+    "collisions": 0,
+    "collision_reason": null,
+    "min_clear_legacy_m": 0.0155,
+    "min_clear_flight_m": 0.0155,
+    "min_clear_plan_m": 0.9716,
+    "rtf": 0.4808,
+    "sim_s": 44.91,
+    "wall_s": 93.4,
+    "landed": false,
+    "px4_parameters_written": [],
+    "proposals": 129,
+    "acks": 258,
+    "nacks": 0,
+    "skew_spread_median_s": 0.1777,
+    "skew_spread_p95_s": 0.3313,
+    "skew_spread_max_s": 12.497,
+    "skew_zero_stamp_contaminated": false,
+    "skew_offset_range_max_s": 30.242,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T104857-yopo-n3",
+    "px4_log": {
+     "px4_1": {
+      "accel_timeout": 3,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     },
+     "px4_2": {
+      "accel_timeout": 2,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     },
+     "px4_3": {
+      "accel_timeout": 3,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 0
+     }
+    }
+   }
+  ],
+  "formation-switch-sitl80/same-load-control": [
+   {
+    "seed": 0,
+    "rc": 0,
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "arrival_s": 37.192,
+    "formation_t0_s": 9.972,
+    "arrival_after_handover_s": 28.904,
+    "arrival_minus_formation_t0_s": 27.22,
+    "formation_p95_m": 0.3214,
+    "min_inter_m": 1.5533,
+    "min_inter_plan_m": 1.5533,
+    "collisions": 0,
+    "collision_reason": null,
+    "min_clear_legacy_m": 0.0017,
+    "min_clear_flight_m": 0.0248,
+    "min_clear_plan_m": 0.6598,
+    "rtf": 0.9988,
+    "sim_s": 44.63,
+    "wall_s": 44.69,
+    "landed": true,
+    "px4_parameters_written": [],
+    "proposals": 7,
+    "acks": 14,
+    "nacks": 0,
+    "skew_spread_median_s": 0.0855,
+    "skew_spread_p95_s": 0.2187,
+    "skew_spread_max_s": null,
+    "skew_zero_stamp_contaminated": true,
+    "skew_offset_range_max_s": null,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T105059-yopo-n3",
+    "px4_log": {
+     "px4_1": {
+      "accel_timeout": 1,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_2": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_3": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     }
+    }
+   },
+   {
+    "seed": 1,
+    "rc": 0,
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "arrival_s": 37.532,
+    "formation_t0_s": 10.184,
+    "arrival_after_handover_s": 27.6,
+    "arrival_minus_formation_t0_s": 27.348,
+    "formation_p95_m": 0.3141,
+    "min_inter_m": 1.4883,
+    "min_inter_plan_m": 1.4883,
+    "collisions": 0,
+    "collision_reason": null,
+    "min_clear_legacy_m": 0.0037,
+    "min_clear_flight_m": 0.0037,
+    "min_clear_plan_m": 0.6683,
+    "rtf": 0.9979,
+    "sim_s": 44.61,
+    "wall_s": 44.71,
+    "landed": true,
+    "px4_parameters_written": [],
+    "proposals": 7,
+    "acks": 14,
+    "nacks": 0,
+    "skew_spread_median_s": 0.0962,
+    "skew_spread_p95_s": 0.2385,
+    "skew_spread_max_s": 1.129,
+    "skew_zero_stamp_contaminated": false,
+    "skew_offset_range_max_s": 1.622,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T105212-yopo-n3",
+    "px4_log": {
+     "px4_1": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_2": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_3": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     }
+    }
+   },
+   {
+    "seed": 2,
+    "rc": 0,
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "arrival_s": 37.26,
+    "formation_t0_s": 10.08,
+    "arrival_after_handover_s": 27.74,
+    "arrival_minus_formation_t0_s": 27.18,
+    "formation_p95_m": 0.3147,
+    "min_inter_m": 1.3235,
+    "min_inter_plan_m": 1.3235,
+    "collisions": 0,
+    "collision_reason": null,
+    "min_clear_legacy_m": 0.008,
+    "min_clear_flight_m": 0.008,
+    "min_clear_plan_m": 0.6302,
+    "rtf": 0.9995,
+    "sim_s": 44.54,
+    "wall_s": 44.57,
+    "landed": true,
+    "px4_parameters_written": [],
+    "proposals": 7,
+    "acks": 14,
+    "nacks": 0,
+    "skew_spread_median_s": 0.0939,
+    "skew_spread_p95_s": 0.2339,
+    "skew_spread_max_s": null,
+    "skew_zero_stamp_contaminated": true,
+    "skew_offset_range_max_s": null,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T105324-yopo-n3",
+    "px4_log": {
+     "px4_1": {
+      "accel_timeout": 1,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_2": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_3": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     }
+    }
+   },
+   {
+    "seed": 3,
+    "rc": 0,
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "arrival_s": 37.316,
+    "formation_t0_s": 10.08,
+    "arrival_after_handover_s": 27.928,
+    "arrival_minus_formation_t0_s": 27.236,
+    "formation_p95_m": 0.3065,
+    "min_inter_m": 1.3768,
+    "min_inter_plan_m": 1.3768,
+    "collisions": 0,
+    "collision_reason": null,
+    "min_clear_legacy_m": 0.0099,
+    "min_clear_flight_m": 0.0116,
+    "min_clear_plan_m": 0.6829,
+    "rtf": 0.9993,
+    "sim_s": 44.7,
+    "wall_s": 44.73,
+    "landed": true,
+    "px4_parameters_written": [],
+    "proposals": 7,
+    "acks": 14,
+    "nacks": 0,
+    "skew_spread_median_s": 0.0641,
+    "skew_spread_p95_s": 0.2241,
+    "skew_spread_max_s": 1.126,
+    "skew_zero_stamp_contaminated": false,
+    "skew_offset_range_max_s": 1.346,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T105437-yopo-n3",
+    "px4_log": {
+     "px4_1": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_2": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_3": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     }
+    }
+   },
+   {
+    "seed": 4,
+    "rc": 0,
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "arrival_s": 37.172,
+    "formation_t0_s": 9.964,
+    "arrival_after_handover_s": 27.268,
+    "arrival_minus_formation_t0_s": 27.208,
+    "formation_p95_m": 0.3137,
+    "min_inter_m": 1.4264,
+    "min_inter_plan_m": 1.4264,
+    "collisions": 0,
+    "collision_reason": null,
+    "min_clear_legacy_m": 0.0186,
+    "min_clear_flight_m": 0.0186,
+    "min_clear_plan_m": 0.6554,
+    "rtf": 0.9919,
+    "sim_s": 44.4,
+    "wall_s": 44.76,
+    "landed": true,
+    "px4_parameters_written": [],
+    "proposals": 7,
+    "acks": 14,
+    "nacks": 0,
+    "skew_spread_median_s": 0.0641,
+    "skew_spread_p95_s": 0.3005,
+    "skew_spread_max_s": null,
+    "skew_zero_stamp_contaminated": true,
+    "skew_offset_range_max_s": null,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T105549-yopo-n3",
+    "px4_log": {
+     "px4_1": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_2": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     },
+     "px4_3": {
+      "accel_timeout": 0,
+      "failsafe_activated": 0,
+      "disarmed_by_landing": 1
+     }
+    }
+   }
+  ]
+ },
+ "host_load_lazy_arm": {
+  "samples": 58,
+  "loadavg1_median": 11.07,
+  "loadavg1_max": 22.57,
+  "nproc": 8
+ },
+ "host_load_control_arm": {
+  "samples": 18,
+  "loadavg1_median": 10.37,
+  "loadavg1_max": 22.21,
+  "nproc": 8
+ },
+ "aggregate": {
+  "l0/formation-switch": {
+   "arrival_s": {
+    "median": 27.0,
+    "min": 27.0,
+    "max": 27.0,
+    "n": 5
+   },
+   "formation_p95_m": {
+    "median": 0.0356,
+    "min": 0.0356,
+    "max": 0.0356,
+    "n": 5
+   },
+   "min_inter_m": {
+    "median": 1.5364,
+    "min": 1.5364,
+    "max": 1.5364,
+    "n": 5
+   },
+   "success": 5
+  },
+  "l0/crossing-pillars": {
+   "arrival_s": {
+    "median": 7.06,
+    "min": 7.05,
+    "max": 7.76,
+    "n": 5
+   },
+   "formation_p95_m": {
+    "median": 4.3418,
+    "min": 4.1387,
+    "max": 4.6095,
+    "n": 5
+   },
+   "min_inter_m": {
+    "median": 7.2811,
+    "min": 3.4909,
+    "max": 7.3073,
+    "n": 5
+   },
+   "success": 5
+  },
+  "sitl/formation-switch-sitl80": {
+   "arrival_s": {
+    "median": 37.208,
+    "min": 37.104,
+    "max": 37.492,
+    "n": 5
+   },
+   "arrival_minus_formation_t0_s": {
+    "median": 27.224,
+    "min": 27.188,
+    "max": 27.268,
+    "n": 5
+   },
+   "arrival_after_handover_s": {
+    "median": 27.66,
+    "min": 27.276,
+    "max": 29.3,
+    "n": 5
+   },
+   "formation_p95_m": {
+    "median": 0.3221,
+    "min": 0.31,
+    "max": 0.3466,
+    "n": 5
+   },
+   "min_inter_m": {
+    "median": 1.372,
+    "min": 1.2875,
+    "max": 1.5135,
+    "n": 5
+   },
+   "min_inter_plan_m": {
+    "median": 1.372,
+    "min": 1.2875,
+    "max": 1.5135,
+    "n": 5
+   },
+   "rtf": {
+    "median": 0.9974,
+    "min": 0.9891,
+    "max": 0.9995,
+    "n": 5
+   },
+   "skew_spread_median_s": {
+    "median": 0.0956,
+    "min": 0.0642,
+    "max": 0.1022,
+    "n": 5
+   },
+   "skew_spread_p95_s": {
+    "median": 0.2216,
+    "min": 0.2026,
+    "max": 0.2636,
+    "n": 5
+   },
+   "skew_spread_max_s": {
+    "median": 1.124,
+    "min": 0.594,
+    "max": 1.932,
+    "n": 5
+   },
+   "min_clear_legacy_m": {
+    "median": 0.012,
+    "min": 0.0033,
+    "max": 0.0216,
+    "n": 5
+   },
+   "min_clear_flight_m": {
+    "median": 0.012,
+    "min": 0.0033,
+    "max": 0.0219,
+    "n": 5
+   },
+   "min_clear_plan_m": {
+    "median": 0.6613,
+    "min": 0.6156,
+    "max": 0.6866,
+    "n": 5
+   },
+   "success": 5
+  },
+  "sitl/crossing-pillars-sitl80/eager-depth": {
+   "formation_p95_m": {
+    "median": 19.5089,
+    "min": 19.4937,
+    "max": 19.5398,
+    "n": 4
+   },
+   "min_inter_m": {
+    "median": 7.9121,
+    "min": 2.8563,
+    "max": 7.9578,
+    "n": 5
+   },
+   "min_inter_plan_m": {
+    "median": 7.9687,
+    "min": 2.8563,
+    "max": 8.0019,
+    "n": 5
+   },
+   "rtf": {
+    "median": 0.914,
+    "min": 0.4382,
+    "max": 0.9973,
+    "n": 5
+   },
+   "skew_spread_median_s": {
+    "median": 0.1555,
+    "min": 0.149,
+    "max": 0.2527,
+    "n": 5
+   },
+   "skew_spread_p95_s": {
+    "median": 0.2776,
+    "min": 0.2194,
+    "max": 0.563,
+    "n": 5
+   },
+   "skew_spread_max_s": {
+    "median": 25.96,
+    "min": 0.315,
+    "max": 181.061,
+    "n": 5
+   },
+   "min_clear_legacy_m": {
+    "median": 0.0082,
+    "min": 0.0032,
+    "max": 0.0204,
+    "n": 5
+   },
+   "min_clear_flight_m": {
+    "median": 0.0082,
+    "min": 0.0032,
+    "max": 0.0204,
+    "n": 5
+   },
+   "min_clear_plan_m": {
+    "median": 0.9981,
+    "min": 0.0115,
+    "max": 1.0085,
+    "n": 5
+   },
+   "success": 0
+  },
+  "sitl/crossing-pillars-sitl80/lazy-depth": {
+   "formation_p95_m": {
+    "median": 19.5292,
+    "min": 19.5262,
+    "max": 19.5679,
+    "n": 4
+   },
+   "min_inter_m": {
+    "median": 7.9328,
+    "min": 7.8848,
+    "max": 7.9534,
+    "n": 4
+   },
+   "min_inter_plan_m": {
+    "median": 7.9559,
+    "min": 7.916,
+    "max": 7.9651,
+    "n": 4
+   },
+   "rtf": {
+    "median": 0.7259,
+    "min": 0.4631,
+    "max": 0.9896,
+    "n": 4
+   },
+   "skew_spread_median_s": {
+    "median": 0.1348,
+    "min": 0.1062,
+    "max": 0.1777,
+    "n": 4
+   },
+   "skew_spread_p95_s": {
+    "median": 0.2541,
+    "min": 0.216,
+    "max": 0.3313,
+    "n": 4
+   },
+   "skew_spread_max_s": {
+    "median": 40.8275,
+    "min": 12.497,
+    "max": 251.063,
+    "n": 4
+   },
+   "min_clear_legacy_m": {
+    "median": 0.0092,
+    "min": 0.0034,
+    "max": 0.0155,
+    "n": 4
+   },
+   "min_clear_flight_m": {
+    "median": 0.0092,
+    "min": 0.0034,
+    "max": 0.0155,
+    "n": 4
+   },
+   "min_clear_plan_m": {
+    "median": 0.9886,
+    "min": 0.8009,
+    "max": 1.0222,
+    "n": 4
+   },
+   "success": 0
+  },
+  "sitl/formation-switch-sitl80/same-load-control": {
+   "arrival_s": {
+    "median": 37.26,
+    "min": 37.172,
+    "max": 37.532,
+    "n": 5
+   },
+   "arrival_minus_formation_t0_s": {
+    "median": 27.22,
+    "min": 27.18,
+    "max": 27.348,
+    "n": 5
+   },
+   "arrival_after_handover_s": {
+    "median": 27.74,
+    "min": 27.268,
+    "max": 28.904,
+    "n": 5
+   },
+   "formation_p95_m": {
+    "median": 0.3141,
+    "min": 0.3065,
+    "max": 0.3214,
+    "n": 5
+   },
+   "min_inter_m": {
+    "median": 1.4264,
+    "min": 1.3235,
+    "max": 1.5533,
+    "n": 5
+   },
+   "min_inter_plan_m": {
+    "median": 1.4264,
+    "min": 1.3235,
+    "max": 1.5533,
+    "n": 5
+   },
+   "rtf": {
+    "median": 0.9988,
+    "min": 0.9919,
+    "max": 0.9995,
+    "n": 5
+   },
+   "skew_spread_median_s": {
+    "median": 0.0855,
+    "min": 0.0641,
+    "max": 0.0962,
+    "n": 5
+   },
+   "skew_spread_p95_s": {
+    "median": 0.2339,
+    "min": 0.2187,
+    "max": 0.3005,
+    "n": 5
+   },
+   "skew_spread_max_s": {
+    "median": 1.1275,
+    "min": 1.126,
+    "max": 1.129,
+    "n": 2
+   },
+   "min_clear_legacy_m": {
+    "median": 0.008,
+    "min": 0.0017,
+    "max": 0.0186,
+    "n": 5
+   },
+   "min_clear_flight_m": {
+    "median": 0.0116,
+    "min": 0.0037,
+    "max": 0.0248,
+    "n": 5
+   },
+   "min_clear_plan_m": {
+    "median": 0.6598,
+    "min": 0.6302,
+    "max": 0.6829,
+    "n": 5
+   },
+   "success": 5
+  }
+ }
+}

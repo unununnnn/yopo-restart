@@ -59,10 +59,13 @@ _MIN_DURATION_S = 0.6
 _MIN_SPANS = 6
 _MAX_SPANS = 12
 _TARGET_DT_S = 0.22
-# 票 L0-DET。空闲 box 上一次代价评估（含梯度）约 2 ms：线程 CPU 计时下 0.020 s 预算
-# 被截断的调用停在 8–10 次评估（中位 9），没被截断的跑满 8 次迭代停在 10–11 次。
-# 仿真里按这个折算，结果只取决于 (场景卡, seed, 配置)，不取决于机器忙不忙。
-_IDLE_EVAL_COST_S = 0.002
+# 票 L0-DET 在空闲 box 上测得一次代价评估（含梯度）约 2 ms，当时 0.020 s 折成 10 次。
+# 票 E-B2r（frank，2026-11-15，两分钟规则）把缺省次数改成 20：budget="evals" 下
+# 0.020 s 对应 20 次。名义每次 1 ms，不是重新测过的墙钟。依据是 E-B2q：10 次会把
+# 还没跑完的 8 次迭代截断，20 次在密林和 014 上截断为 0，40 次与 20 次逐种子相同。
+# 调用者传入的 time_budget_s 按这个比例折算，不会被改写成 20。仿真结果仍只取决于
+# (场景卡, seed, 配置)，不取决于机器忙不忙。
+_IDLE_EVAL_COST_S = 0.001
 # 拟合把五次多项式换成三次样条，净空允许掉这么多仍算「没有更差」。
 _CLEARANCE_TOL_M = 0.01
 # 计划契约的速度、急动度。加速度用场景 a_max。后段自己的速度软上限是 v_max=6。
@@ -805,7 +808,11 @@ def _minimize(x0, q_fit, free, cost_grad, cfg: BackendConfig, t0: float):
 
 
 def _eval_cap(cfg: BackendConfig) -> int:
-    """仿真里的时间预算：空闲机器上这份预算能做几次代价评估。至少 1 次。"""
+    """仿真里的时间预算折成评估次数。至少 1 次。
+
+    缺省 0.020 s → 20 次（票 E-B2r）。调用者传入的 ``time_budget_s`` 按同一比例
+    折算，不会被改写成 20。
+    """
     return max(1, int(round(float(cfg.time_budget_s) / _IDLE_EVAL_COST_S)))
 
 
