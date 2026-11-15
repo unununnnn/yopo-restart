@@ -81,4 +81,4 @@ git rev-parse HEAD
 PYTHONPATH=.:core/src .venv/bin/python -m pytest tests -q -n 4 -m "not slow"
 ```
 
-这条命令在缺省改动提交之后的结果是 856 passed，28 skipped。
+这条命令在缺省改动提交之后的结果是 856 passed，28 skipped。随后 main 合入了 E-B2q 和 D6e。E-B2q 的干跑原来把缺省锁成 10 次，并把 0.040 s / 0.080 s 当成 20 / 40 次。诊断各臂改成显式秒数（6 次 0.006 s，10 次 0.010 s，20 次 0.020 s，40 次 0.040 s），缺省断言改成 20。`docs/research/e-b2q-evals-diag.md` 里按 10 次报的数字没有改。

@@ -5,15 +5,16 @@
 
   off   后段关。对照，不是新默认。
   e6    后段开，budget=evals，6 次。探旧文迭代 p50=4 附近的次数。
-  e10   后段开，budget=evals，10 次。这是当前缺省（0.020 s / 0.002 s）。
-  e20   后段开，budget=evals，20 次。
+  e10   后段开，budget=evals，10 次。显式 time_budget_s，不是缺省。
+  e20   后段开，budget=evals，20 次。票 E-B2r 之后这是库缺省（0.020 s）。
   e40   后段开，budget=evals，40 次。
 
-不用墙钟做预算。20 / 40 次以及 6 次都不是新缺省，打开后段时标「偏离上游」。
-不改 core/、yopo_l0/ 的默认行为，不改场景卡、suite、README、premerge、regress、
-SITL Dockerfile、docs/tickets.md、已冻门。
+不用墙钟做预算。打开后段时标「偏离上游」。
+不改 core/、场景卡、suite、README、premerge、regress、
+SITL Dockerfile、docs/tickets.md、已冻门。诊断原文里的数字不改。
 
-``--check`` 只核对缺省仍是 10 次、各臂次数和磁盘文件没被改写，不跑仿真。
+``--check`` 核对库缺省是 20 次、各臂仍是写明的次数、磁盘文件没被改写，不跑仿真。
+票 E-B2r 把 0.020 s 改成 20 次之后，各臂改用显式秒数保住原来的 6/10/20/40。
 """
 
 from __future__ import annotations
@@ -33,12 +34,14 @@ PARTIAL = ROOT / "out" / "e-b2q-evals-diag" / "partial"
 BODY_R = 0.35
 ROW_VERSION = 1
 # 与 yopo_l0/backend/bspline.py 的 _IDLE_EVAL_COST_S 同一口径。
-IDLE_EVAL_COST_S = 0.002
-DEFAULT_EVALS = 10
+# 票 E-B2r 之后是 0.001：0.020 s → 20 次。诊断当时按 0.002 把 0.020 s 写成 10 次。
+IDLE_EVAL_COST_S = 0.001
+DEFAULT_EVALS = 20
 UPSTREAM = "report-only / 偏离上游"
 
-# 次数 → time_budget_s。round(s / 0.002) 必须落回这个次数。
-EVAL_BUDGET_S = {6: 0.012, 10: 0.020, 20: 0.040, 40: 0.080}
+# 次数 → time_budget_s。round(s / IDLE_EVAL_COST_S) 必须落回这个次数。
+# 显式传入，不靠缺省。E-B2r 之后 10 次是 0.010 s，不再是 0.020 s。
+EVAL_BUDGET_S = {6: 0.006, 10: 0.010, 20: 0.020, 40: 0.040}
 
 CASES = {
     "forest": {
@@ -109,10 +112,10 @@ def arms_table() -> dict[str, dict]:
         }
     }
     notes = {
-        6: "探旧文迭代 p50=4 附近的次数，不是缺省",
-        10: "当前缺省，不是新默认",
-        20: "不是缺省",
-        40: "不是缺省",
+        6: "探旧文迭代 p50=4 附近的次数，显式秒数，不是缺省",
+        10: "显式 0.010 s，不是缺省。诊断当时这是缺省",
+        20: "显式 0.020 s。票 E-B2r 之后这也是库缺省",
+        40: "显式 0.040 s，不是缺省",
     }
     for n, note in notes.items():
         rows[f"e{n}"] = {
@@ -187,8 +190,7 @@ def _scene_card(case: str, arm_id: str):
     else:
         backend["enabled"] = True
         backend["budget"] = "evals"
-        # 10 次与缺省 0.020 s 是同一个上限。写上是为了让这臂的卡面读得清楚，
-        # 数值与 BackendConfig 缺省相同，不改库缺省。
+        # 写上秒数，让这一臂的次数不跟着库缺省走。E-B2r 之后缺省 0.020 s 是 20 次。
         backend["time_budget_s"] = float(arm["time_budget_s"])
         backend.pop("swarm_penalty", None)
         backend.pop("swarm_segment_penalty", None)
@@ -490,7 +492,7 @@ def check(cases: list[str]) -> int:
     assert config_from_params({}, a_max=6.0) is None
     assert config_from_params({"backend": {"enabled": False}}, a_max=6.0) is None
     default_on = config_from_params({"backend": {"enabled": True}}, a_max=6.0)
-    assert default_on is not None and default_on.budget == "evals" and _eval_cap(default_on) == 10
+    assert default_on is not None and default_on.budget == "evals" and _eval_cap(default_on) == DEFAULT_EVALS
 
     disk = json.loads((ROOT / CASES["forest"]["scene"]).read_text())
     disk_backend = disk["policy_params"]["backend"]
@@ -597,8 +599,9 @@ def main(argv: list[str] | None = None) -> int:
     payload = {
         "title": "票 E-B2q：密林开后段评估次数预算诊断",
         "note": (
-            "只报数。report-only。未冻结。后段缺省仍是 budget=evals、10 次评估，本文件不改缺省。"
-            "off 是后段关的对照，不是新默认。e6 / e20 / e40 以及任何打开后段的臂都标偏离上游。"
+            "只报数。report-only。未冻结。库缺省在票 E-B2r 之后是 budget=evals、20 次评估。"
+            "本诊断的 6/10/20/40 次都写了显式 time_budget_s，原文表格里的数字不改。"
+            "off 是后段关的对照。打开后段的臂都标偏离上游。"
             "不用墙钟做预算。c4b014 固定 E-A1 + D1，只变后段次数；b6medium 的开后段臂用 E-B4c 默认球。"
             "截断指后段评估次数上限把这一次求解停下，不是仿真超时。"
         ),
