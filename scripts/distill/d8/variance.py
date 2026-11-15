@@ -382,14 +382,103 @@ def run_all(out: Path, jobs: int, only: set[str] | None = None) -> int:
     return 0
 
 
+CELLS = [("open-3drone", 1.0), ("open-3drone", 1.5), ("g2-pillar", 1.0), ("g2-pillar", 1.5)]
+METRICS = ("arrived", "obstacle", "inter_drone", "timeout", "hover_frac_mean", "final_goal_error_median_m",
+           "max_speed_median_mps", "early_max_speed_median_mps", "collision_t_median_s")
+
+
+def _res(out: Path, name: str):
+    f = out / "results" / f"{name}.json"
+    return json.loads(f.read_text()) if (out / "markers" / name).is_file() and f.is_file() else None
+
+
+def _cell(groups: list[dict], scene: str, alt: float) -> dict | None:
+    for g in groups:
+        if g["scene"] == scene and float(g["altitude_m"]) == alt:
+            return g
+    return None
+
+
+def spread(evals: list[dict]) -> list[dict]:
+    """多个训练种子的同一臂：每格每个指标的逐种子值、均值、极差。"""
+    rows = []
+    for scene, alt in CELLS:
+        cells = [_cell(e["groups"], scene, alt) for e in evals]
+        if any(c is None for c in cells):
+            continue
+        row = {"scene": scene, "altitude_m": alt, "denom": cells[0]["denom"], "seeds": len(cells)}
+        for m in METRICS:
+            vals = [c.get(m) for c in cells]
+            if any(v is None for v in vals):
+                row[m] = {"values": vals}
+                continue
+            vals = [float(v) for v in vals]
+            row[m] = {"values": vals, "mean": float(np.mean(vals)), "min": min(vals), "max": max(vals),
+                      "range": max(vals) - min(vals)}
+        rows.append(row)
+    return rows
+
+
+def report(out: Path, dest: Path) -> dict:
+    arms = {}
+    for arm in ("r0", "r2", "r3", "r3-cap", "g2w", "exact"):
+        tr_arm, cap = ("r3", True) if arm == "r3-cap" else (arm, False)
+        evals, trains = [], []
+        for s in TRAIN_FIT_SEEDS:
+            e = _res(out, f"eval-{tr_arm}-s{s}" + ("-cap" if cap else ""))
+            t = _res(out, f"train-{tr_arm}-s{s}")
+            if e is None or t is None:
+                continue
+            evals.append(e)
+            trains.append({k: t.get(k) for k in ("seed", "weights_sha256", "holdout", "n_dagger_windows_by_scene",
+                                                 "g2_weight", "n_base_train_windows")})
+        if evals:
+            arms[arm] = {"seeds": [t["seed"] for t in trains], "train": trains,
+                         "student_extra": evals[0]["student_extra"], "cells": spread(evals),
+                         "per_seed_groups": [e["groups"] for e in evals]}
+    select = {}
+    for arm in ("r2", "r3"):
+        cands = []
+        for s in TRAIN_FIT_SEEDS:
+            e = _res(out, f"select-{arm}-s{s}")
+            if e is not None:
+                cands.append({"seed": s, "score": list(score(e)), "groups": e["groups"]})
+        if len(cands) == len(TRAIN_FIT_SEEDS):
+            best = max(cands, key=lambda c: tuple(c["score"]))
+            ev = _res(out, f"eval-{arm}-s{best['seed']}")
+            select[arm] = {"candidates": cands, "picked_seed": best["seed"],
+                           "picked_eval_groups": ev["groups"] if ev else None}
+    probe = _res(out, "probe-arrival")
+    if probe:
+        for case in probe["cases"]:
+            for d in case["drones"]:
+                if d["arrived_by_rule"] or not (case["seed"] == 0):
+                    d.pop("curve_10hz", None)
+                else:
+                    d["curve_10hz"] = [c for c in d["curve_10hz"] if c["t"] >= 4.0]
+    body = {"title": "票 D8：DAgger 方差与 g2 退化归因（只报数）", "disclaimer": DISCLAIMER,
+            "d7_data": str(D7_OUT), "fit_seeds": list(TRAIN_FIT_SEEDS), "eval_seeds": EVAL_SEEDS,
+            "select_seeds": SELECT_SEEDS, "altitudes_m": list(ALTITUDES), "speed_cap_mps": SPEED_CAP_MPS,
+            "g2_weight": G2_WEIGHT, "arms": arms, "select": select, "probe_arrival": probe,
+            "exact_relabel": {f"r{k}": _res(out, f"relabel-exact-r{k}") for k in (1, 2, 3)},
+            "exact_convert": {f"r{k}": _res(out, f"convert-exact-r{k}") for k in (1, 2, 3)},
+            "teacher_diff": {k: v for k, v in (_res(out, "teacher-diff") or {}).items() if k != "rows"}}
+    _write_json(dest, body)
+    return body
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="D8：DAgger 方差与 g2 退化归因（只报数）")
-    ap.add_argument("mode", choices=("all",))
+    ap.add_argument("mode", choices=("all", "report"))
+    ap.add_argument("--dest", type=Path, default=ROOT / "docs" / "research" / "d8-dagger-variance-runs.json")
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--jobs", type=int, default=6)
     ap.add_argument("--only", default="", help="逗号分隔：variance,probe,cap,g2w,select,exact；缺省全跑")
     a = ap.parse_args(argv)
     only = {x for x in a.only.split(",") if x} or None
+    if a.mode == "report":
+        report(a.out, a.dest)
+        return 0
     return run_all(a.out, a.jobs, only)
 
 
