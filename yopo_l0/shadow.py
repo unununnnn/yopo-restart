@@ -30,7 +30,7 @@ import numpy as np
 from yopo_swarm_core.depth import DepthSample, optical_pose
 from yopo_swarm_core.freespace import CameraIntrinsics, FreeSpace, SpaceVerdict
 from yopo_swarm_core.oracle import FlightOracle
-from yopo_swarm_core.plan import Plan, PlanReject, hover_plan, make_plan, state_at, validate_plan
+from yopo_swarm_core.plan import KinematicLimits, Plan, PlanConfig, PlanReject, hover_plan, make_plan, state_at, validate_plan
 from yopo_swarm_core.planner import ApprovedPlan, GateReject, SafetyGate, _env_code
 from yopo_swarm_core.trajectory import PiecewisePolynomial
 from yopo_swarm_core.uav import default_config
@@ -59,6 +59,22 @@ SHADOW_RESULT_KEYS = frozenset({
     "shadow_drones",
 })
 SHADOW_TICK_KEYS = frozenset({"would_reject", "reject_codes"})
+
+# 对齐时只把 v_max / a_max 换成上游与 L0 动力学的值（默认都是 6）。
+# j_max 仍用认证默认，不把阈值放宽去盖掉真超限。
+ALIGN_DROP_PLAN = frozenset({PlanReject.TERMINAL_NOT_HOLDABLE})
+ALIGN_DROP_TICK = frozenset({TRACKING_BOUND})
+ALIGN_CONTINUITY_TOL = 1e-6
+
+
+def upstream_plan_config(base: PlanConfig, v_max: float | None = None, a_max: float | None = None) -> PlanConfig:
+    """用上游 / L0 的 v_max、a_max 替换认证默认 (4, 8)，j_max 保持不变。不改传入对象。"""
+    from .backend.config import BackendConfig
+    from .dynamics import PointMassLag
+
+    v = float(BackendConfig().v_max if v_max is None else v_max)
+    a = float(PointMassLag.a_max if a_max is None else a_max)
+    return replace(base, limits=KinematicLimits(v, a, base.limits.j_max))
 
 
 def approved_pva(plan, t: float):
@@ -181,10 +197,26 @@ def record_oracle_track_lag(now, stamp, actual, desired, start, goal, start_time
 class DroneShadow:
     """一架机自己的证据缓冲和父计划链。不碰策略、不碰动力学。"""
 
-    def __init__(self, owner: str, start: np.ndarray, goal: np.ndarray, params: dict, scene_obstacles=None):
+    def __init__(
+        self,
+        owner: str,
+        start: np.ndarray,
+        goal: np.ndarray,
+        params: dict,
+        scene_obstacles=None,
+        contract_align: bool = False,
+        v_max: float | None = None,
+        a_max: float | None = None,
+    ):
         cert = {**CertifiedPolicy.DEFAULTS, **params.get("certified", {})}
         self.cfg = default_config(
             owner, cert["body_radius"], cert["tracking_margin"], cert["switch_delay"],
+        )
+        self.contract_align = bool(contract_align)
+        self._plan_cfg = (
+            upstream_plan_config(self.cfg.plan, v_max=v_max, a_max=a_max)
+            if self.contract_align
+            else self.cfg.plan
         )
         self.owner = owner
         self.start = np.asarray(start, dtype=float).copy()
@@ -208,6 +240,7 @@ class DroneShadow:
         self.seq = 1
         self.selection: tuple[str, ...] = ()
         self._frame_problem: tuple[str, ...] = ()
+        self._last_motion = None
 
     def on_selection(self, plan, frame, state, now: float) -> None:
         if frame is None and self._scene is not None:
@@ -224,6 +257,9 @@ class DroneShadow:
         oracle = record_oracle_track_lag(
             now, state.t, state.p, cmd_p, self.start, self.goal, 0.0,
         )
+        if self.contract_align:
+            # 认证 FlightOracle.tracking_bound 不是上游 / PX4 的承诺。测量本身仍按 0.15 m 算，只是不算进 would_reject。
+            oracle = tuple(c for c in oracle if c not in ALIGN_DROP_TICK)
         return tuple(dict.fromkeys((*self.selection, *oracle)))
 
     def _add_evidence(self, frame, state) -> None:
@@ -253,16 +289,28 @@ class DroneShadow:
                 (),  # 没有父 Plan 对象，不造 PARENT_MISMATCH
             )
         built = self._build(plan, now)
+        motion = getattr(plan, "traj", None)
+        align_head = self._align_head_codes(motion)
+        if isinstance(motion, PiecewisePolynomial):
+            self._last_motion = motion
         if isinstance(built, list):
-            motion = getattr(plan, "traj", None)
             if self._scene is not None and isinstance(motion, PiecewisePolynomial):
                 self._scene.certify_trajs(self.space, [motion])
             env = _sweep(self.space, motion, now) if isinstance(motion, PiecewisePolynomial) else ()
-            return env, _transition(built), ()
+            reasons = built
+            if self.contract_align:
+                reasons = [r for r in reasons if r not in ALIGN_DROP_PLAN]
+            return env, tuple(dict.fromkeys((*_transition(reasons), *align_head))), ()
         if self._scene is not None:
             self._scene.certify_plan(self.space, built)
         env = _env_of(self.space, built, now)
-        contract = _transition(validate_plan(built, self.cfg.plan))
+        contract = _transition(validate_plan(built, self._plan_cfg))
+        if self.contract_align:
+            # 正在复查已执行的上游轨迹，不是在提一条未来切换。不跑 SafetyGate
+            # 的 t_switch > now 和父计划 I8：父计划因这两条从未获批，会卡在初始悬停。
+            # 真的头状态跳跃改跟紧邻的上一条运动比，见 _align_head_codes。
+            contract = tuple(c for c in contract if c != "TRANSITION:TERMINAL_NOT_HOLDABLE")
+            return env, tuple(dict.fromkeys((*contract, *align_head))), ()
         res = self.gate.validate(built, self.parent, None, self.space, (), now)
         if isinstance(res, ApprovedPlan):
             self.parent = built
@@ -271,6 +319,25 @@ class DroneShadow:
         if isinstance(res, GateReject):
             return env, contract, tuple(res.codes)
         return env, contract, ()
+
+    def _align_head_codes(self, motion) -> tuple[str, ...]:
+        """对齐模式下，用上一条运动在 t_switch 的状态代替从未获批的父计划做连续性检查。"""
+        if not self.contract_align or not isinstance(motion, PiecewisePolynomial):
+            return ()
+        prev = self._last_motion
+        if prev is None or prev is motion:
+            return ()
+        t0 = float(motion.t_start)
+        if not (prev.t_start - 1e-12 <= t0 <= prev.t_end + 1e-12):
+            return ()
+        try:
+            head = np.array([motion.evaluate(t0, k) for k in range(3)])
+            was = np.array([prev.evaluate(t0, k) for k in range(3)])
+        except (TypeError, ValueError):
+            return ()
+        if float(np.max(np.abs(head - was))) > ALIGN_CONTINUITY_TOL:
+            return ("TRANSITION:HEAD_DISCONTINUITY",)
+        return ()
 
     def _build(self, plan, now: float):
         parent_hash = self.parent.plan_hash(self.cfg.plan)
@@ -282,8 +349,12 @@ class DroneShadow:
             except (TypeError, ValueError):
                 return [PlanReject.MALFORMED]
             branches = [t_switch + o for o in self.cfg.branch_offsets]
+            if self.contract_align:
+                branches = [t for t in branches if traj.t_start <= t <= traj.t_end]
+                if not branches:
+                    branches = [t_switch]
             return make_plan(
-                self.owner, self.seq, parent_hash, traj, t_switch, head, branches, self.cfg.plan,
+                self.owner, self.seq, parent_hash, traj, t_switch, head, branches, self._plan_cfg,
             )
         pos = getattr(plan, "position", None)
         if pos is None:
