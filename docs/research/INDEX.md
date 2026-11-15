@@ -41,6 +41,8 @@
 | e-b2p-backend-speed.md | e-b2p | E-B2p：B 样条后段提速 | report-only、冻结 |
 | e-b2q-evals-diag-runs.json | e-b2q | 票 E-B2q：密林开后段评估次数预算诊断 | report-only |
 | e-b2q-evals-diag.md | e-b2q | 票 E-B2q：密林开后段评估次数预算诊断 | report-only、冻结 |
+| e-b2r-evals-default-runs.json | e-b2r | 票 E-B2r：后段评估预算缺省 10→20 | report-only、冻结 |
+| e-b2r-evals-default.md | e-b2r | 票 E-B2r：后段评估预算缺省 10→20 | report-only、冻结 |
 | e-b3-closeout.md | e-b3 | E-B3 收口 | 冻结 |
 | e-b3-swarm-penalty-runs.json | e-b3 | 这是假设，不是论文复现 | 无 |
 | e-b3-swarm-penalty.md | e-b3 | E-B3：后段机间椭球惩罚 | report-only、冻结 |

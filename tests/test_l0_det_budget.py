@@ -49,16 +49,36 @@ def _refine(cfg):
 
 
 def test_default_budget_is_eval_count_and_wall_is_opt_in(monkeypatch):
+    """票 E-B2r：没写 time_budget_s 时，0.020 s 对应 20 次。墙钟仍是显式打开。"""
     monkeypatch.delenv("YOPO_BACKEND_BUDGET", raising=False)
     cfg = config_from_params({"backend": {"enabled": True}}, a_max=6.0)
-    assert cfg.budget == "evals" and _eval_cap(cfg) == 10
+    assert cfg.budget == "evals" and cfg.time_budget_s == pytest.approx(0.020)
+    assert _eval_cap(cfg) == 20
+    assert _eval_cap(BackendConfig()) == 20
+    # 显式写下与缺省相同的 0.020 s，仍是 20 次，不是另一套口径。
+    same = config_from_params({"backend": {"enabled": True, "time_budget_s": 0.020}}, a_max=6.0)
+    assert _eval_cap(same) == 20
     assert config_from_params({"backend": {"enabled": True, "budget": "wall"}}, a_max=6.0).budget == "wall"
     monkeypatch.setenv("YOPO_BACKEND_BUDGET", "wall")
     assert config_from_params({"backend": {"enabled": True}}, a_max=6.0).budget == "wall"
     with pytest.raises(ValueError):
         BackendConfig(budget="cpu")
+
+
+def test_explicit_time_budget_is_not_replaced_by_the_default():
+    """调用者传入的 time_budget_s 按 1 ms/次折算，不会被改成缺省的 20 次。
+
+    旧测试把缺省写成 10，并把显式 5.0 s 写成 2500（当时名义每次 2 ms）。
+    缺省期望改成 20。5.0 s 的期望改成 5000：秒数没被改写，折算比例变了。
+    要回旧的 10 次，显式传 0.010 s，不靠缺省。1e-4 s 仍是下限 1 次。
+    """
+    ten = config_from_params({"backend": {"enabled": True, "time_budget_s": 0.010}}, a_max=6.0)
+    assert ten.time_budget_s == pytest.approx(0.010)
+    assert _eval_cap(ten) == 10
+    assert _eval_cap(BackendConfig(time_budget_s=0.010)) == 10
+    assert _eval_cap(BackendConfig(time_budget_s=0.040)) == 40
     assert _eval_cap(BackendConfig(time_budget_s=1e-4)) == 1
-    assert _eval_cap(BackendConfig(time_budget_s=5.0)) == 2500
+    assert _eval_cap(BackendConfig(time_budget_s=5.0)) == 5000
 
 
 def test_slow_machine_gives_the_same_refinement(monkeypatch):
