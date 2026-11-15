@@ -318,3 +318,23 @@ def apply_b2_overrides(card, *, safe_radius: float | None = None, head_from_odom
         b2["head_from_odom_m"] = float(head_from_odom_m)
         params["b2"] = b2
     return dataclasses.replace(card, card={**card.card, "policy_params": params}), deviations
+
+
+_STIFF_MAX_DP_M = 1.5
+_STIFF_MAX_DV_MPS = 3.0
+
+
+def _clip_norm(x: np.ndarray, limit: float) -> np.ndarray:
+    n = float(np.linalg.norm(x))
+    return x if n <= limit else x * (limit / n)
+
+
+def stiffen(p: np.ndarray, v: np.ndarray, state: dict, gain_p: float, gain_v: float):
+    """票 B2：两个增益都为 0 时原样返回同一对数组（默认路径不变）。"""
+    if gain_p <= 0.0 and gain_v <= 0.0:
+        return p, v
+    odom_p = np.asarray(state["position_enu"], dtype=float)
+    odom_v = np.asarray(state["velocity_enu"], dtype=float)
+    p2 = p + _clip_norm(gain_p * (p - odom_p), _STIFF_MAX_DP_M) if gain_p > 0.0 else p
+    v2 = v + _clip_norm(gain_v * (v - odom_v), _STIFF_MAX_DV_MPS) if gain_v > 0.0 else v
+    return p2, v2

@@ -1409,26 +1409,6 @@ class _LiveSlot:
 
 
 
-_STIFF_MAX_DP_M = 1.5
-_STIFF_MAX_DV_MPS = 3.0
-
-
-def _clip_norm(x: np.ndarray, limit: float) -> np.ndarray:
-    n = float(np.linalg.norm(x))
-    return x if n <= limit else x * (limit / n)
-
-
-def _stiffen(p: np.ndarray, v: np.ndarray, state: dict, gain_p: float, gain_v: float):
-    """票 B2：两个增益都为 0 时原样返回同一对数组（默认路径不变）。"""
-    if gain_p <= 0.0 and gain_v <= 0.0:
-        return p, v
-    odom_p = np.asarray(state["position_enu"], dtype=float)
-    odom_v = np.asarray(state["velocity_enu"], dtype=float)
-    p2 = p + _clip_norm(gain_p * (p - odom_p), _STIFF_MAX_DP_M) if gain_p > 0.0 else p
-    v2 = v + _clip_norm(gain_v * (v - odom_v), _STIFF_MAX_DV_MPS) if gain_v > 0.0 else v
-    return p2, v2
-
-
 class _LazyDepthFrame:
     """票 S7：按相机频率记下位姿和时刻，协议读 ``depth`` 时才渲染。
 
@@ -1964,7 +1944,10 @@ class LiveFleetSession:
         p = np.asarray(p, dtype=float).copy()
         v = np.asarray(v, dtype=float).copy()
         a = np.asarray(a, dtype=float).copy()
-        p, v = _stiffen(p, v, state, float(self.cfg.setpoint_gain_p), float(self.cfg.setpoint_gain_v))
+        if self.cfg.setpoint_gain_p > 0.0 or self.cfg.setpoint_gain_v > 0.0:
+            from yopo_l0.b2_plan_diag import stiffen  # 票 B2，默认不进来
+
+            p, v = stiffen(p, v, state, float(self.cfg.setpoint_gain_p), float(self.cfg.setpoint_gain_v))
         setpoint = trajectory_setpoint_ned(p, v, a, float(yaw), now_s)
         self._note_arrival(slot, now_s, state["position_enu"], state["velocity_enu"])
         return self._pack(

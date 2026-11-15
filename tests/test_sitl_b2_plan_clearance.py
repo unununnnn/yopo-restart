@@ -211,7 +211,7 @@ def test_odomhead_fix_parses_and_marks_deviation(tmp_path):
 
 
 def test_stiffen_default_returns_the_same_arrays_and_clips():
-    from yopo_l0.sitl_bridge import _stiffen
+    from yopo_l0.b2_plan_diag import stiffen as _stiffen
 
     p, v = np.array([1.0, 0.0, 1.5]), np.array([2.0, 0.0, 0.0])
     state = {"position_enu": [0.0, 0.5, 1.5], "velocity_enu": [1.0, 0.0, 0.0]}
