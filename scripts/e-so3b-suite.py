@@ -763,7 +763,10 @@ def render_markdown(payload: dict) -> str:
 def build_payload(rows: list[dict], *, jobs: int) -> dict:
     from yopo_l0.so3 import SWITCH_DEFAULTS
 
-    rows = sorted(rows, key=lambda r: ( _case_index(r["scene"]), str(r.get("fault_tier") or ""), int(r["seed"])))
+    rows = sorted(
+        rows,
+        key=lambda r: (_case_index(r["scene"]), _tier_index(r.get("fault_tier")), int(r["seed"])),
+    )
     commits = sorted({str(r.get("commit") or "") for r in rows})
     return {
         "title": "票 E-SO3b：冻结套件上的一阶 SO3，只报数",
@@ -790,6 +793,16 @@ def _case_index(scene: str) -> int:
         if case["id"] == scene:
             return i
     return len(CASES)
+
+
+def _tier_index(tier: str | None) -> int:
+    if tier is None:
+        return -1
+    ids = [item["id"] for item in load_tiers()]
+    try:
+        return ids.index(tier)
+    except ValueError:
+        return len(ids)
 
 
 def write_docs(payload: dict) -> None:
