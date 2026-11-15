@@ -67,7 +67,8 @@ def row(tag: str, seed: int, rc: int, run: str, load_file: Path | None = None) -
         lockstep_steps=lock.get("steps"),
         lockstep_handshake_timeouts=lock.get("handshake_timeouts_total"),
         lockstep_resends=lock.get("resends"),
-        
+        lockstep_clock_overshoots=lock.get("clock_overshoots"),
+        lockstep_clock_ahead=lock.get("clock_ahead"),
         lockstep_step_wall_ms_median=_r(lock.get("step_wall_ms_median"), 2),
         lockstep_agent_wall_s=lock.get("agent_wall_s"),
         lockstep_stepping_wall_s=lock.get("stepping_wall_s"),
