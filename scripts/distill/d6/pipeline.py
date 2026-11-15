@@ -4,7 +4,7 @@
 扫描多个教师根目录里已经写完的 ``yopo-teacher-record/1``。成功场转成每场一个 ``.npz``，
 可中断后续跑。训练走 ``yopo_l0.student_fit.train_from_paths``，不改它的默认。
 ``knots`` / ``yaw_source`` / ``accel_source`` / ``vertical`` 是闭环接口，写进检查点，
-本脚本不改 ``StudentPolicy.DEFAULTS``。``--drop-start-still`` 默认关；关时窗口与不传逐位相同。
+本脚本不改 ``StudentPolicy.DEFAULTS``。``--drop-start-still`` 与 ``--rewrite-start-knots`` 默认关；关时窗口与不传逐位相同。
 
     .venv/bin/python scripts/distill/d6/pipeline.py all \\
         --teacher-dirs /workspace/yopo-teacher-data/d2b/runs \\
@@ -37,6 +37,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from yopo_l0.distill import (  # noqa: E402
+    START_KNOT_SPEED_MPS,
     START_STILL_SPEED_MPS,
     TEACHER_SCHEMA,
     DistillError,
@@ -73,6 +74,13 @@ START_STILL_RULE = (
     "起步结点是该架速度第一次达到阈值的轨迹样本。阈值默认 0.05 m/s。"
     "结点之后再慢下来的窗保留。教师样本上这段零位移大约 1.2–1.6 s，"
     "盖住 t=0 前 1 s 位置结点位移为 0 的那些窗。"
+)
+START_KNOT_RULE = (
+    "关（默认）：不改标签，窗口与不传这个开关逐位相同。"
+    "开：把起步静止段窗口的位置、速度结点改写成沿目标方向的匀速短移位，不删窗。"
+    "起步段判据与起步静止过滤相同，速度阈值固定 0.05 m/s。"
+    "默认速度 1.33 m/s，与 D6c 直线参考相同，0.2 s 结点沿目标位移是 0.266 m。"
+    "已经在动的窗口不改。不要把 --drop-start-still 默认打开。"
 )
 
 
@@ -299,6 +307,9 @@ def _convert_one(spec: dict) -> dict:
         if still["drop_start_still"]:
             kwargs["drop_start_still"] = True
             kwargs["start_still_speed_mps"] = float(still["start_still_speed_mps"])
+        if still.get("rewrite_start_knots"):
+            kwargs["rewrite_start_knots"] = True
+            kwargs["start_knot_speed_mps"] = float(still["start_knot_speed_mps"])
         batch = convert_run(Path(spec["run_dir"]), **kwargs)
     except DistillError as exc:
         return {
@@ -316,6 +327,7 @@ def _convert_one(spec: dict) -> dict:
             "error": batch.skipped or "no_windows",
             "n": 0,
             "n_start_still_dropped": int(batch.n_start_still_dropped),
+            "n_start_knots_rewritten": int(batch.n_start_knots_rewritten),
             "wall_s": time.perf_counter() - started,
             "max_windows": spec.get("max_windows"),
             **still,
@@ -326,6 +338,7 @@ def _convert_one(spec: dict) -> dict:
         "ok": True,
         "n": int(batch.n),
         "n_start_still_dropped": int(batch.n_start_still_dropped),
+        "n_start_knots_rewritten": int(batch.n_start_knots_rewritten),
         "path": str(Path(path).resolve()),
         "sha256": sha256_file(path),
         "bytes": Path(path).stat().st_size,
@@ -339,19 +352,31 @@ def _still_fields(spec: dict) -> dict:
     """状态行里的开关。关时不写速度，续跑才能和旧状态行对上。"""
     enabled = bool(spec.get("drop_start_still", False))
     if not enabled:
-        return {"drop_start_still": False}
-    return {
-        "drop_start_still": True,
-        "start_still_speed_mps": float(spec["start_still_speed_mps"]),
-    }
+        out = {"drop_start_still": False}
+    else:
+        out = {
+            "drop_start_still": True,
+            "start_still_speed_mps": float(spec["start_still_speed_mps"]),
+        }
+    if bool(spec.get("rewrite_start_knots", False)):
+        out["rewrite_start_knots"] = True
+        out["start_knot_speed_mps"] = float(spec["start_knot_speed_mps"])
+    return out
 
 
 def _still_token(record: dict) -> tuple:
     """旧状态行没有这个键时当作关。"""
     if not bool(record.get("drop_start_still", False)):
-        return (False, None)
-    speed = record.get("start_still_speed_mps")
-    return (True, None if speed is None else float(speed))
+        drop = (False, None)
+    else:
+        speed = record.get("start_still_speed_mps")
+        drop = (True, None if speed is None else float(speed))
+    if not bool(record.get("rewrite_start_knots", False)):
+        rewrite = (False, None)
+    else:
+        speed = record.get("start_knot_speed_mps")
+        rewrite = (True, None if speed is None else float(speed))
+    return (drop, rewrite)
 
 
 def _reusable(
@@ -360,15 +385,20 @@ def _reusable(
     max_windows: int | None,
     drop_start_still: bool,
     start_still_speed_mps: float | None,
+    rewrite_start_knots: bool = False,
+    start_knot_speed_mps: float | None = None,
 ) -> bool:
     if not record.get("ok") or not record.get("id"):
         return False
     if record.get("max_windows") != max_windows:
         return False
-    requested = (False, None)
+    drop = (False, None)
     if drop_start_still:
-        requested = (True, float(start_still_speed_mps))
-    if _still_token(record) != requested:
+        drop = (True, float(start_still_speed_mps))
+    rewrite = (False, None)
+    if rewrite_start_knots:
+        rewrite = (True, float(start_knot_speed_mps))
+    if _still_token(record) != (drop, rewrite):
         return False
     target = windows / f"{record['id']}.npz"
     if not target.is_file():
@@ -413,11 +443,14 @@ def convert_records(
     teacher_dirs: list[Path],
     drop_start_still: bool = False,
     start_still_speed_mps: float = START_STILL_SPEED_MPS,
+    rewrite_start_knots: bool = False,
+    start_knot_speed_mps: float = START_KNOT_SPEED_MPS,
 ) -> dict:
     """把合格场写成窗口，并写出 manifest。已有且 sha 对得上的场次跳过。
 
-    ``drop_start_still`` 默认关。关时不把速度阈值传进 ``convert_run``，窗口与改前逐位相同。
-    开时续跑还要比对阈值，避免把没滤的 npz 当成已经滤过。
+    ``drop_start_still`` 与 ``rewrite_start_knots`` 默认关。关时不把对应参数传进
+    ``convert_run``，窗口与改前逐位相同。开时续跑还要比对阈值或改写速度，
+    避免把没改过的 npz 当成已经改过。
     """
     from yopo_l0.distill import split_runs_by_seed
 
@@ -438,7 +471,13 @@ def convert_records(
     for row in eligible:
         previous = done.get(row["id"])
         if previous is not None and _reusable(
-            previous, windows, max_windows, bool(drop_start_still), start_still_speed_mps,
+            previous,
+            windows,
+            max_windows,
+            bool(drop_start_still),
+            start_still_speed_mps,
+            bool(rewrite_start_knots),
+            start_knot_speed_mps,
         ):
             reused[row["id"]] = previous
             continue
@@ -449,6 +488,8 @@ def convert_records(
             "max_windows": max_windows,
             "drop_start_still": bool(drop_start_still),
             "start_still_speed_mps": float(start_still_speed_mps),
+            "rewrite_start_knots": bool(rewrite_start_knots),
+            "start_knot_speed_mps": float(start_knot_speed_mps),
         })
     print(
         f"扫描 {len(rows)} 场，合格 {len(eligible)}，续跑 {len(reused)}，待转 {len(todo)}，jobs={max(1, int(jobs))}",
@@ -479,6 +520,7 @@ def convert_records(
             "sha256": record["sha256"],
             "n": int(record["n"]),
             "n_start_still_dropped": int(record.get("n_start_still_dropped") or 0),
+            "n_start_knots_rewritten": int(record.get("n_start_knots_rewritten") or 0),
             "flight_z_m": row["flight_z_m"],
             "flight_z_source": row["flight_z_source"],
             "z_mismatch": bool(row["z_mismatch"]),
@@ -543,6 +585,10 @@ def convert_records(
         "start_still_speed_mps": float(start_still_speed_mps) if drop_start_still else None,
         "start_still_rule": START_STILL_RULE,
         "n_start_still_dropped": sum(int(item.get("n_start_still_dropped") or 0) for item in files.values()),
+        "rewrite_start_knots": bool(rewrite_start_knots),
+        "start_knot_speed_mps": float(start_knot_speed_mps) if rewrite_start_knots else None,
+        "start_knot_rule": START_KNOT_RULE,
+        "n_start_knots_rewritten": sum(int(item.get("n_start_knots_rewritten") or 0) for item in files.values()),
         "sharding": "每场一个 npz，文件名是场次编号。sha 没变就跳过，可以断点续跑。",
         "hold_seed_mod": 5,
         "hold_rule": "seed % 5 == 0 进留出，其余进训练。1.0 m 和 1.5 m 同一颗种子一起进同一边。",
@@ -665,6 +711,9 @@ def manifest_summary(manifest: dict) -> dict:
         "drop_start_still",
         "start_still_speed_mps",
         "n_start_still_dropped",
+        "rewrite_start_knots",
+        "start_knot_speed_mps",
+        "n_start_knots_rewritten",
     )
     return {key: manifest.get(key) for key in keys}
 
@@ -855,6 +904,17 @@ def build_parser() -> argparse.ArgumentParser:
         default=START_STILL_SPEED_MPS,
         help="起步结点的速度阈值（m/s）。只在 --drop-start-still 时生效，默认 0.05",
     )
+    parser.add_argument(
+        "--rewrite-start-knots",
+        action="store_true",
+        help="把起步静止段的位置、速度结点改写成沿目标的短移位。默认关，关时与不传逐位相同",
+    )
+    parser.add_argument(
+        "--start-knot-speed-mps",
+        type=float,
+        default=START_KNOT_SPEED_MPS,
+        help="改写用的沿目标速度（m/s）。只在 --rewrite-start-knots 时生效，默认 1.33",
+    )
     parser.add_argument("--limit", type=int, default=None, help="最多转换多少场合格记录，按编号排序截断")
     parser.add_argument("--balance", choices=("full", "altitude"), default="full")
     parser.add_argument("--epochs", type=int, default=None, help="缺省 5，与 D5b r4 相同")
@@ -877,6 +937,10 @@ def main(argv: list[str] | None = None) -> int:
     start_still_speed = float(args.start_still_speed_mps)
     if drop_start_still and (not np.isfinite(start_still_speed) or start_still_speed < 0.0):
         raise SystemExit(f"--start-still-speed-mps 必须是非负有限数，收到 {args.start_still_speed_mps}")
+    rewrite_start_knots = bool(args.rewrite_start_knots)
+    start_knot_speed = float(args.start_knot_speed_mps)
+    if rewrite_start_knots and (not np.isfinite(start_knot_speed) or start_knot_speed <= 0.0):
+        raise SystemExit(f"--start-knot-speed-mps 必须是正有限数，收到 {args.start_knot_speed_mps}")
     out_dir = Path(args.out)
     manifest = None
     if mode in ("convert", "all"):
@@ -893,6 +957,8 @@ def main(argv: list[str] | None = None) -> int:
             teacher_dirs=[Path(path) for path in args.teacher_dirs],
             drop_start_still=drop_start_still,
             start_still_speed_mps=start_still_speed,
+            rewrite_start_knots=rewrite_start_knots,
+            start_knot_speed_mps=start_knot_speed,
         )
     if mode in ("train", "all"):
         if manifest is None:
