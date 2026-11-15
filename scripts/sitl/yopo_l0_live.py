@@ -411,6 +411,8 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
             setpoint_gain_v=float(getattr(args, "b2_fix_cfg", {}).get("setpoint_gain_v", 0.0)),
         ),
     )
+    truth: dict = {}  # 票 B2：gz 真值位置，记录器建好前先有这个 dict，订阅回调往里写
+    truth_lock = threading.Lock()
     plan_diag = None
     if args.plan_diag and session.fleet is not None and hasattr(session.fleet, "ingest"):
         plan_diag = PlanDiag(
@@ -418,7 +420,7 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
             card.min_distance,
             float(card.card["criteria"]["body_radius_m"]),
             abs_offset=lambda: float(session._plan_origin or 0.0),
-            truth=_truth_reader(session, truth, lock),
+            truth=_truth_reader(session, truth, truth_lock),
         )
     ports = [int(slot.ident["gcs_port"]) for slot in session.slots]
     stop = threading.Event()
@@ -482,21 +484,20 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
 
             gz.subscribe(Actuators, motor_topic(int(slot.ident["instance"])), on_motor)
 
-    truth: dict = {}
     if args.plan_diag and gz is not None:
         # 票 B2：只读。gz 世界系的真值位置，和 PX4 的 EKF 里程计对照，分清是控制没跟上还是估计偏了。
         try:
             from gz.msgs10.pose_v_pb2 import Pose_V
 
             def on_poses(msg) -> None:
-                with lock:
+                with truth_lock:
                     for pose in msg.pose:
                         if pose.name.startswith("x500_"):
                             truth[pose.name] = (pose.position.x, pose.position.y, pose.position.z)
 
             gz.subscribe(Pose_V, f"/world/{args.world}/dynamic_pose/info", on_poses)
         except Exception:
-            truth = {}
+            truth.clear()
 
     rclpy.init()
     node = rclpy.create_node("yopo_l0_sitl_live")
