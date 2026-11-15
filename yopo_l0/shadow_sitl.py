@@ -169,7 +169,7 @@ def _observe_fleet(session, slot, now_s: float, state: dict, *, planned: bool) -
     if callable(shadow_view):
         view = shadow_view(slot.bridge.drone_id)
     if view is not None:
-        frame = _frame_at(slot.fleet_frame, now)
+        frame = _frame_at(slot.fleet_frame, now, cache_on=slot)
         body = _body_state(state, slot, now)
         slot.shadow.on_selection(view, frame, body, now)
     sampler = slot.formation_sampler
@@ -216,20 +216,24 @@ class _StampedFrame:
         self.stamp = float(stamp)
 
 
-def _frame_at(frame, stamp: float):
+def _frame_at(frame, stamp: float, cache_on=None):
     if frame is None:
-        return None
+        src = getattr(cache_on, "_shadow_frame", None) if cache_on is not None else None
+        return None if src is None else _StampedFrame(src.depth, src.K, stamp)
     # 只读已经渲染好的帧。不触发 LazyDepthFrame 的首次渲染：
     # 那会消耗场景卡相机的噪声序列，可能改变后续提案，也就不再是只读了。
     rendered = getattr(frame, "_frame", None)
     if rendered is None and hasattr(frame, "rendered") and not frame.rendered:
-        return None
+        src = getattr(cache_on, "_shadow_frame", None) if cache_on is not None else None
+        return None if src is None else _StampedFrame(src.depth, src.K, stamp)
     src = rendered if rendered is not None else frame
     try:
         depth = src.depth
         k = src.K
     except (AttributeError, TypeError, ValueError):
         return None
+    if cache_on is not None:
+        cache_on._shadow_frame = src
     return _StampedFrame(depth, k, stamp)
 
 

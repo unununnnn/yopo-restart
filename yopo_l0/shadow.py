@@ -210,7 +210,11 @@ class DroneShadow:
         self._frame_problem: tuple[str, ...] = ()
 
     def on_selection(self, plan, frame, state, now: float) -> None:
-        self._add_evidence(frame, state)
+        if frame is None and self._scene is not None:
+            # 打开场景证据时，没有前视帧也不记 NO_FRAME：五张几何视图已经进 FreeSpace。
+            self._frame_problem = ()
+        else:
+            self._add_evidence(frame, state)
         if self._scene is not None:
             self._scene.add_frames(self.space, float(now))
         env, contract, stop = self._recheck(plan, float(now))

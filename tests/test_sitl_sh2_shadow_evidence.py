@@ -238,3 +238,64 @@ def test_frame_at_does_not_render_lazy_frames():
     assert _frame_at(lazy, 0.1) is None
     assert lazy._reads == 0
     assert lazy.rendered is False
+
+
+def test_frame_at_reuses_cached_rendered_frame():
+    from yopo_l0.shadow_sitl import _frame_at
+    import numpy as np
+
+    class _Src:
+        def __init__(self):
+            self.depth = np.zeros((2, 2), dtype=np.float32)
+            self.K = (1, 1, 1, 1)
+
+    class _Slot:
+        pass
+
+    class _Lazy:
+        def __init__(self):
+            self._frame = None
+            self.rendered = False
+
+        @property
+        def depth(self):
+            raise AssertionError("must not render")
+
+    src = _Src()
+    slot = _Slot()
+    first = _frame_at(src, 0.1, cache_on=slot)
+    assert first is not None
+    lazy = _Lazy()
+    reused = _frame_at(lazy, 0.4, cache_on=slot)
+    assert reused is not None
+    assert reused.stamp == 0.4
+    assert reused.depth is src.depth
+
+
+def test_scene_evidence_without_forward_frame_omits_no_frame():
+    from yopo_l0.scene import Box, Ground
+    from yopo_l0.shadow import ENV_NO_FRAME, ENV_UNKNOWN, DroneShadow
+    from yopo_swarm_core.plan import quintic
+    from yopo_swarm_core.trajectory import PiecewisePolynomial
+    import numpy as np
+
+    class _Wrap:
+        def __init__(self, traj):
+            self.traj = traj
+
+    origin = np.array([0.0, 2.2, 1.5])
+    dest = np.array([1.6, 2.2, 1.5])
+    z = np.zeros(3)
+    traj = PiecewisePolynomial(0.0, [quintic(np.stack([origin, z, z]), np.stack([dest, z, z]), 1.2)])
+    obstacles = (Box("pillar", (2.6, -0.4, 0.0), (3.2, 0.4, 2.8)), Ground(0.0))
+
+    class _State:
+        p = origin
+        yaw = 0.0
+
+    on = DroneShadow("uav0", origin, dest, {}, scene_obstacles=obstacles)
+    on.on_selection(_Wrap(traj), None, _State(), 0.2)
+    assert ENV_NO_FRAME not in on.selection
+    off = DroneShadow("uav0", origin, dest, {}, scene_obstacles=None)
+    off.on_selection(_Wrap(traj), None, _State(), 0.2)
+    assert ENV_NO_FRAME in off.selection
