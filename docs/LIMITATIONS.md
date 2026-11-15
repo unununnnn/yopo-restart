@@ -15,7 +15,7 @@ G7 的口径是「一键启动与可追溯结果」。这份文档是 [M5 交付
 
 L0 已经落地的构造是：
 
-- **动力学**：点质量加一阶加速度滞后（`PointMassLag`）。场景卡和跟踪器的 `a_max` 都是 6。急刹不得再写死计划 `a_max=80`，见 [ADR 0011](adr/0011-brake-gap-horizon-and-amax.md)。这不是 PX4 位置环，也还没有 SPEC 里后加的 SO3 模型。
+- **动力学**：点质量加一阶加速度滞后（`PointMassLag`）。场景卡和跟踪器的 `a_max` 都是 6。急刹不得再写死计划 `a_max=80`，见 [ADR 0011](adr/0011-brake-gap-horizon-and-amax.md)。这不是 PX4 位置环。SPEC 里后加的一阶 SO3 已由 [E-SO3b](research/e-so3b-suite.md)（[#130](https://github.com/unununnnn/yopo-restart/pull/130)）在冻结套件上测过，默认仍关；打开后六机稀疏到达 59/60（点质量 60/60），碰撞 0。
 - **传感器**：按相机内外参做光线投射，输出深度图；量程、视场、分辨率、噪声、帧率可配，时间戳由仿真时钟给。规划器只拿 `Observation`（深度帧、里程计、目标、时间），拿不到场景几何真值。这不是渲染级相机：纹理和光照在 SPEC 的 Out of Scope 里。
 - **多机总线**：每机一个独立规划实例和独立传感器。机间消息只走进程内消息总线，没有共享内存捷径；总线可以注入延迟、丢失、重复、乱序。
 - **锁步时钟**：每 tick 依次是传感器 → 规划 → 进程内总线投递 → 动力学。规划消耗的墙钟不计入仿真时间。规划预算、帧龄、有效期一律按仿真时间判定。同 commit、同场景卡、同 seed，两次运行的结果记录逐字段一致（墙钟字段除外）。
@@ -62,8 +62,8 @@ L0 **不等价于** L1，也不是实飞：
 | 三机林 medium 的数值净空 | 当前 main 重跑最紧 0.260 m，不够支撑柱林那道 0.40 m 的门。碰撞 = 0 和到达 10/10 已冻结。 | [冻结表](results/11-freeze-recommendation.md)（`out/t11-m2-forest`） |
 | 六机林带的官方 p95 和相对 p95 | 官方 p95：medium 23.04–26.30 m，sparse 18.73–22.92 m。相对 p95（每拍以全队平均位置为中心，再取各 seed p95 的中位数）：medium 9.29 m，sparse 6.17 m。[ADR 0015](adr/0015-ghost-brake-stops.md) 写成 9.3 m / 6.2 m，是同一组数的四舍五入。林带卡 `progress_gate=false`，官方 p95 对着墙钟 × speed 的槽位，和 M1 的相对槽位不是一个口径。相对 p95 还高于 13b 写过的「争取低于 5 m」。 | [冻结表](results/11-freeze-recommendation.md)、[13e](results/13e-ghost-stops.md)、[ADR 0015](adr/0015-ghost-brake-stops.md) |
 | 六机林带的数值净空 | 最紧 0.126 m（medium）/ 0.158 m（sparse）。COMMIT 前计划净空门是 0.50 m，跟踪差会吃掉一截。已冻的是碰撞 = 0，以及最小机间距离 ≥ 0.70 m。 | [冻结表](results/11-freeze-recommendation.md)、[13e](results/13e-ghost-stops.md)、[ADR 0015](adr/0015-ghost-brake-stops.md) |
-| M4 的 ROS 2 全档矩阵 | 只对过一次：drop 20%、seed 0，与进程内一致（6/6，到达时间 20.13 s，机间 2.980 m，p95 0.066 m，碰撞 0）。全档全 seed 的 ROS 2 矩阵没有在当前 main 重跑。进程内六档已冻结；ROS 2 全矩阵另开票。 | [冻结表](results/11-freeze-recommendation.md)、[ADR 0016](adr/0016-m0-m4-freeze-recommendation.md) |
-| M3 的 L1 抽检 | 没有新方案的 L0 / L1 对照数字。票 09 已关闭，见下一节。M3 先按 L0 变阵冻。 | [冻结表](results/11-freeze-recommendation.md)、[ADR 0016](adr/0016-m0-m4-freeze-recommendation.md)、[tickets](tickets.md) |
+| M4 的 ROS 2 全档矩阵 | 已由 [M4-ROS2](research/m4-ros2-matrix.md)（[#129](https://github.com/unununnnn/yopo-restart/pull/129)）跑完：六档 × seeds 0–4，30/30 到达，碰撞 0，队形 p95 0.066 m，最小机间 2.980 m，到达时间 20.13 s，与进程内一致。进程内六档仍按冻结表。 | [M4-ROS2](research/m4-ros2-matrix.md)、[冻结表](results/11-freeze-recommendation.md)、[ADR 0016](adr/0016-m0-m4-freeze-recommendation.md) |
+| M3 的 L1 抽检 | 新方案已接到本仓库 PX4 SITL，数字只报数、判据未冻结。S6（[#128](https://github.com/unununnnn/yopo-restart/pull/128)）单机 g2-pillar 10/10；S5b（[#134](https://github.com/unununnnn/yopo-restart/pull/134)）编队保持 15/15；S7（[#139](https://github.com/unununnnn/yopo-restart/pull/139)）变阵 5/5、交叉自由跑 0/5；B1（[#142](https://github.com/unununnnn/yopo-restart/pull/142)）锁步交叉 4/5、变阵 5/5。票 09 的旧仓路径仍关闭，见下一节。M3 的 L0 变阵门仍按冻结表。 | [s6](research/s6-sitl-upstream-m0.md)、[s5b](research/s5b-sitl-formation-verify.md)、[s7](research/s7-sitl-crossing-switch.md)、[b1](research/b1-sitl-lockstep.md)、[冻结表](results/11-freeze-recommendation.md)、[ADR 0016](adr/0016-m0-m4-freeze-recommendation.md)、[tickets](tickets.md) |
 | 影子拒绝率 | L0 上开盾时多为 1.000。那是「若开硬门会拒」的记录，不改动作，不能当成失败门。 | [冻结表](results/11-freeze-recommendation.md)、[ADR 0007](adr/0007-l0-default-upstream-shadow.md) |
 | 六机柱林 | 未测。单次墙钟超过 60 s，不进套件，没有当前 main 的表。 | [冻结表](results/11-freeze-recommendation.md)、[ADR 0016](adr/0016-m0-m4-freeze-recommendation.md) |
 
@@ -81,7 +81,7 @@ L0 **不等价于** L1，也不是实飞：
 - 把 upstream 移植进 L1 要等以后的 yopo-swarm 票。本仓库不改那个仓库。
 - 不要在这条已关闭的工单上重跑 Orin，也不要改 PX4 参数或安全清单数值。
 
-因此 M3 按 SPEC 仍缺一次新方案的 L1 抽检。当前没有可引用的 L0 / L1 对照数字，这一项继续只报数。
+票 09 的旧仓路径仍然关闭。新方案的 L1 抽检已由 S6、S5b、S7、B1 另开票完成，数字只报数，见上一节的「只报数」表和下面的「朝真实仿真的下一步」。不要在已关闭的 09 上重跑 Orin，也不要改 PX4 参数。
 
 ## 合入前回归里的六机林带
 
@@ -95,10 +95,35 @@ L0 **不等价于** L1，也不是实飞：
 
 ## 朝真实仿真的下一步
 
-这些是限制带来的后续工作，不是这张文档要改的代码。
+这些是限制带来的后续工作，不是这张文档要改的代码。下面「已完成或已有结论」里的数字摘自对应 research 文档，只报数。
 
-1. **另开票，把本仓库的 `upstream` + 影子盾接到 PX4 SITL。** 不要重开已关闭的票 09，也不要在 Orin 上重跑旧仓 `deployed-certified`。接到之后，用同一张 M0 场景卡出 L0 / L1 对照（到达、碰撞、拒绝率、起飞交接耗时、RTF），再决定要不要启动 SPEC 里的方向 B（PX4 锁步多实例）。L1 的安全清单数值和 PX4 参数仍然不动。本仓库仍然不改 yopo-swarm。
-2. **另开票跑 M4 的 ROS 2 全档全 seed 矩阵。** 现在只有 drop 20%、seed 0 的一次对账。进程内六档已经冻结，不能拿那一次对账代替全矩阵。
-3. **L0 动力学若要更接近 PX4 的跟踪滞后，再加 SPEC 里后写的 SO3（或带一阶延迟的加速度跟踪之外的模型）。** 当前默认仍是点质量、`a_max=6`。换模型之后，L0 的到达和净空数字要重测，不能沿用现有冻结表里的秒数和米数。
-4. **重新打开六机林带进度门控之前，先解决按 min 爬行太慢的问题。** [ADR 0015](adr/0015-ghost-brake-stops.md) 写过：只修自检、门控仍开时，medium 4/60、sparse 33/60，门控能推进到 27–42 m，但 50 s 内飞不完。可选方向（超前机改走短前缀，或放大 `_LEADER_MARGIN_M`）都还没有测。
-5. **实飞仍不在范围内。** 在 L1 对照跑通之前，不要把 L0 视频或到达率读成「飞机已经在 SITL 里飞起来了」。
+### 已完成或已有结论
+
+1. **本仓库的 `upstream` + 影子盾已接到 PX4 SITL，方向 B 已启动。** 不要重开已关闭的票 09，也不要在 Orin 上重跑旧仓 `deployed-certified`。L1 的安全清单数值和 PX4 参数仍然不动。本仓库仍然不改 yopo-swarm。
+   - [S6](research/s6-sitl-upstream-m0.md)（[#128](https://github.com/unununnnn/yopo-restart/pull/128)）：同一张 M0 卡 `g2-pillar`，L0 / SITL 都是 10/10 到达、碰撞 0；去掉起飞交接后，SITL 到达仍比 L0 慢约 1.9–2.9 s；影子拒绝率两边都是 1.000。
+   - [S5b](research/s5b-sitl-formation-verify.md)（[#134](https://github.com/unununnnn/yopo-restart/pull/134)）：编队保持 seeds 0–4，L0 / SITL 都是 15/15 到达、碰撞 0；队形 p95 从 0.027 m 升到 0.310–0.361 m。
+   - [S7](research/s7-sitl-crossing-switch.md)（[#139](https://github.com/unununnnn/yopo-restart/pull/139)）：变阵 5/5，交叉卡 `crossing-pillars-sitl80` 自由跑 0/5（两臂合计 0/10），碰撞 0，RTF 最低 0.4382，机间时间戳极差最大 251.063 s。
+   - [B1](research/b1-sitl-lockstep.md)（[#142](https://github.com/unununnnn/yopo-restart/pull/142)）：锁步交叉 4/5（12/15 到达，碰撞 1），三机里程计仿真时差 0.012–0.016 s；变阵仍是 5/5，队形 p95 中位 0.178 m。剩下的失败是规划轨迹擦柱，PLAN 段最小净空 −0.010 m。
+2. **M4 的 ROS 2 全档全 seed 矩阵已跑完。** [M4-ROS2](research/m4-ros2-matrix.md)（[#129](https://github.com/unununnnn/yopo-restart/pull/129)）：六档 × seeds 0–4，30/30 到达，碰撞 0，队形 p95 0.066 m，最小机间 2.980 m，到达时间 20.13 s，与进程内一致。
+3. **一阶 SO3 已在冻结套件上测过，默认仍是点质量、`a_max=6`。** [E-SO3b](research/e-so3b-suite.md)（[#130](https://github.com/unununnnn/yopo-restart/pull/130)）：13 行里破了 1 行，M4 六机稀疏到达 59/60（点质量 60/60），碰撞 0。不改默认动力学；若以后打开，到达和净空要重测，不能沿用冻结表里的秒数和米数。
+4. **六机林带短前缀已测，不写进场景卡，开关保持默认关。** [ADR 0015](adr/0015-ghost-brake-stops.md) 写过的「只修自检、门控仍开时 50 s 内飞不完」，已由短前缀量过：
+   - [E-PG3](research/e-pg3-leader-prefix.md)（[#131](https://github.com/unununnnn/yopo-restart/pull/131)）：0.7 s 短前缀两张六机林带都是 60/60 到达，障碍和机间碰撞 0，平均到达 medium 42.71 s、sparse 36.84 s。
+   - [E-PG4](research/e-pg4-prefix-suite.md)（[#137](https://github.com/unununnnn/yopo-restart/pull/137)）：同一档在 M2 `crossing-forest`（medium）破门，到达 24/30（点质量 30/30），碰撞 2（点质量 0）。
+5. **影子盾环境证据已接入（默认关），环境码不是缺地图。** [SH1](research/sh1-shadow-env-evidence.md)（[#133](https://github.com/unununnnn/yopo-restart/pull/133)）：打开 `shadow_env_evidence` 后，三张卡的环境拒绝率都变成 0；`would_reject` 只有 formation-hold 从 1.000 降到 0.028，g2-pillar 和 crossing-pillars 仍是 1.000，剩下的是计划契约码。开关还没接到 `sitl_bridge`。
+6. **打开后段之后的评估次数缺省已改为 20。** 研究开关仍默认关。
+   - [E-B2q](research/e-b2q-evals-diag.md)（[#136](https://github.com/unununnnn/yopo-restart/pull/136)）：密林 10 次是 12/30、截断 130/362，20 次是 21/30、截断 0/418；014 对向 10 次是 8/30、截断 470/1293，20 次是 20/30、截断 0。
+   - [E-B2r](research/e-b2r-evals-default.md)（[#140](https://github.com/unununnnn/yopo-restart/pull/140)）：把缺省从 10 改成 20，重跑与 E-B2q 的 20 次臂相同（密林 21/30，014 对向 20/30，截断都是 0）。
+7. **学生网络线已测到噪声边界，先暂停。** 开关和库默认都没有改。
+   - [D6e](research/d6e-start-knot.md)（[#135](https://github.com/unununnnn/yopo-restart/pull/135)）：把起步结点改写成沿目标位移，开阔三机两臂都是 0/30；开臂 g2 两个高度都是 5/5 撞柱。
+   - [D7](research/d7-dagger.md)（[#138](https://github.com/unununnnn/yopo-restart/pull/138)）：开阔三机从 r0 的 0/30 到 r2 的 20/30，再回落到 r3 的 10/30（1.0 m）和 0/30（1.5 m），不单调；g2 从 r0 的 8/10 降到 r1–r3 的 0/10。
+   - [D8](research/d8-dagger-variance.md)（[#141](https://github.com/unununnnn/yopo-restart/pull/141)）：同一份数据只换训练种子，同一格就能从 0/30 跳到 20/30；r0 的 g2 8/10 是幸运种子（换种子 1、2 都是 0/10）。限速 2.0 m/s 的配对对照里，g2 从 5/30 升到 15/30，开阔从 40/180 升到 70/180。
+   - [D9](research/d9-cap-weight.md)（[#143](https://github.com/unununnnn/yopo-restart/pull/143)）：5 个训练种子下，D8 的两个正向信号都没有确认。限速 2.5 m/s 是唯一在开阔（150/300 → 170/300）、g2（15/50 → 30/50）、撞障（35 → 20 场）三项上都没有负配对差的设置，但不改库默认。
+
+### 下一步
+
+1. **B2：锁步交叉卡的规划净空。** B1 锁步交叉剩下的失败是代理规划出来的轨迹擦到柱子，PLAN 段最小净空是 −0.010 m（加延迟臂还有 −0.015 m）。要和 L0 的同一张卡对照。
+2. **SH2：拒绝码归因。** 把 `shadow_env_evidence` 接到 `sitl_bridge`，并统计各类拒绝原因各占多少。
+3. **锁步下电池模拟报 unhealthy（不改 `BAT_` 参数）。** B1 第二版 10 趟三机交叉里有 5 趟出现 `Battery unhealthy`，没有一趟触发 failsafe。修它要改 PX4 或镜像。
+4. **限速 2.5 m/s 作为候选对照臂。** 按 D9：继续用更多种子或更多场景做配对确认，先不改库默认。
+5. **学生网络线暂停。** D6e 到 D9 的收益都在训练噪声范围内，人手先放到方向 B。
+6. **实飞仍不在范围内。** 不要把 L0 或 SITL 的到达率读成实飞。

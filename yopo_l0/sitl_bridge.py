@@ -1362,9 +1362,22 @@ class LiveFleetConfig:
     # 票 SH2：默认关。打开后 crossing / switch / formation 也记影子盾（只读）。
     # 打开 shadow_env_evidence 时编队类策略也会开影子，否则证据接不上。
     fleet_shadow: bool = False
+    # 票 B2：默认 0（关）。>0 时编队类策略的设定点取已提交计划上 t + lead 的那一点，
+    # 补 PX4 位置环的跟踪滞后。打开即偏离上游。计划、协议和深度都不变。
+    setpoint_lead_s: float = 0.0
+    # 票 B2：默认 0（关）。>0 时编队类策略的设定点加上代理侧误差增益：
+    # p_sp = p_ref + kp·(p_ref − p_odom)，v_sp = v_ref + kv·(v_ref − v_odom)，修正量限幅。
+    # 等于从代理侧把 PX4 位置环、速度环增益抬高（不写 PX4 参数）。打开即偏离上游。
+    setpoint_gain_p: float = 0.0
+    setpoint_gain_v: float = 0.0
 
     def __post_init__(self) -> None:
         self.positioning = normalize_positioning(self.positioning)
+        if not (0.0 <= float(self.setpoint_lead_s) <= 0.5):
+            raise ValueError(f"setpoint_lead_s 要在 [0, 0.5]，收到 {self.setpoint_lead_s}")
+        for name in ("setpoint_gain_p", "setpoint_gain_v"):
+            if not (0.0 <= float(getattr(self, name)) <= 5.0):
+                raise ValueError(f"{name} 要在 [0, 5]，收到 {getattr(self, name)}")
         if self.depth_source not in ("auto", "depth", "summary", "scene-card"):
             raise ValueError(f"depth_source 非法：{self.depth_source!r}")
         if self.initial_phase not in ("WARMUP", "PLAN"):
@@ -1629,7 +1642,8 @@ class LiveFleetSession:
             sampler = slot.formation_sampler
             if sampler is None:
                 return None
-            p, v, a = sampler.pva(t)
+            lead = float(self.cfg.setpoint_lead_s)
+            p, v, a = sampler.pva(t + lead if lead > 0.0 else t)
             world = trajectory_setpoint_ned(p, v, a, float(sampler.yaw), now_s)
             return setpoint_to_local(world, slot.offset_enu)
         return None
@@ -1903,13 +1917,18 @@ class LiveFleetSession:
         did = slot.bridge.drone_id
         self.fleet.observe(did, float(t), state["position_enu"])
         sampler = self.fleet.track(did, float(t))
-        p, v, a, yaw = sampler.sample(float(t))
+        lead = float(self.cfg.setpoint_lead_s)
+        p, v, a, yaw = sampler.sample(float(t) + lead if lead > 0.0 else float(t))
         slot.formation_sampler = sampler
         self._observe_shadow(slot, now_s, state, planned=self.fleet.code(did) == "LOCAL_APPROVED")
         source = "scene-card" if getattr(self.fleet, "ingest", None) is not None else "formation"
         p = np.asarray(p, dtype=float).copy()
         v = np.asarray(v, dtype=float).copy()
         a = np.asarray(a, dtype=float).copy()
+        if self.cfg.setpoint_gain_p > 0.0 or self.cfg.setpoint_gain_v > 0.0:
+            from yopo_l0.b2_plan_diag import stiffen  # 票 B2，默认不进来
+
+            p, v = stiffen(p, v, state, float(self.cfg.setpoint_gain_p), float(self.cfg.setpoint_gain_v))
         setpoint = trajectory_setpoint_ned(p, v, a, float(yaw), now_s)
         self._note_arrival(slot, now_s, state["position_enu"], state["velocity_enu"])
         return self._pack(
