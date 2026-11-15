@@ -91,6 +91,8 @@
 | e-forest-gate-ablation.md |  | 票 E-PG1：六机林带进度门控的 `_LEADER_MARGIN_M` 与分位数 | report-only、冻结 |
 | e-pg2-forest-gate-switch-runs.json |  | 整表 report-only。open 偏离当前场景卡（卡上 progress_gate=false，没有 leader_margin_m）。余量写在进程内的 task.leader_margin_m，不写回场景卡。墙钟不进门。 | report-only、冻结 |
 | e-pg2-forest-gate-switch.md |  | 票 E-PG2：六机林带进度门控的超前余量做成开关 | report-only、冻结 |
+| e-pg3-leader-prefix-runs.json |  | 票 E-PG3：超前机改走短前缀，只报数 | report-only、冻结 |
+| e-pg3-leader-prefix.md |  | 票 E-PG3：超前机改走短前缀 | report-only、冻结 |
 | e-so3-dynamics-gap-runs.json |  | 只报数。report-only。SO3 两臂是偏离默认动力学（L0 点质量不变）。不改 yopo_l0/ 的默认动力学，不改 core/、scenes/、docs/tickets.md、README.md、scripts/premerge.sh、scripts/regress.sh。规划与策略保持场景卡默认：upstream（柱群和穿林由 CrossingFleet 走上游 YOPO），影子盾开。外环 kp/kd/a_max 与 PointMassLag 相同。τ_att、τ_thrust 和倾角是票面给定的假设，不是本仓库的 SITL 辨识。未冻结，不进 scenes/suite.txt，不设 gates，不改已冻门。 | report-only、冻结 |
 | e-so3-dynamics-gap.md |  | 票 E-SO3：L0 SO3 四旋翼滞后 vs 点质量，只报数 | report-only、冻结 |
 | e-so3b-suite-runs.json |  | 票 E-SO3b：冻结套件上的一阶 SO3，只报数 | report-only、冻结 |
