@@ -588,6 +588,61 @@ def _tier_label(tier: str | None) -> str:
     return "—" if tier is None else tier
 
 
+def _find(comparisons: list[dict], scene: str, tier: str | None = None) -> dict:
+    for item in comparisons:
+        if item["scene"] == scene and item.get("fault_tier") == tier:
+            return item
+    raise KeyError((scene, tier))
+
+
+def _conclusion(comparisons: list[dict]) -> list[str]:
+    broken = [item for item in comparisons if item["gate_failures"]]
+    held = [item for item in comparisons if item.get("gates") and not item["gate_failures"]]
+    lines = ["## 结论", ""]
+    if not broken:
+        lines.append(f"这 {len(comparisons)} 行的冻结门在一阶 SO3 下都还成立。碰撞在每一行都是 0。")
+    else:
+        bits = []
+        for item in broken:
+            label = f"{item['milestone']} {_scene_label(item)}"
+            if item.get("fault_tier"):
+                label += f" / {item['fault_tier']}"
+            so3 = item["so3"]
+            pm = item["point_mass"]
+            names = "、".join(item["broken_gates"]) or "见上面的句子"
+            bits.append(
+                f"{label} 破了 {names}：到达 {so3['arrivals']}（点质量 {pm['arrivals']}），"
+                f"碰撞 {so3['collisions']}（点质量 {pm['collisions']}）。"
+            )
+        coll = sum(int(item["so3"]["collisions"]) for item in comparisons)
+        lines.append(
+            f"冻结门破了 {len(broken)} 行，其余 {len(held)} 行仍过。"
+            + "".join(bits)
+            + f"SO3 碰撞合计 {coll}。"
+        )
+    forest = _find(comparisons, "crossing-forest")
+    six = _find(comparisons, "crossing-6-forest")
+    sparse = _find(comparisons, "crossing-6-forest-sparse")
+    g2 = _find(comparisons, "g2-pillar")
+    lines.append(
+        "三机中等林最小净空从 "
+        f"{_fmt_opt(forest['point_mass'].get('min_clearance_m'))} m 到 "
+        f"{_fmt_opt(forest['so3'].get('min_clearance_m'))} m，"
+        "六机中等林从 "
+        f"{_fmt_opt(six['point_mass'].get('min_clearance_m'))} m 到 "
+        f"{_fmt_opt(six['so3'].get('min_clearance_m'))} m。"
+        "这两项在对应卡上只报数，不进冻结门。"
+        "六机稀疏没到齐的那一次碰撞仍是 0；这一档队形 p95 的下沿盖过了这次没走完的轨迹，不能读成队形变好。"
+        "G2 到达时间从 "
+        f"{float(g2['point_mass']['arrival_time_s']['mean']):.3f} s 到 "
+        f"{float(g2['so3']['arrival_time_s']['mean']):.3f} s，"
+        "仍低于 5.0 s 的门。"
+        "这些数只报数，不改默认动力学，也不改已冻门。"
+    )
+    lines.append("")
+    return lines
+
+
 def render_markdown(payload: dict) -> str:
     lines = [
         "# 票 E-SO3b：冻结套件上的一阶 SO3，只报数",
@@ -701,8 +756,9 @@ def render_markdown(payload: dict) -> str:
             lines.append("")
     if held:
         names = "、".join(f"{_scene_label(item)}/{_tier_label(item.get('fault_tier'))}" for item in held)
-        lines.append("")
         lines.append(f"仍然成立的冻结行：{names}。")
+    lines.append("")
+    lines.extend(_conclusion(payload["comparisons"]))
     lines += [
         "",
         "## 分种子",
