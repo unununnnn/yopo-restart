@@ -4,6 +4,8 @@
 
 | 文件名 | 票号 | 标题首行 | report-only / 冻结标记 |
 |---|---|---|---|
+| b1-sitl-lockstep-runs.json | b1 | 票 B1：多机 PX4 SITL 仿真钟锁步（方向 B，只报数） | report-only |
+| b1-sitl-lockstep.md | b1 | 票 B1：多机 PX4 SITL 仿真钟锁步（方向 B，只报数） | report-only |
 | d1-geometric-fallback.md | d1 | 票 D1：提交前的一次性几何回退 | report-only、冻结 |
 | d2-teacher-batch.json | d2 | （无说明字段） | 无 |
 | d2-teacher-data.md | d2 | D2：EGO-Swarm 教师数据 | 冻结 |
