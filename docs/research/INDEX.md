@@ -123,6 +123,8 @@
 | s5b-sitl-formation-verify.md | s5b | 票 S5b：三机编队保持的 PX4 SITL 实飞复验（只报数） | report-only |
 | s6-sitl-upstream-m0-runs.json | s6 | 票 S6：upstream + 影子盾接到单机 PX4 SITL，与 M0 g2-pillar 对照 | report-only |
 | s6-sitl-upstream-m0.md | s6 | 票 S6：upstream + 影子盾接到单机 PX4 SITL，与 M0 g2-pillar 对照（只报数） | report-only |
+| s7-sitl-crossing-switch-runs.json | s7 | 票 S7：三机交叉与变阵 SITL 对照（M3 L1 抽检，只报数） | report-only |
+| s7-sitl-crossing-switch.md | s7 | 票 S7：三机交叉与变阵 SITL 对照（M3 L1 抽检，只报数） | report-only、冻结 |
 | sh1-shadow-env-evidence-runs.json |  | 票 SH1：影子盾环境证据接入与拒绝率归因（只报数） | report-only、冻结 |
 | sh1-shadow-env-evidence.md |  | 票 SH1：影子盾环境证据接入与拒绝率归因（只报数） | report-only、冻结 |
 | v2-clearance-replay.md | v2 | 票 V2：穿林跟踪净空门前后对比回放，只出图 | 冻结 |

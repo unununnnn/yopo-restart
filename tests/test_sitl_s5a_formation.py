@@ -314,7 +314,7 @@ def test_dry_run_lists_formation_without_a_protocol_topic(tmp_path):
     assert default.returncode == 0, default.stderr
     assert "policy=upstream" in default.stdout
     rejected = subprocess.run(
-        ["bash", str(SITL / "run_yopo_l0_sitl.sh"), "--dry-run", "--n", "3", "--policy", "crossing"],
+        ["bash", str(SITL / "run_yopo_l0_sitl.sh"), "--dry-run", "--n", "3", "--policy", "no-such-policy"],  # 票 S7 起 crossing / switch 合法
         capture_output=True,
         text=True,
         check=False,

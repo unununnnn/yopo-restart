@@ -20,7 +20,7 @@ SEED="0"
 DRY=0
 IMAGE_ARG=""
 usage() {
-  echo "用法：$0 [--scene 场景卡] [--n 1|2|3] [--policy upstream|formation] [--positioning default|rtk] [--seed N] [--image 镜像] [--dry-run]"
+  echo "用法：$0 [--scene 场景卡] [--n 1|2|3] [--policy upstream|formation|crossing|switch] [--positioning default|rtk] [--seed N] [--image 镜像] [--dry-run]"
 }
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -59,10 +59,13 @@ if [[ "$POSITIONING" != "default" && "$POSITIONING" != "rtk" ]]; then
   echo "未知 --positioning=$POSITIONING（只要 default 或 rtk）" >&2
   exit 2
 fi
-if [[ "$POLICY" != "upstream" && "$POLICY" != "formation" ]]; then
-  echo "未知 --policy=$POLICY（只要 upstream 或 formation）" >&2
+case "$POLICY" in
+  upstream|formation|crossing|switch) ;;
+  *)
+  echo "未知 --policy=$POLICY（只要 upstream、formation、crossing 或 switch）" >&2
   exit 2
-fi
+  ;;
+esac
 case "$N" in
   1|2|3) ;;
   *) echo "未知 --n=$N（只要 1、2 或 3）" >&2; exit 2 ;;
