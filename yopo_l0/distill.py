@@ -63,6 +63,9 @@ class WindowBatch:
     altitude_shift_m: float = 0.0
     # 0 表示没开起步静止过滤，或开了但一窗都没丢掉。meta 里因此不写这个键。
     n_start_still_dropped: int = 0
+    # 0 表示没开起步结点改写，或开了但没有起步静止窗。meta 里因此不写相关键。
+    n_start_knots_rewritten: int = 0
+    start_knot_speed_mps: float = 0.0
 
     @property
     def n(self) -> int:
@@ -108,11 +111,22 @@ class WindowBatch:
                 "丢掉了起步结点之前、速度低于阈值的窗。"
                 "起步结点是该架速度第一次达到阈值的轨迹样本。"
             )
+        if self.n_start_knots_rewritten:
+            out["n_start_knots_rewritten"] = int(self.n_start_knots_rewritten)
+            out["start_knot_speed_mps"] = float(self.start_knot_speed_mps)
+            out["start_knot_first_disp_m"] = float(self.start_knot_speed_mps) * float(self.horizon_dt_s)
+            out["start_knot_note"] = (
+                "起步静止段的位置、速度结点改写成沿目标方向的匀速短移位，不删窗。"
+                "方向是该窗状态里目标相对位置的单位向量，与 D6c 直线参考相同。"
+                "0.2 s 结点的沿目标位移是 start_knot_speed_mps * horizon_dt_s。"
+            )
         return out
 
 
 # 样本里速度从 0 直接跳过 0.02 与 0.05，几乎同一拍。0.05 低于到点判据 0.2。
 START_STILL_SPEED_MPS = 0.05
+# 与 D6c 直线参考同一巡航速度。默认 0.2 s 结点沿目标位移是 0.266 m。
+START_KNOT_SPEED_MPS = 1.33
 
 
 def startup_motion_index(speed: np.ndarray, speed_mps: float) -> int | None:
@@ -162,6 +176,49 @@ def keep_after_startup_still(
     before = index < onset[drone]
     kept = pairs[~(slow & before)]
     return kept, int(pairs.shape[0] - kept.shape[0])
+
+
+def start_knot_horizon(
+    goal_body: np.ndarray,
+    *,
+    dt_s: float,
+    n_steps: int,
+    speed_mps: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """沿目标方向的匀速位置、速度结点，机体坐标。
+
+    方向是 ``goal_body`` 的单位向量，阈值与 D6c 直线参考相同：模长 ≤ 1e-6 时
+    位置和速度都是 0。第 k 个位置结点在时刻 (k+1)*dt，位移是 ``speed_mps * (k+1)*dt``。
+    """
+    speed_mps = float(speed_mps)
+    if not np.isfinite(speed_mps) or speed_mps <= 0.0:
+        raise DistillError(f"start_knot_speed_mps 必须是正有限数，收到 {speed_mps}")
+    goal = np.asarray(goal_body, dtype=np.float64).reshape(-1)
+    if goal.shape != (3,):
+        raise DistillError(f"goal_body 应为三维，收到 {goal.shape}")
+    dt_s = float(dt_s)
+    n_steps = int(n_steps)
+    if not np.isfinite(dt_s) or dt_s <= 0.0 or n_steps < 1:
+        raise DistillError(f"horizon 非法：dt={dt_s} steps={n_steps}")
+    times = dt_s * np.arange(1, n_steps + 1, dtype=np.float64)
+    pos = np.zeros((n_steps, 3), dtype=np.float64)
+    vel = np.zeros((n_steps, 3), dtype=np.float64)
+    dist = float(np.linalg.norm(goal))
+    if dist > 1e-6:
+        direction = goal / dist
+        pos[:] = direction.reshape(1, 3) * (times * speed_mps).reshape(-1, 1)
+        vel[:] = direction.reshape(1, 3) * speed_mps
+    return pos, vel
+
+
+def _startup_onset(velocity: np.ndarray, speed_mps: float) -> np.ndarray:
+    """每架起步结点下标。始终没达到阈值时写成轨迹长度。"""
+    speed = np.linalg.norm(np.asarray(velocity, dtype=np.float64), axis=2)
+    onset = np.empty(speed.shape[1], dtype=np.int64)
+    for drone in range(speed.shape[1]):
+        node = startup_motion_index(speed[:, drone], speed_mps)
+        onset[drone] = speed.shape[0] if node is None else node
+    return onset
 
 
 def _empty(
@@ -267,6 +324,8 @@ def convert_run(
     altitude_shift_m: float = 0.0,
     drop_start_still: bool = False,
     start_still_speed_mps: float = START_STILL_SPEED_MPS,
+    rewrite_start_knots: bool = False,
+    start_knot_speed_mps: float = START_KNOT_SPEED_MPS,
 ) -> WindowBatch:
     """成功记录 → 窗口。每一架都是一个视点。``metrics.success`` 不是 true 时返回空批次，不渲染。
 
@@ -279,6 +338,13 @@ def convert_run(
     （默认 0.05 m/s），且早于该架速度第一次达到这个阈值的样本。教师样本上这段大约
     1.2–1.6 s，t = 0 的前 1 s 位置结点位移是 0。只砍结点前最后 1 s 会留下 t = 0
     的同一批悬停标签，所以删的是整段起步静止。结点之后再慢下来的窗保留。
+
+    ``rewrite_start_knots`` 默认关。关时不改标签，输出与不传这个参数逐位相同。
+    开时把起步静止段窗口的位置、速度结点改写成沿目标方向的匀速短移位，不删窗。
+    起步段判据与上面相同，速度阈值固定为 ``START_STILL_SPEED_MPS``（0.05 m/s），
+    不跟 ``drop_start_still`` 走。默认速度 ``start_knot_speed_mps`` 是 1.33 m/s，
+    与 D6c 直线参考相同，0.2 s 结点沿目标位移是 0.266 m。已经在动的窗口不改。
+    两个开关都打开时，起步窗先被删掉，改写数为 0。
     """
     cfg = cfg or StudentConfig()
     shift = float(altitude_shift_m)
@@ -377,6 +443,14 @@ def convert_run(
                 n_neighbors=cfg.n_neighbors, n_start_still_dropped=n_start_still_dropped,
             )
     chosen = pairs[_pick(int(pairs.shape[0]), max_windows)]
+    n_start_knots_rewritten = 0
+    knot_speed = 0.0
+    onset = None
+    if rewrite_start_knots:
+        knot_speed = float(start_knot_speed_mps)
+        if not np.isfinite(knot_speed) or knot_speed <= 0.0:
+            raise DistillError(f"start_knot_speed_mps 必须是正有限数，收到 {start_knot_speed_mps}")
+        onset = _startup_onset(velocity, START_STILL_SPEED_MPS)
 
     for d in range(n_drones):
         yaw_d = yaw[:, d]
@@ -420,6 +494,9 @@ def convert_run(
         y_w = _interp_rows(time_s, yaw[:, d], knots)
         p_b = (world_to_body @ (p_w - p0).T).T
         v_b = (world_to_body @ v_w.T).T
+        if onset is not None and i < int(onset[d]):
+            p_b, v_b = start_knot_horizon(state[6:9], dt_s=dt, n_steps=k, speed_mps=knot_speed)
+            n_start_knots_rewritten += 1
         others = [j for j in range(n_drones) if j != d]
         if others:
             feat, mask = pack_neighbor_features(
@@ -468,6 +545,8 @@ def convert_run(
         n_neighbors=n_k,
         altitude_shift_m=shift,
         n_start_still_dropped=n_start_still_dropped,
+        n_start_knots_rewritten=n_start_knots_rewritten,
+        start_knot_speed_mps=knot_speed if n_start_knots_rewritten else 0.0,
     )
 
 
