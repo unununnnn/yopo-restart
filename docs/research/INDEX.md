@@ -141,7 +141,7 @@
 | s7-sitl-crossing-switch.md | s7 | 票 S7：三机交叉与变阵 SITL 对照（M3 L1 抽检，只报数） | report-only、冻结 |
 | sh1-shadow-env-evidence-runs.json |  | 票 SH1：影子盾环境证据接入与拒绝率归因（只报数） | report-only、冻结 |
 | sh1-shadow-env-evidence.md |  | 票 SH1：影子盾环境证据接入与拒绝率归因（只报数） | report-only、冻结 |
-| sh2-sitl-shadow-evidence-runs.json |  | 票 SH2：影子盾 ENV 证据接 SITL 与拒绝码归因。只报数。打开即偏离上游。 | report-only |
+| sh2-sitl-shadow-evidence-runs.json |  | 票 SH2：影子盾 ENV 证据接 SITL 与拒绝码归因。只报数。打开即偏离上游。 票 SH2b：种子 3、4 的 4 趟已用隔离网络重跑结果替换；原趟因默认网桥串话作废。 | report-only |
 | sh2-sitl-shadow-evidence.md |  | 票 SH2：影子盾 ENV 证据接 SITL 与拒绝码归因（只报数） | report-only、冻结 |
 | sh3-contract-codes-runs.json |  | 票 SH3：影子盾契约码误报判定（只报数）。打开 shadow_contract_align 偏离上游。 | report-only |
 | sh3-contract-codes.md |  | 票 SH3：影子盾契约码误报判定（只报数） | report-only、冻结 |
