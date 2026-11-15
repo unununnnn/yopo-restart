@@ -339,6 +339,35 @@ def _read_head_from_odom(params: dict | None) -> float | None:
     return value
 
 
+# 票 B3（默认关）：起步段时间伸缩的档位。1 是原曲线；逐档放慢直到过起步加速度上限。
+_B3_LAUNCH_SCALES = (1.0, 1.15, 1.3, 1.5, 1.75, 2.0)
+
+
+def _read_b3(params: dict | None, a_max: float) -> dict:
+    """policy_params.b3。缺省全关：返回空 dict，不进 task_hash。
+
+    * launch_a_max_mps2 + launch_s：每机第一次规划起 launch_s 秒内，计划加速度上限降到 launch_a_max。
+    * replan_lateral_m：外推里程计与计划头的横向偏差（垂直于计划头速度）超过它时，从里程计起规划。
+    """
+    raw = dict((params or {}).get("b3") or {})
+    out: dict = {}
+    if raw.get("launch_a_max_mps2") is not None:
+        cap = float(raw["launch_a_max_mps2"])
+        span = float(raw.get("launch_s", 2.5))
+        if not (math.isfinite(cap) and 0.0 < cap <= a_max):
+            raise ValueError(f"policy_params.b3.launch_a_max_mps2 要在 (0, {a_max:g}]，收到 {cap!r}")
+        if not (math.isfinite(span) and span > 0.0):
+            raise ValueError(f"policy_params.b3.launch_s 要为正，收到 {span!r}")
+        out["launch_a_max_mps2"] = cap
+        out["launch_s"] = span
+    if raw.get("replan_lateral_m") is not None:
+        thr = float(raw["replan_lateral_m"])
+        if not (math.isfinite(thr) and thr > 0.0):
+            raise ValueError(f"policy_params.b3.replan_lateral_m 要为正，收到 {thr!r}")
+        out["replan_lateral_m"] = thr
+    return out
+
+
 class CrossingFleet:
     """三机各跑各的上游 YOPO。槽位只偏置目标；深度决定绕开哪边。"""
 
@@ -441,6 +470,13 @@ class CrossingFleet:
         self.head_from_odom_count = 0
         if self.head_from_odom_m is not None:
             task_id["b2_head_from_odom_m"] = self.head_from_odom_m
+        # 票 B3：默认关。policy_params.b3 给了才开，开时才进 task_hash。
+        self.b3 = _read_b3(card.get("policy_params"), dynamics_a_max(card.get("dynamics")))
+        self._t_first: dict[str, float] = {}
+        self._launch_limits: KinematicLimits | None = None
+        self.b3_counts = {"launch_plans": 0, "launch_scaled": 0, "launch_uncapped": 0, "replan_lateral": 0}
+        if self.b3:
+            task_id["b3"] = dict(self.b3)
         if self._leader_margin_from_card and self.leader_margin_m != 1.0:
             task_id["leader_margin_m"] = self.leader_margin_m
         if self.leader_prefix_enabled:
@@ -543,7 +579,7 @@ class CrossingFleet:
         进度门控另记一个沿中心的标量。这是协同用的投影，不拿来当计划头。
         """
         self._sense[drone_id] = (frame, float(state.yaw))
-        if self.head_from_odom_m is not None:
+        if self.head_from_odom_m is not None or "replan_lateral_m" in self.b3:
             self._odom[drone_id] = (np.asarray(state.p, dtype=float).copy(), np.asarray(state.v, dtype=float).copy())
         self.note_progress(drone_id, state.p)
 
@@ -831,6 +867,82 @@ class CrossingFleet:
         self.head_from_odom_count += 1
         return out
 
+    def _b3_head(self, drone_id: str, head: np.ndarray, now: float, t_start: float) -> np.ndarray:
+        """票 B3：记每机第一次规划时刻，设本次是否在起步段；需要时换头状态。"""
+        t0 = self._t_first.setdefault(drone_id, float(t_start))
+        self._launch_limits = None
+        if "launch_a_max_mps2" in self.b3 and float(t_start) - t0 < float(self.b3["launch_s"]):
+            lim = self.pcfg.limits
+            self._launch_limits = KinematicLimits(lim.v_max, float(self.b3["launch_a_max_mps2"]), lim.j_max)
+            self.b3_counts["launch_plans"] += 1
+        if "replan_lateral_m" in self.b3:
+            head = self._lateral_odom_head(drone_id, head, now, t_start)
+        return head
+
+    def _lateral_odom_head(self, drone_id: str, head: np.ndarray, now: float, t_start: float) -> np.ndarray:
+        """票 B3（默认关）：只看横向偏差。沿向落后（PX4 的固定滞后）不触发。
+
+        超过阈值时头状态换成里程计外推到 t_start 的位置和速度，加速度清零。打开即偏离上游。
+        """
+        odom = self._odom.get(drone_id)
+        if odom is None:
+            return head
+        p, v = odom
+        pred = p + v * max(0.0, t_start - now)
+        vel = np.asarray(head[1], dtype=float)
+        speed = float(np.linalg.norm(vel[:2]))
+        err = pred - head[0]
+        if speed < 0.5:
+            lateral = float(np.linalg.norm(err[:2]))
+        else:
+            e = vel[:2] / speed
+            lateral = abs(float(err[0] * -e[1] + err[1] * e[0]))
+        if lateral <= float(self.b3["replan_lateral_m"]):
+            return head
+        out = np.array(head, dtype=float, copy=True)
+        out[0] = pred
+        out[1] = v
+        out[2] = np.zeros(3)
+        self.b3_counts["replan_lateral"] += 1
+        return out
+
+    def _launch_minco(self, t_start: float, head: np.ndarray, tail: np.ndarray, inner: np.ndarray, durations):
+        """票 B3（默认关）：起步段把 YOPO 曲线按时间伸缩，直到要飞的那段前缀过起步加速度上限。
+
+        头状态不动（与已提交计划连续），内点和尾点位置不动；时长乘 k，尾速度除 k，尾加速度除 k²。
+        只查提交跨度内的前缀；之后的拟合、停止尾和契约仍按场景 a_max（与关时相同）。
+        所有档都过不了就用原曲线，记一次 launch_uncapped。
+        """
+        raw1 = minco_two_piece(t_start, head, tail, inner, durations)
+        limits = self._launch_limits
+        if limits is None:
+            return raw1
+        for k in _B3_LAUNCH_SCALES:
+            if k == 1.0:
+                raw = raw1
+            else:
+                t2 = np.array(tail, dtype=float, copy=True)
+                t2[1] = t2[1] / k
+                t2[2] = t2[2] / (k * k)
+                try:
+                    raw = minco_two_piece(t_start, head, t2, inner, [float(d) * k for d in durations])
+                except (ValueError, np.linalg.LinAlgError, FloatingPointError):
+                    continue
+            if self._launch_prefix_ok(raw, limits):
+                if k != 1.0:
+                    self.b3_counts["launch_scaled"] += 1
+                return raw
+        self.b3_counts["launch_uncapped"] += 1
+        return raw1
+
+    def _launch_prefix_ok(self, raw: PiecewisePolynomial, limits: KinematicLimits) -> bool:
+        span = min(self._commit_span(), raw.t_end - raw.t_start)
+        try:
+            pre = _prefix(raw, raw.t_start + span)
+        except (ValueError, RuntimeError):
+            return False
+        return check_derivative_bound(pre, 2, float(limits.a_max)).verdict is Verdict.SAFE
+
     def _count(self, drone_id: str, code: str) -> None:
         slot = self._codes[drone_id]
         slot[code] = slot.get(code, 0) + 1
@@ -849,15 +961,18 @@ class CrossingFleet:
 
     def _fit_yopo(self, raw: PiecewisePolynomial) -> PiecewisePolynomial | None:
         """从长到短取过运动学的前缀。系数不变，避障形状还是这条 YOPO 曲线。"""
+        return self._fit_yopo_with(raw, self.pcfg.limits)
+
+    def _fit_yopo_with(self, raw: PiecewisePolynomial, limits: KinematicLimits) -> PiecewisePolynomial | None:
         total = raw.t_end - raw.t_start
         for horizon in (min(self._commit_span(), total), 0.7, 0.45, 0.3):
             if horizon > total + 1e-9 or horizon < 0.2:
                 continue
             try:
-                traj = _append_stop(_prefix(raw, raw.t_start + horizon), self.pcfg.limits)
+                traj = _append_stop(_prefix(raw, raw.t_start + horizon), limits)
             except (ValueError, np.linalg.LinAlgError, FloatingPointError):
                 continue
-            if traj is not None and _kin_ok(traj, self.pcfg.limits):
+            if traj is not None and _kin_ok(traj, limits):
                 return traj
         return None
 
@@ -965,7 +1080,10 @@ class CrossingFleet:
         refined = False
         for index in ranking.order[:6]:
             try:
-                raw = minco_two_piece(t_start, head, tail_w[index], inner_w[index], durations[index])
+                if self._launch_limits is not None and not short:
+                    raw = self._launch_minco(t_start, head, tail_w[index], inner_w[index], durations[index])
+                else:
+                    raw = minco_two_piece(t_start, head, tail_w[index], inner_w[index], durations[index])
             except (ValueError, np.linalg.LinAlgError, FloatingPointError):
                 continue
             traj = self._fit_short(raw) if short else self._fit_yopo(raw)
@@ -1068,6 +1186,8 @@ class CrossingFleet:
         head = np.array(state_at(parent, t_start), dtype=float, copy=True)
         if self.head_from_odom_m is not None:
             head = self._odom_head(node.id, head, float(now), float(t_start))
+        if self.b3:
+            head = self._b3_head(node.id, head, float(now), float(t_start))
         sense = self._sense.get(node.id)
         if sense is None or sense[0] is None:
             self._count(node.id, "NO_DEPTH")
