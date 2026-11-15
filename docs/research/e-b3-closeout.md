@@ -21,3 +21,9 @@ E-B3 实现线正式收口。不再开后续调参票，也不再开在这条椭
 ## 开关保留
 
 现有代码留下，不作为死代码删除。`policy_params.backend.enabled`、`swarm_penalty`、`swarm_segment_penalty` 继续全部默认关。已有场景卡不写这些字段。`tests/test_backend_swarm.py` 的 `test_swarm_off_ignores_neighbors_bitwise` 守住机间开关关闭时，把邻机采样传进 `refine_yopo` 与不传逐位相同。`test_segment_flag_off_matches_control_point_refine` 守住段内开关关掉时与只开 E-B3 逐位相同。`test_existing_scene_cards_leave_swarm_off` 和 `test_existing_scene_cards_leave_segment_penalty_off` 守住已有场景卡和 `suite.txt` 不写这些字段。
+
+## L0-DET 确定性重跑（2026-11-15）
+
+数字来自 [e-b3-swarm-penalty.md](e-b3-swarm-penalty.md) 和 [e-b3c-segment-penalty.md](e-b3c-segment-penalty.md) 文末的重跑，不另开仿真。两张卡、各臂仍是机间碰撞 10/10，到达仍是 0。收口「椭球线没有把对向撞机降下来」没变。
+
+变的是 swap8 上 b3c 的那一个下沿。上文写 seed 5 表上 0.625 m、精确值 0.6247 m，比 b3 的 0.673 m 更低。重跑里 seed 5 是 0.699 m，b3c 下沿 0.677 m，与 b3 下沿相同。采样位置这一缺口仍被排除：碰撞数没有因为改到段内就降下来。
