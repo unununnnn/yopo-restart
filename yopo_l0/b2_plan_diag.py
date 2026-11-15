@@ -179,6 +179,8 @@ class PlanDiag:
         along, lat = _split(odom_p - sp, np.asarray(sv)[:2])
         rows.append({
             "t": round(now, 3),
+            "sp": [float(x) for x in sp],
+            "odom": [float(x) for x in odom_p],
             "sp_clear": self._clear(sp),
             "odom_clear": self._clear(odom_p),
             "err": float(np.linalg.norm(odom_p - sp)),
@@ -226,6 +228,11 @@ class PlanDiag:
             "head_from_odom_count": getattr(self.fleet, "head_from_odom_count", None),
             "options_per_call": _stats([p.get("options") for p in self.plans if p.get("options") is not None]),
             "plans": self.plans,
+            # 每拍逐行（四位小数），给事后估跟踪滞后用。
+            "ticks": {
+                did: [{k: (round(v, 4) if isinstance(v, float) else v) for k, v in r.items()} for r in rows]
+                for did, rows in self.ticks.items()
+            },
         }
 
 
