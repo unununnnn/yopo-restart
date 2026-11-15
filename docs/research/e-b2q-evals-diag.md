@@ -138,3 +138,5 @@ git rev-parse HEAD
 ```bash
 PYTHONPATH=.:core/src .venv/bin/python -m pytest tests -q -n 4 -m "not slow"
 ```
+
+这条命令在合并 main 之后的结果是 858 passed，28 skipped。
