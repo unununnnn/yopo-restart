@@ -28,6 +28,8 @@
 | d6c-diagnosis.md | d6c | D6c：D6b 学生闭环失败归因（只报数） | report-only |
 | d6d-no-start-samples-runs.json | d6d | 票 D6d：样本规模上去掉起步零位移窗的闭环对照 | report-only |
 | d6d-no-start-samples.md | d6d | 票 D6d：去掉起步零位移样本（只报数） | report-only |
+| d6e-start-knot-runs.json | d6e | 票 D6e：起步结点沿目标位移改写的小规模对照 | report-only |
+| d6e-start-knot.md | d6e | 票 D6e：起步结点沿目标位移改写（只报数） | report-only |
 | d7-dagger-runs.json | d7 | 票 D7：学生网络 DAgger 在策略重标注（小规模，只报数） | report-only |
 | d7-dagger.md | d7 | 票 D7：学生网络 DAgger 在策略重标注（只报数） | report-only |
 | e-a1-inter-drone-filter.md | e-a1 | 票 E-A1：机间过滤开关，默认关 | report-only、冻结 |
