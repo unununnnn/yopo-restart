@@ -18,6 +18,7 @@ import threading
 import time
 from pathlib import Path
 
+from yopo_l0.b2_plan_diag import PlanDiag, apply_b2_overrides, fix_deviations, parse_fix
 from yopo_l0.scene import load_card
 from yopo_l0.sitl_bridge import (
     ClockSkewMeter,
@@ -36,6 +37,7 @@ from yopo_l0.sitl_lockstep import (
     REQUEST_TIMEOUT_MS,
     LockstepStepper,
     SimStampSkewMeter,
+    model_name,
     motor_topic,
 )
 
@@ -211,7 +213,30 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=float(os.environ.get("YOPO_AGENT_DELAY_S", "0") or 0.0),
         help="人为延迟：每个代理控制拍（0.02 s 仿真）额外睡这么久墙钟，只用于证明结果与算力无关",
     )
+    # 票 B2：交叉卡规划净空归因。都默认关。
+    ap.add_argument(
+        "--plan-diag",
+        action="store_true",
+        default=_env_flag("YOPO_B2_PLAN_DIAG"),
+        help="只读记录规划输入（跟踪误差、深度帧年龄、计划净空），写进 result.json 的 b2_plan_diag，不改选择",
+    )
+    ap.add_argument(
+        "--safe-radius",
+        type=float,
+        default=_env_float("YOPO_B2_SAFE_RADIUS"),
+        help="在内存里盖过场景卡 policy_params.upstream.safe_radius（缺省 0.05 m，打开即偏离上游）",
+    )
+    ap.add_argument(
+        "--b2-fix",
+        default=os.environ.get("YOPO_B2_FIX", ""),
+        help="修复候选，逗号分隔 key=value；目前 lead=<秒>：设定点提前取（偏离上游）。缺省空 = 全关",
+    )
     return ap.parse_args(argv)
+
+
+def _env_float(name: str) -> float | None:
+    raw = os.environ.get(name, "").strip()
+    return float(raw) if raw else None
 
 
 def _env_flag(name: str) -> bool:
@@ -234,6 +259,16 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     positioning = _positioning(args.positioning)
     card = load_card(_scene_path(args.scene))
+    try:
+        args.b2_fix_cfg = parse_fix(args.b2_fix)
+        card, b2_deviations = apply_b2_overrides(
+            card, safe_radius=args.safe_radius, head_from_odom_m=args.b2_fix_cfg.get("head_from_odom_m")
+        )
+        b2_deviations += fix_deviations(args.b2_fix_cfg)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    args.b2_deviations = b2_deviations
     n = len(card.card["drones"])
     if args.n is not None and int(args.n) != n:
         print(f"--n {args.n} 和场景 {card.name} 的飞机数 {n} 不一致", file=sys.stderr)
@@ -246,6 +281,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         plan = live_topic_plan(card, positioning=positioning, seed=args.seed, policy=policy)
         plan["lockstep"] = lockstep_plan(card, args)
+        plan["b2"] = {"plan_diag": bool(args.plan_diag), "deviations": list(b2_deviations), "fix": dict(args.b2_fix_cfg)}
         _write(args.out, plan)
         return 0
     try:
@@ -321,6 +357,21 @@ class GzWorldPort:  # pragma: no cover - 需要 gz-transport
             self._request(self._WorldControl(pause=False))
 
 
+def _truth_reader(session, truth: dict, lock):  # pragma: no cover - 需要 gz-transport
+    names = {slot.bridge.drone_id: model_name(int(slot.ident["instance"])) for slot in session.slots}
+
+    def read(drone_id: str):
+        with lock:
+            p = truth.get(names.get(drone_id, ""))
+        if p is None:
+            return None
+        import numpy as np
+
+        return np.asarray(p, dtype=float)
+
+    return read
+
+
 def _fill(msg, fields: dict):
     for key, value in fields.items():
         setattr(msg, key, value)
@@ -355,8 +406,22 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
             depth_source="auto",
             initial_phase="WARMUP",
             plan_timeout_s=plan_timeout_s,
+            setpoint_lead_s=float(getattr(args, "b2_fix_cfg", {}).get("setpoint_lead_s", 0.0)),
+            setpoint_gain_p=float(getattr(args, "b2_fix_cfg", {}).get("setpoint_gain_p", 0.0)),
+            setpoint_gain_v=float(getattr(args, "b2_fix_cfg", {}).get("setpoint_gain_v", 0.0)),
         ),
     )
+    truth: dict = {}  # 票 B2：gz 真值位置，记录器建好前先有这个 dict，订阅回调往里写
+    truth_lock = threading.Lock()
+    plan_diag = None
+    if args.plan_diag and session.fleet is not None and hasattr(session.fleet, "ingest"):
+        plan_diag = PlanDiag(
+            session.fleet,
+            card.min_distance,
+            float(card.card["criteria"]["body_radius_m"]),
+            abs_offset=lambda: float(session._plan_origin or 0.0),
+            truth=_truth_reader(session, truth, truth_lock),
+        )
     ports = [int(slot.ident["gcs_port"]) for slot in session.slots]
     stop = threading.Event()
 
@@ -418,6 +483,21 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
                     motor_counts[ns] += 1
 
             gz.subscribe(Actuators, motor_topic(int(slot.ident["instance"])), on_motor)
+
+    if args.plan_diag and gz is not None:
+        # 票 B2：只读。gz 世界系的真值位置，和 PX4 的 EKF 里程计对照，分清是控制没跟上还是估计偏了。
+        try:
+            from gz.msgs10.pose_v_pb2 import Pose_V
+
+            def on_poses(msg) -> None:
+                with truth_lock:
+                    for pose in msg.pose:
+                        if pose.name.startswith("x500_"):
+                            truth[pose.name] = (pose.position.x, pose.position.y, pose.position.z)
+
+            gz.subscribe(Pose_V, f"/world/{args.world}/dynamic_pose/info", on_poses)
+        except Exception:
+            truth.clear()
 
     rclpy.init()
     node = rclpy.create_node("yopo_l0_sitl_live")
@@ -677,6 +757,10 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
     payload["clock_skew"] = skew.summary()
     payload["odom_sim_skew"] = sim_skew.summary()
     payload["agent_delay_s"] = float(args.agent_delay_s)
+    if plan_diag is not None:
+        payload["b2_plan_diag"] = plan_diag.summary()
+    if getattr(args, "b2_deviations", None):
+        payload["b2_deviations"] = list(args.b2_deviations)
     if stepper is not None:
         payload["lockstep"] = stepper.stats.summary()
         payload["lockstep"]["odom_wait_timeouts"] = int(odom_wait_timeouts)

@@ -329,6 +329,16 @@ class _Rail:
         return self.at(self.arc(t, t_go), slot)
 
 
+def _read_head_from_odom(params: dict | None) -> float | None:
+    raw = ((params or {}).get("b2") or {}).get("head_from_odom_m")
+    if raw is None:
+        return None
+    value = float(raw)
+    if not (math.isfinite(value) and value >= 0.0):
+        raise ValueError(f"policy_params.b2.head_from_odom_m 要非负，收到 {raw!r}")
+    return value
+
+
 class CrossingFleet:
     """三机各跑各的上游 YOPO。槽位只偏置目标；深度决定绕开哪边。"""
 
@@ -425,6 +435,12 @@ class CrossingFleet:
             "progress_gate": self.progress_gate,
             "progress_percentile": self.progress_percentile,
         }
+        # 票 B2：默认关。policy_params.b2.head_from_odom_m 给了才开，开时才进 task_hash。
+        self.head_from_odom_m = _read_head_from_odom(card.get("policy_params"))
+        self._odom: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+        self.head_from_odom_count = 0
+        if self.head_from_odom_m is not None:
+            task_id["b2_head_from_odom_m"] = self.head_from_odom_m
         if self._leader_margin_from_card and self.leader_margin_m != 1.0:
             task_id["leader_margin_m"] = self.leader_margin_m
         if self.leader_prefix_enabled:
@@ -527,6 +543,8 @@ class CrossingFleet:
         进度门控另记一个沿中心的标量。这是协同用的投影，不拿来当计划头。
         """
         self._sense[drone_id] = (frame, float(state.yaw))
+        if self.head_from_odom_m is not None:
+            self._odom[drone_id] = (np.asarray(state.p, dtype=float).copy(), np.asarray(state.v, dtype=float).copy())
         self.note_progress(drone_id, state.p)
 
     def note_progress(self, drone_id: str, position: np.ndarray) -> float:
@@ -793,6 +811,26 @@ class CrossingFleet:
             goal[0] = min(float(final[0]), max(float(goal[0]), float(head_p[0]) + 1.0))
         return goal
 
+    def _odom_head(self, drone_id: str, head: np.ndarray, now: float, t_start: float) -> np.ndarray:
+        """票 B2（默认关）：实际位置偏离计划头超过阈值时，从里程计外推到 t_start 起规划。
+
+        外推只用当前位置和速度（匀速）；加速度清零。偏差在阈值内仍用计划头，曲线连续。
+        计划仍走同一套准入、运动学和预留冲突检查。打开即偏离上游。
+        """
+        odom = self._odom.get(drone_id)
+        if odom is None:
+            return head
+        p, v = odom
+        pred = p + v * max(0.0, t_start - now)
+        if float(np.linalg.norm(pred - head[0])) <= float(self.head_from_odom_m):
+            return head
+        out = np.array(head, dtype=float, copy=True)
+        out[0] = pred
+        out[1] = v
+        out[2] = np.zeros(3)
+        self.head_from_odom_count += 1
+        return out
+
     def _count(self, drone_id: str, code: str) -> None:
         slot = self._codes[drone_id]
         slot[code] = slot.get(code, 0) + 1
@@ -1028,6 +1066,8 @@ class CrossingFleet:
             self._score_t = float(t_start)
         parent = node.committed.occupancy.plan
         head = np.array(state_at(parent, t_start), dtype=float, copy=True)
+        if self.head_from_odom_m is not None:
+            head = self._odom_head(node.id, head, float(now), float(t_start))
         sense = self._sense.get(node.id)
         if sense is None or sense[0] is None:
             self._count(node.id, "NO_DEPTH")
