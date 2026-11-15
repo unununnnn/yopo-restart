@@ -138,6 +138,7 @@ def eval_one(spec: dict) -> dict:
     distance = result.get("min_obstacle_distance_m")
     hover = cmp._hover(output.ticks)
     early = [float(np.linalg.norm(r["v"])) for r in output.ticks if float(r["t"]) <= EARLY_S + 1e-9]
+    timing = drone_timing(card, output.ticks)
     row = {
         "arm": spec["arm"], "scene": spec["scene"], "label": spec["label"], "altitude_m": float(spec["altitude_m"]),
         "seed": int(spec["seed"]), "outcome": result.get("outcome"), "reason": result.get("reason"), "kind": kind,
@@ -147,11 +148,42 @@ def eval_one(spec: dict) -> dict:
         "final_goal_error_m": result.get("final_goal_error_m"), "sim_duration_s": result.get("sim_duration_s"),
         "hover_frac": hover["hover_frac"], "n_never_left_hover": hover["n_never_left_hover"],
         "max_speed_mps": hover["max_speed_mps"], "early_max_speed_mps": max(early) if early else None,
-        "worker_s": time.perf_counter() - started, "report_only": True,
+        "worker_s": time.perf_counter() - started, "report_only": True, "drone_timing": timing,
     }
     print(f"{row['arm']} {row['scene']} z={row['altitude_m']} seed={row['seed']} {row['outcome']} "
           f"{row['arrived']}/{row['n_drones']} vmax2s={row['early_max_speed_mps']}", flush=True)
     return row
+
+
+ARRIVE_RADIUS_M = 1.5  # StudentPolicy 的 arrive_radius_m（库默认，r4 评估不改）
+
+
+def drone_timing(card, ticks) -> list[dict]:
+    """D9：逐架首次进入 1.5 m 到达半径、首次进入判据容差的时刻，以及按判据的最长连续保持。只报数。"""
+    crit = card.card["criteria"]
+    gtol, gspeed = float(crit["goal_tolerance_m"]), float(crit["goal_speed_mps"])
+    out = []
+    for d in card.card["drones"]:
+        goal = np.asarray(d["goal_enu"], float)
+        t_r = t_tol = None
+        best = 0.0
+        start = None
+        for r in ticks:
+            if r["uav"] != d["id"]:
+                continue
+            t = float(r["t"])
+            err = float(np.linalg.norm(np.asarray(r["p"], float) - goal))
+            if t_r is None and err <= ARRIVE_RADIUS_M:
+                t_r = t
+            if t_tol is None and err <= gtol:
+                t_tol = t
+            if err <= gtol and float(np.linalg.norm(r["v"])) <= gspeed:
+                start = t if start is None else start
+                best = max(best, t - start)
+            else:
+                start = None
+        out.append({"id": d["id"], "t_arrive_radius_s": t_r, "t_goal_tol_s": t_tol, "longest_hold_s": best})
+    return out
 
 
 def evaluate(arm_tag: str, weights: Path, seeds: dict, jobs: int, extra: dict | None = None) -> dict:
