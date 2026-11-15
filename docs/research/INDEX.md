@@ -30,6 +30,8 @@
 | d6d-no-start-samples.md | d6d | 票 D6d：去掉起步零位移样本（只报数） | report-only |
 | d6e-start-knot-runs.json | d6e | 票 D6e：起步结点沿目标位移改写的小规模对照 | report-only |
 | d6e-start-knot.md | d6e | 票 D6e：起步结点沿目标位移改写（只报数） | report-only |
+| d7-dagger-runs.json | d7 | 票 D7：学生网络 DAgger 在策略重标注（小规模，只报数） | report-only |
+| d7-dagger.md | d7 | 票 D7：学生网络 DAgger 在策略重标注（只报数） | report-only |
 | e-a1-inter-drone-filter.md | e-a1 | 票 E-A1：机间过滤开关，默认关 | report-only、冻结 |
 | e-a2-inter-soft-yield-runs.json | e-a2 | 只报数。report-only。不改默认 inter_drone_soft_yield false、empty_brake false、track_clearance false。四档都打开 E-A1（阈值 1.0 m、惩罚 0）和 empty_brake；geom 两档再打开 track_clearance mode=geom、margin 0.08 m。全部偏离上游。soft_yield 默认关。hard_min_m 0.75 m 高于 0.70 m 机间碰撞球。这是假设，不是论文复现（障碍半径 0.20 m，边长 20.0 m）。未冻结，不进 scenes/suite.txt，不设 gates。 | report-only |
 | e-a2-inter-soft-yield.md | e-a2 | 票 E-A2：机间过滤防死锁软让行，默认关 | report-only、冻结 |
