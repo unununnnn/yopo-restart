@@ -18,7 +18,7 @@ import threading
 import time
 from pathlib import Path
 
-from yopo_l0.b2_plan_diag import PlanDiag, apply_b2_overrides
+from yopo_l0.b2_plan_diag import PlanDiag, apply_b2_overrides, fix_deviations, parse_fix
 from yopo_l0.scene import load_card
 from yopo_l0.sitl_bridge import (
     ClockSkewMeter,
@@ -225,6 +225,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=_env_float("YOPO_B2_SAFE_RADIUS"),
         help="在内存里盖过场景卡 policy_params.upstream.safe_radius（缺省 0.05 m，打开即偏离上游）",
     )
+    ap.add_argument(
+        "--b2-fix",
+        default=os.environ.get("YOPO_B2_FIX", ""),
+        help="修复候选，逗号分隔 key=value；目前 lead=<秒>：设定点提前取（偏离上游）。缺省空 = 全关",
+    )
     return ap.parse_args(argv)
 
 
@@ -255,6 +260,8 @@ def main(argv: list[str] | None = None) -> int:
     card = load_card(_scene_path(args.scene))
     try:
         card, b2_deviations = apply_b2_overrides(card, safe_radius=args.safe_radius)
+        args.b2_fix_cfg = parse_fix(args.b2_fix)
+        b2_deviations += fix_deviations(args.b2_fix_cfg)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2
@@ -271,7 +278,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         plan = live_topic_plan(card, positioning=positioning, seed=args.seed, policy=policy)
         plan["lockstep"] = lockstep_plan(card, args)
-        plan["b2"] = {"plan_diag": bool(args.plan_diag), "deviations": list(b2_deviations)}
+        plan["b2"] = {"plan_diag": bool(args.plan_diag), "deviations": list(b2_deviations), "fix": dict(args.b2_fix_cfg)}
         _write(args.out, plan)
         return 0
     try:
@@ -381,6 +388,7 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
             depth_source="auto",
             initial_phase="WARMUP",
             plan_timeout_s=plan_timeout_s,
+            setpoint_lead_s=float(getattr(args, "b2_fix_cfg", {}).get("setpoint_lead_s", 0.0)),
         ),
     )
     plan_diag = None

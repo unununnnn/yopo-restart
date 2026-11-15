@@ -10,7 +10,7 @@ import pytest
 
 from conftest import ROOT
 from yopo_l0 import crossing
-from yopo_l0.b2_plan_diag import PlanDiag, _split, apply_b2_overrides
+from yopo_l0.b2_plan_diag import PlanDiag, _split, apply_b2_overrides, parse_fix
 from yopo_l0.runner import RunConfig, run
 from yopo_l0.scene import load_card
 
@@ -83,12 +83,20 @@ def test_dry_run_b2_switches_default_off(tmp_path):
     out = tmp_path / "p.json"
     r = _live("--scene", str(CROSS_SITL), "--policy", "crossing", "--dry-run", "--out", str(out))
     assert r.returncode == 0, r.stderr
-    assert json.loads(out.read_text())["b2"] == {"plan_diag": False, "deviations": []}
+    assert json.loads(out.read_text())["b2"] == {"plan_diag": False, "deviations": [], "fix": {}}
     r = _live("--scene", str(CROSS_SITL), "--policy", "crossing", "--dry-run", "--out", str(out),
               env={"YOPO_B2_PLAN_DIAG": "1", "YOPO_B2_SAFE_RADIUS": "0.35"})
     assert r.returncode == 0, r.stderr
     b2 = json.loads(out.read_text())["b2"]
     assert b2["plan_diag"] is True and b2["deviations"] == ["偏离上游：safe_radius=0.35"]
+    r = _live("--scene", str(CROSS_SITL), "--policy", "crossing", "--dry-run", "--out", str(out),
+              env={"YOPO_B2_FIX": "lead=0.1"})
+    b2 = json.loads(out.read_text())["b2"]
+    assert b2["fix"] == {"setpoint_lead_s": 0.1} and b2["deviations"] == ["偏离上游：设定点提前 0.1 s"]
+    assert _live("--scene", str(CROSS_SITL), "--policy", "crossing", "--dry-run", "--out", str(out),
+                 env={"YOPO_B2_FIX": "lead=2"}).returncode == 2
+    assert _live("--scene", str(CROSS_SITL), "--policy", "crossing", "--dry-run", "--out", str(out),
+                 env={"YOPO_B2_FIX": "wat=1"}).returncode == 2
     bad = _live("--scene", str(CROSS_SITL), "--policy", "crossing", "--dry-run", "--out", str(out), "--safe-radius", "-1")
     assert bad.returncode == 2
 
@@ -106,3 +114,52 @@ def test_b2_does_not_touch_px4_parameters():
         assert "param set" not in text and "PX4_PARAM_" not in text
         for prefix in ("COM_", "NAV_", "BAT_"):
             assert f'"{prefix}' not in text and f"'{prefix}" not in text
+
+
+def _fake_inbox(session, positions):
+    from yopo_l0.sitl_bridge import FakePx4Vehicle, VehicleInbox, odometry_message_from_odometry
+
+    out = {}
+    for slot, p in zip(session.slots, positions):
+        vehicle = FakePx4Vehicle(p)
+        out[slot.ident["namespace"]] = VehicleInbox(
+            odometry=odometry_message_from_odometry(vehicle.odometry(), 0), armed=True, offboard=True, landed=False,
+        )
+    return out
+
+
+@pytest.mark.parametrize("lead", [0.0, 0.1])
+def test_setpoint_lead_samples_the_committed_plan_ahead(lead):
+    """lead=0 与改前同一点；lead>0 时设定点是已提交计划在 t+lead 上的位置。计划本身不受影响。"""
+    from yopo_l0.sitl_bridge import LiveFleetConfig, make_live_session
+
+    session = make_live_session(
+        load_card(CROSS_SITL), seed=0, policy="crossing",
+        live=LiveFleetConfig(initial_phase="PLAN", depth_source="scene-card", setpoint_lead_s=lead),
+    )
+    starts = [np.asarray(s.bridge.start_enu, dtype=float) for s in session.slots]
+    checked = 0
+    for k in range(60):
+        cmds = session.step(round(k * 0.02, 10), _fake_inbox(session, starts))
+        t = session._formation_t
+        if t is None:
+            continue
+        for slot, cmd in zip(session.slots, cmds):
+            sampler = slot.formation_sampler
+            if sampler is None or cmd.setpoint is None:
+                continue
+            p = np.asarray(sampler.pva(t + lead)[0]) - np.asarray(slot.offset_enu)
+            ned = np.array([p[1], p[0], -p[2]])
+            assert np.allclose(np.asarray(cmd.setpoint["position"], dtype=float), ned, atol=1e-5)
+            checked += 1
+    assert checked > 50
+
+
+def test_setpoint_lead_is_bounded():
+    from yopo_l0.sitl_bridge import LiveFleetConfig
+
+    with pytest.raises(ValueError):
+        LiveFleetConfig(setpoint_lead_s=0.6)
+    with pytest.raises(ValueError):
+        LiveFleetConfig(setpoint_lead_s=-0.1)
+    assert parse_fix("") == {} and parse_fix("lead=0.12") == {"setpoint_lead_s": 0.12}

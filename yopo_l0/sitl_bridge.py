@@ -1356,9 +1356,14 @@ class LiveFleetConfig:
     settle_vel_mps: float = 0.3
     settle_hold_s: float = 1.0
     shadow: bool = True  # 默认开。只记录会否拒绝，不改批准动作
+    # 票 B2：默认 0（关）。>0 时编队类策略的设定点取已提交计划上 t + lead 的那一点，
+    # 补 PX4 位置环的跟踪滞后。打开即偏离上游。计划、协议和深度都不变。
+    setpoint_lead_s: float = 0.0
 
     def __post_init__(self) -> None:
         self.positioning = normalize_positioning(self.positioning)
+        if not (0.0 <= float(self.setpoint_lead_s) <= 0.5):
+            raise ValueError(f"setpoint_lead_s 要在 [0, 0.5]，收到 {self.setpoint_lead_s}")
         if self.depth_source not in ("auto", "depth", "summary", "scene-card"):
             raise ValueError(f"depth_source 非法：{self.depth_source!r}")
         if self.initial_phase not in ("WARMUP", "PLAN"):
@@ -1623,7 +1628,8 @@ class LiveFleetSession:
             sampler = slot.formation_sampler
             if sampler is None:
                 return None
-            p, v, a = sampler.pva(t)
+            lead = float(self.cfg.setpoint_lead_s)
+            p, v, a = sampler.pva(t + lead if lead > 0.0 else t)
             world = trajectory_setpoint_ned(p, v, a, float(sampler.yaw), now_s)
             return setpoint_to_local(world, slot.offset_enu)
         return None
@@ -1923,7 +1929,8 @@ class LiveFleetSession:
         did = slot.bridge.drone_id
         self.fleet.observe(did, float(t), state["position_enu"])
         sampler = self.fleet.track(did, float(t))
-        p, v, a, yaw = sampler.sample(float(t))
+        lead = float(self.cfg.setpoint_lead_s)
+        p, v, a, yaw = sampler.sample(float(t) + lead if lead > 0.0 else float(t))
         slot.formation_sampler = sampler
         source = "scene-card" if getattr(self.fleet, "ingest", None) is not None else "formation"
         p = np.asarray(p, dtype=float).copy()

@@ -228,6 +228,31 @@ class PlanDiag:
         }
 
 
+def parse_fix(raw: str | None) -> dict:
+    """``YOPO_B2_FIX``：逗号分隔的 ``key=value``。空就是全关。
+
+    目前只有 ``lead=<秒>``：设定点取已提交计划上提前这么久的那一点（见 LiveFleetConfig.setpoint_lead_s）。
+    """
+    out: dict = {}
+    for item in (raw or "").split(","):
+        item = item.strip()
+        if not item:
+            continue
+        key, _, value = item.partition("=")
+        if key == "lead":
+            lead = float(value)
+            if not 0.0 < lead <= 0.5:
+                raise ValueError(f"YOPO_B2_FIX lead 要在 (0, 0.5]，收到 {value!r}")
+            out["setpoint_lead_s"] = lead
+        else:
+            raise ValueError(f"YOPO_B2_FIX 不认识 {key!r}")
+    return out
+
+
+def fix_deviations(fix: dict) -> list[str]:
+    return [f"偏离上游：设定点提前 {fix['setpoint_lead_s']:g} s"] if "setpoint_lead_s" in fix else []
+
+
 def apply_b2_overrides(card, *, safe_radius: float | None = None):
     """在内存里盖过场景卡的研究开关。都缺省时原样返回同一个对象，卡哈希不变。
 
