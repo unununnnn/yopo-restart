@@ -215,3 +215,26 @@ def test_shadow_false_wins_over_evidence_flag():
     )
     assert session.shadow is False
     assert all(slot.shadow is None for slot in session.slots)
+
+
+def test_frame_at_does_not_render_lazy_frames():
+    from yopo_l0.shadow_sitl import _frame_at
+
+    class _Lazy:
+        def __init__(self):
+            self._frame = None
+            self.rendered = False
+            self.K = (1, 1, 1, 1)
+            self._reads = 0
+
+        @property
+        def depth(self):
+            self._reads += 1
+            self._frame = object()
+            self.rendered = True
+            return object()
+
+    lazy = _Lazy()
+    assert _frame_at(lazy, 0.1) is None
+    assert lazy._reads == 0
+    assert lazy.rendered is False

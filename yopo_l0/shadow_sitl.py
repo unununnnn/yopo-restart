@@ -219,8 +219,11 @@ class _StampedFrame:
 def _frame_at(frame, stamp: float):
     if frame is None:
         return None
-    # LazyDepthFrame：已经渲染就用缓存；还没有则按记录的位姿渲染一次。
+    # 只读已经渲染好的帧。不触发 LazyDepthFrame 的首次渲染：
+    # 那会消耗场景卡相机的噪声序列，可能改变后续提案，也就不再是只读了。
     rendered = getattr(frame, "_frame", None)
+    if rendered is None and hasattr(frame, "rendered") and not frame.rendered:
+        return None
     src = rendered if rendered is not None else frame
     try:
         depth = src.depth

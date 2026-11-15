@@ -283,13 +283,20 @@ def cmd_sitl(args) -> int:
                     parts = line.split()
                     run_dir = parts[1]
                     break
-            if proc.returncode != 0 or run_dir is None:
+            src = None if run_dir is None else Path(run_dir) / "result.json"
+            if src is None or not src.is_file():
                 raise RuntimeError(
-                    f"SITL seed {seed} {tag} rc={proc.returncode} run_dir={run_dir}\n"
+                    f"SITL seed {seed} {tag} 没有 result.json rc={proc.returncode} run_dir={run_dir}\n"
                     f"stdout tail:\n{(proc.stdout or '')[-2000:]}\nstderr tail:\n{(proc.stderr or '')[-2000:]}"
                 )
-            src = Path(run_dir) / "result.json"
             result = json.loads(src.read_text())
+            # 任务失败（例如撞障碍）也留下影子直方图。基础设施没写出结果才中止。
+            if proc.returncode != 0:
+                print(
+                    f"note sitl seed {seed} {tag} rc={proc.returncode} "
+                    f"outcome={result.get('outcome')} reason={result.get('reason')}",
+                    flush=True,
+                )
             row = {
                 "layer": "sitl-lockstep",
                 "scene": "crossing-pillars-sitl80",
