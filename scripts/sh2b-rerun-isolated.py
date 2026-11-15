@@ -94,8 +94,11 @@ def write_isolated_launcher() -> Path:
     if old not in src:
         raise SystemExit("run_yopo_l0_sitl.sh 的 docker run 段对不上，拒绝改写")
     src = src.replace(old, new, 1)
-    dest = OPS / "run_yopo_l0_sitl.sh"
-    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest_dir = OPS / "sitl-scripts"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    # 启动脚本用 dirname 去 source common.sh，把官方副本放在一起。
+    shutil.copy2(ROOT / "scripts/sitl/common.sh", dest_dir / "common.sh")
+    dest = dest_dir / "run_yopo_l0_sitl.sh"
     dest.write_text(src)
     dest.chmod(0o755)
     return dest
