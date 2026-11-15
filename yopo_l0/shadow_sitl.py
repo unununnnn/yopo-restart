@@ -72,9 +72,66 @@ def observe(session, slot, now_s: float, state: dict, *, planned: bool) -> None:
     _observe_upstream(session, slot, now_s, state, planned=planned)
 
 
+def family_of(code: str) -> str:
+    raw = str(code)
+    if raw.startswith("ENV:"):
+        return "ENV"
+    if raw.startswith("TIME:"):
+        return "TIME"
+    if raw.startswith("TRANSITION:"):
+        return "TRANSITION"
+    if raw in ("TRACKING_BOUND", "LAG_VIOLATION", "ODOMETRY_AGE_OR_NONFINITE"):
+        return "TRACKING"
+    return "OTHER"
+
+
+def attribution(ticks: list[dict]) -> dict:
+    """按契约码和跟踪码计 tick。一 tick 多码各计一次。不改判据。"""
+    n = len(ticks)
+    hist: dict[str, int] = {}
+    family_ticks = {"ENV": 0, "TIME": 0, "TRANSITION": 0, "TRACKING": 0, "OTHER": 0}
+    reject = env_reject = 0
+    env_only = non_env = 0
+    for tick in ticks:
+        codes = [str(c) for c in (tick.get("reject_codes") or [])]
+        wr = bool(tick.get("would_reject")) or bool(codes)
+        fams: set[str] = set()
+        for code in codes:
+            hist[code] = hist.get(code, 0) + 1
+            fams.add(family_of(code))
+        if wr:
+            reject += 1
+        if "ENV" in fams:
+            env_reject += 1
+        if wr and fams and fams <= {"ENV"}:
+            env_only += 1
+        if wr and (fams - {"ENV"}):
+            non_env += 1
+        for fam in fams:
+            family_ticks[fam] += 1
+    rate = 0.0 if n == 0 else reject / n
+    return {
+        "ticks": n,
+        "would_reject": reject,
+        "would_reject_rate": rate,
+        "env_reject": env_reject,
+        "env_reject_rate": None if n == 0 else env_reject / n,
+        "reject_only_env": env_only,
+        "reject_with_non_env": non_env,
+        # 去掉环境码之后，剩下的码是否仍能把 would_reject 打满。
+        "non_env_covers_would_reject": (reject > 0 and non_env == reject) or reject == 0,
+        "histogram": dict(sorted(hist.items())),
+        "family_ticks": family_ticks,
+        "conditions": {code: CODE_CONDITIONS[code] for code in hist if code in CODE_CONDITIONS},
+    }
+
+
 def annotate_result(session, payload: dict) -> None:
-    """关着不加字段。打开证据开关即偏离上游。"""
+    """关着不加字段。打开证据开关即偏离上游。编队类影子打开时附带拒绝码归因。"""
     cfg = session.cfg
+    research = bool(getattr(cfg, "shadow_env_evidence", False) or getattr(cfg, "fleet_shadow", False))
+    if research and session.shadow:
+        payload["shadow_attribution"] = attribution(session._shadow_ticks)
     if not bool(getattr(cfg, "shadow_env_evidence", False)):
         return
     payload["shadow_env_evidence"] = True
@@ -177,7 +234,9 @@ __all__ = [
     "CODE_CONDITIONS",
     "ENV_RESULT_KEYS",
     "annotate_result",
+    "attribution",
     "bind_slot_shadow",
+    "family_of",
     "observe",
     "scene_obstacles",
     "shadow_enabled",
