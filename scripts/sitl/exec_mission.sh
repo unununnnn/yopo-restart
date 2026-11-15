@@ -12,6 +12,7 @@ if [[ "${YOPO_SITL_PLANNER:-offboard}" == "yopo-l0" ]]; then
       --scene "${YOPO_L0_SCENE:-scenes/g2-pillar.json}" \
       --n "${YOPO_SITL_N:?}" \
       --seed "${YOPO_L0_SEED:-0}" \
+      --policy "${YOPO_L0_POLICY:-upstream}" \
       --wall-timeout "${YOPO_SITL_WALL_TIMEOUT:-900}" \
       --positioning "${YOPO_POSITIONING:-default}"
   rc=$?

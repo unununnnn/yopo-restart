@@ -24,6 +24,10 @@
 | d6b-eval-runs.json | d6b | report-only。本文件只报数。不修改 StudentPolicy 的默认（knots=network、yaw_source=calculate_yaw、accel_source=state、vertical=network），不改场景卡文件，不把 track_clearance 写成库默认（库默认仍是 false）。geom_multi 只写在这次评测的内存场景卡上。学生策略不读 policy_params.upstream.track_clearance，这一臂不改变飞法，用来对照默认没被改写。 | report-only |
 | d6b-eval.md | d6b | 票 D6b-E：D6b 双高度闭环评测结果 | report-only |
 | d6b-pipeline.md | d6b | D6b：1.0 m 与 1.5 m 教师混合转换、训练、双高度评测 | report-only、冻结 |
+| d6c-diagnosis-runs.json | d6c | report-only。小权重是仓库样本上现训的，不是 D6b 的 student.pt。参考轨迹替换的是 predict，StudentPolicy.plan 的接口分支没有改。不修改 StudentPolicy.DEFAULTS，不改场景卡文件。 | report-only |
+| d6c-diagnosis.md | d6c | D6c：D6b 学生闭环失败归因（只报数） | report-only |
+| d6d-no-start-samples-runs.json | d6d | 票 D6d：样本规模上去掉起步零位移窗的闭环对照 | report-only |
+| d6d-no-start-samples.md | d6d | 票 D6d：去掉起步零位移样本（只报数） | report-only |
 | e-a1-inter-drone-filter.md | e-a1 | 票 E-A1：机间过滤开关，默认关 | report-only、冻结 |
 | e-a2-inter-soft-yield-runs.json | e-a2 | 只报数。report-only。不改默认 inter_drone_soft_yield false、empty_brake false、track_clearance false。四档都打开 E-A1（阈值 1.0 m、惩罚 0）和 empty_brake；geom 两档再打开 track_clearance mode=geom、margin 0.08 m。全部偏离上游。soft_yield 默认关。hard_min_m 0.75 m 高于 0.70 m 机间碰撞球。这是假设，不是论文复现（障碍半径 0.20 m，边长 20.0 m）。未冻结，不进 scenes/suite.txt，不设 gates。 | report-only |
 | e-a2-inter-soft-yield.md | e-a2 | 票 E-A2：机间过滤防死锁软让行，默认关 | report-only、冻结 |
@@ -71,26 +75,43 @@
 | e-c7-empty-hover.md | e-c7 | 票 E-C7：六机 014 geom 空走廊悬停与超时归因 | report-only、冻结 |
 | e-c8-escape-replan-runs.json | e-c8 | 只报数。report-only。偏离上游。不改 yopo_l0/、core/、scenes/、docs/tickets.md、README、scripts/premerge.sh、scripts/regress.sh。不改 safe_radius 0.05 m、E-A1 阈值 1.0 m、track_margin 0.08 m、empty_brake 的过滤门槛。脱困只改这一拍送进规划器的临时目标，走廊重开后回到原目标。E-B4c 的 peer_sphere_enabled 默认关；打开即偏离上游。六机 0.14 对向卡只存在于进程内存，不写入 scenes/。这是假设，不是论文复现（障碍半径 0.20 m，边长 20.0 m）。未冻结，不进 scenes/suite.txt，不设 gates，不改已冻门。 | report-only、冻结 |
 | e-c8-escape-replan.md | e-c8 | 票 E-C8：六机 014 连续空走廊悬停脱困重规划 | report-only、冻结 |
+| e-c8b-ablation-runs.json | e-c8b | 只报数。report-only。不改默认 safe_radius 0.05 m、empty_brake false、track_clearance false、peer_sphere_enabled false、inter_drone_filter 关。track_clearance=geom、empty_brake、peer_sphere_enabled、脱困重规划打开即偏离上游。track_margin 0.08 m 是几何门读者的缺省，也是假设，用来盖已观测的 0.058–0.073 m 跟踪差。六机 0.14 对向卡只存在于进程内存，障碍布局来自 scenes/ego-density-014-swap3.json，不写入 scenes/。E-A1 不打开。这是假设，不是论文复现（障碍半径 0.20 m，边长 20.0 m）。未冻结，不进 scenes/suite.txt，不设 gates，不改已冻门。 | report-only、冻结 |
+| e-c8b-ablation.md | e-c8b | 票 E-C8b：六机 014 欧氏球 × 几何门 × 脱困重规划，只报数 | report-only、冻结 |
 | e-combo-a1-d1-b2-runs.json |  | 三机两张卡的规划器 commit 是 616909b；合并 origin/main 之后全关 seed 0 复跑轨迹相同。八机只收 seed 0，跑在合并之后。影子盾开。全关、E-A1、D1 两个进程；E-B2、三个一起、八机单独一个进程。backend_budget_cuts 是后段 0.02 s 墙钟预算把迭代截断的次数。密林上这个计数等于调用次数，seed 0 再跑轨迹会变。 | 无 |
 | e-combo-a1-d1-b2.md |  | E-A1、D1、E-B2 三个开关一起量 | report-only、冻结 |
 | e-combo-six-forest-runs.json |  | 墙钟不参与轨迹，也不进已冻门。backend_budget_cuts 是后段 0.02 s 墙钟预算把迭代截断的次数。整表 report-only。 | report-only、冻结 |
 | e-combo-six-forest.md |  | 六机林带上把 E-A1、D1、E-B2 三个开关一起量 | report-only、冻结 |
 | e-combo-swap8-seeds-runs.json |  | 墙钟不参与轨迹。combo 的 backend_budget_cuts 是后段 0.02 s 墙钟预算把迭代截断的次数。 | 无 |
 | e-combo-swap8-seeds.md |  | 八机开阔对向补跑种子 1–9 | report-only、冻结 |
+| e-d435-depth-noise-runs.json | e-d435 | 只报数。report-only。``d435_depth`` 默认关，场景卡、``scenes/suite.txt``、已冻门都没改。打开即偏离上游：上游权重在真值深度上训练（右目关闭）。无效像素保持 NaN，网络侧用上游 NS inpaint；本表没有用 inpaint 预填，也没有填最大量程。飞点概率 0.3、掠射角阈值 75°、视差噪声相关长度 3 px、丢帧率 0.5%，以及约 21 ms 里 Orin 额外的约 5 ms，置信度低。仿真相机不是 848×480。噪声用该相机的 fx，米制 σ 比原生 D435 大。编队任务不读深度，轨迹不该因这只开关改变；影子盾仍会看着深度图。影子盾只记录 would_reject，不改批准的计划。墙钟不进结论。 | report-only、冻结 |
+| e-d435-depth-noise.md | e-d435 | 票 E-D435：D435 深度噪声与延迟下的 YOPO L0 | report-only、冻结 |
+| e-d435b-native-runs.json | e-d435b | 只报数。report-only。``d435_depth`` 默认关，``profile`` 缺省 ``scene``。场景卡、``scenes/suite.txt``、已冻门都没改。打开即偏离上游：上游权重在真值深度上训练（右目关闭）。``profile=native`` 按原生 D435（848×480，fx≈426 px，B=0.05 m，s=0.08）在视差域加噪，再重采样到场景相机分辨率。无效像素默认仍是 NaN，网络侧走上游 NS inpaint。真值填是对照：空洞像素写成这一帧的真值，网络不再把这些像素当洞。假近点两种填法都留着。飞点概率 0.3、掠射角阈值 75°、相关长度 3 px、丢帧率 0.5%，以及约 21 ms 里 Orin 额外的约 5 ms，置信度低。影子盾只记录 would_reject，不改批准的计划。墙钟不进结论。 | report-only、冻结 |
+| e-d435b-native.md | e-d435b | 票 E-D435b：原生 D435 焦距下的深度噪声 | report-only、冻结 |
 | e-forest-gate-ablation-runs.json |  | 整表 report-only。arm1–arm5 偏离当前场景卡（卡上 progress_gate=false）。margin 只改进程内全局，不写进场景卡。墙钟不进门。 | report-only |
 | e-forest-gate-ablation.md |  | 票 E-PG1：六机林带进度门控的 `_LEADER_MARGIN_M` 与分位数 | report-only、冻结 |
+| e-pg2-forest-gate-switch-runs.json |  | 整表 report-only。open 偏离当前场景卡（卡上 progress_gate=false，没有 leader_margin_m）。余量写在进程内的 task.leader_margin_m，不写回场景卡。墙钟不进门。 | report-only、冻结 |
+| e-pg2-forest-gate-switch.md |  | 票 E-PG2：六机林带进度门控的超前余量做成开关 | report-only、冻结 |
+| e-pg3-leader-prefix-runs.json |  | 票 E-PG3：超前机改走短前缀，只报数 | report-only、冻结 |
+| e-pg3-leader-prefix.md |  | 票 E-PG3：超前机改走短前缀 | report-only、冻结 |
 | e-rerun-det.md |  | 票 E-RERUN：后段研究表的确定性重跑 | report-only、冻结 |
 | e-so3-dynamics-gap-runs.json |  | 只报数。report-only。SO3 两臂是偏离默认动力学（L0 点质量不变）。不改 yopo_l0/ 的默认动力学，不改 core/、scenes/、docs/tickets.md、README.md、scripts/premerge.sh、scripts/regress.sh。规划与策略保持场景卡默认：upstream（柱群和穿林由 CrossingFleet 走上游 YOPO），影子盾开。外环 kp/kd/a_max 与 PointMassLag 相同。τ_att、τ_thrust 和倾角是票面给定的假设，不是本仓库的 SITL 辨识。未冻结，不进 scenes/suite.txt，不设 gates，不改已冻门。 | report-only、冻结 |
 | e-so3-dynamics-gap.md |  | 票 E-SO3：L0 SO3 四旋翼滞后 vs 点质量，只报数 | report-only、冻结 |
+| e-so3b-suite-runs.json |  | 票 E-SO3b：冻结套件上的一阶 SO3，只报数 | report-only、冻结 |
+| e-so3b-suite.md |  | 票 E-SO3b：冻结套件上的一阶 SO3，只报数 | report-only、冻结 |
 | ego-c2-swap3.md |  | 票 E-C2：三机开阔对向（只报数） | report-only、冻结 |
 | ego-swarm-baseline.md |  | EGO-Swarm 外部基线（E-C1） | 无 |
 | ego-swarm-comparison.md |  | yopo-restart 与 EGO-Swarm 对照 | report-only、冻结 |
 | ego-swarm-density.json |  | （无说明字段） | 无 |
+| m4-ros2-matrix-runs.json | m4 | M4-ROS2：formation-6-open 六档 × seeds 0–4 的 ROS 2 矩阵 | report-only、冻结 |
+| m4-ros2-matrix.md | m4 | 票 M4-ROS2：formation-6-open 六档 ROS 2 矩阵（只报数） | report-only、冻结 |
 | m5-a1-closeout-audit.md | m5 | M5-A1：口径 A 第一期收口前置核验 | report-only |
 | p1-inference-speed.md | p1 | P1：YOPO 单次推理耗时 | 冻结 |
 | p1b-sensor-speed.md | p1b | P1b：深度相机求交加速（默认关） | report-only、冻结 |
 | s4-sitl-bridge.md | s4 | 票 S4：YOPO L0 与 PX4 SITL 的 ENU/NED 闭环桥 | report-only |
 | s4b-sitl-live.md | s4b | 票 S4b：YOPO L0 规划桥接进 PX4 / Gazebo 容器 | report-only |
 | s4c-sitl-yopo-image.md | s4c | 票 S4c：SITL 容器内 YOPO L0 运行时分层镜像 | report-only |
+| s5a-sitl-formation.md | s5a | 票 S5a：SITL 实飞入口跑 formation-hold（只报数） | report-only |
+| s6-sitl-upstream-m0-runs.json | s6 | 票 S6：upstream + 影子盾接到单机 PX4 SITL，与 M0 g2-pillar 对照 | report-only |
+| s6-sitl-upstream-m0.md | s6 | 票 S6：upstream + 影子盾接到单机 PX4 SITL，与 M0 g2-pillar 对照（只报数） | report-only |
 | v2-clearance-replay.md | v2 | 票 V2：穿林跟踪净空门前后对比回放，只出图 | 冻结 |
 | v3-sphere-replay.md | v3 | 票 V3：E-B4c 欧氏碰撞球开关对比回放，只出图 | 无 |

@@ -49,6 +49,7 @@ from .policy import (
     track_clearance_wants_neighbors,
 )
 from .scene import SceneCard
+from .depth_noise import D435Rig, d435_from_task
 from .sensor import CameraConfig, DepthCamera
 from .shadow import DroneShadow, aggregate, aggregate_drones, approved_pva, gate_status
 
@@ -70,6 +71,9 @@ class RunConfig:
     safe_radius_m: float | None = None  # None = 场景卡，缺省 0.05 m（上游 d5e1e60）
     # None = 场景卡 geometric_fallback.enabled，缺省关。True/False 盖过场景卡，不改卡哈希。
     geometric_fallback: bool | None = None
+    # None = 场景卡 dynamics.model。True 用 yopo_l0.so3 的一阶 SO3，并标偏离上游。
+    # False 强制点质量。缺省关；关时不导入 so3，动力学仍是 make_model(场景卡)。
+    so3: bool | None = None
 
 
 @dataclass
@@ -141,6 +145,26 @@ def _card_for_run(card_dict: dict, cfg: RunConfig) -> dict:
     return out
 
 
+def _dynamics_for_run(card_dyn: dict, flag: bool | None) -> tuple[dict, bool]:
+    """解析 SO3 开关。关着时返回场景卡原字典，调用方仍走 ``make_model``。"""
+    if flag is not None and not isinstance(flag, bool):
+        raise ValueError("RunConfig.so3 只能是 True、False 或 None")
+    name = card_dyn.get("model")
+    if flag is True:
+        if name == "so3_lag":
+            return card_dyn, True
+        from .so3 import switch_config
+
+        return switch_config(card_dyn), True
+    if flag is False and name == "so3_lag":
+        from .so3 import point_mass_config
+
+        return point_mass_config(card_dyn), False
+    if flag is None and name == "so3_lag":
+        return card_dyn, True
+    return card_dyn, False
+
+
 def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
     if cfg.tier != "L0":
         raise ValueError("本运行器只实现 L0")
@@ -184,8 +208,17 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         gtol, gspeed, ghold = float(crit["goal_tolerance_m"]), float(crit["goal_speed_mps"]), float(crit["goal_hold_s"])
     else:
         tol = float(crit["hover_tolerance_m"])
-    model = make_model(c["dynamics"])
+    dyn_cfg, so3_on = _dynamics_for_run(c["dynamics"], cfg.so3)
+    if so3_on:
+        from .so3 import make_so3
+
+        model = make_so3(dyn_cfg)
+    else:
+        # 关：与加 SO3 之前同一条调用。dyn_cfg 就是场景卡上的那份字典。
+        model = make_model(dyn_cfg)
     cam_cfg = CameraConfig.from_card(c["camera"])
+    # 缺省关。关时不建 D435Rig，也不从相机的 SeedSequence 再 spawn，深度随机流与以前相同。
+    d435_cfg = d435_from_task(tuned.get("task"))
 
     root = np.random.SeedSequence(cfg.seed)
     drones = []
@@ -211,7 +244,12 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
             "id": d["id"],
             "goal": goal,  # goto / formation：目标点；hover：悬停点，默认 = 起点
             "state": State(0.0, start.copy(), np.zeros(3), np.zeros(3), 0.0),
-            "camera": DepthCamera(cam_cfg, card.obstacles, np.random.default_rng(ss)),
+            "camera": DepthCamera(
+                cam_cfg,
+                card.obstacles,
+                np.random.default_rng(ss),
+                d435=D435Rig.from_seed(d435_cfg, ss),
+            ),
             "policy": policy,
             "codes": {}, "goal_since": None, "arrival": None,
             "frame": None, "plan": None, "approved": None,
@@ -430,7 +468,7 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         "tier": cfg.tier,
         "policy": policy_name,
         "shadow": cfg.shadow,
-        "dynamics": c["dynamics"]["model"],
+        "dynamics": dyn_cfg["model"],
         "n_drones": len(drones),
         "outcome": outcome,
         "reason": reason,
@@ -517,6 +555,24 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
     rep = _inter_drone_report(fleet, drones)
     if rep is not None:
         result["inter_drone_filter"] = rep
+
+    if d435_cfg.active:
+        # 打开即偏离上游：上游权重是在真值深度（右目关闭）上训练的。关时不加这几个字段。
+        result["d435_depth"] = d435_cfg.public_dict()
+        result["upstream_deviation"] = True
+
+    if fleet is not None and getattr(fleet, "leader_prefix_enabled", False):
+        # E-PG3：超前机改走短前缀。关时不加字段，结果与改前相同。打开即偏离上游。
+        result["leader_prefix"] = True
+        result["leader_prefix_s"] = float(fleet.leader_prefix_s)
+        result["upstream_deviation"] = True
+
+    if so3_on:
+        # 打开即偏离上游。关时不加 so3 字段，也不改上面已经写好的 upstream_deviation。
+        from .so3 import public_record
+
+        result["so3"] = public_record(dyn_cfg)
+        result["upstream_deviation"] = True
 
     if cfg.policy == "student":
         result["network"] = _student_provenance(drones)

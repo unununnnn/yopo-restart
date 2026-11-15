@@ -16,6 +16,10 @@ CLEARANCE_SKIP，不把这条多项式交出去。这是过滤，不引入 CPLEX
 开阔区关。沿中心投影的进度取 min（progress_percentile 0）或低分位，落后机把时刻表按住；
 超前机只提案悬停，或一条 0.3 s 短前缀。悬停和短前缀的刹车用场景卡 a_max（与 13a 计划契约相同）。
 不换 YOPO，也不引入外部求解器。没有 forest 的柱林默认仍是开环。
+
+票 E-PG3：task.leader_prefix 默认关。关时超前机仍先悬停，悬停接不上才退到 0.3 s。
+打开后超前机先飞 task.leader_prefix_s（缺省仍是 0.3 s）的短前缀，接不上再等待或续接上一份计划。
+打开即偏离上游。不写进场景卡默认值。
 """
 
 from __future__ import annotations
@@ -63,7 +67,7 @@ from .inter_drone import (
     sample_motion,
 )
 from .policy import R_yaw, read_safe_radius, upstream_decoder
-from .progress import read_progress_settings
+from .progress import read_leader_margin_m, read_leader_prefix, read_progress_settings
 from .scene import Box, Cylinder, parse_geometry
 
 # 轨迹采样步长。0.02 s 的弦高按动力学 a_max 计大约几毫米，门按采样到的最小距离判。
@@ -80,6 +84,8 @@ HORIZON_MARGIN_S = 0.25
 _PLAN_V_MAX = 20.0
 _PLAN_J_MAX = 20000.0
 # 超前超过这一截才改提悬停或短前缀。落后机仍走原来的 YOPO。
+# 缺省 1.0。场景卡写了 task.leader_margin_m 就用卡上的值。没写这个字段时，
+# 判断和摘要仍读当前这个常量，缺省飞行与改前相同，消融脚本也能在进程里改它。
 _LEADER_MARGIN_M = 1.0
 _LEADER_PREFIX_S = 0.3
 
@@ -389,34 +395,45 @@ class CrossingFleet:
         self.progress_gate, self.progress_percentile = read_progress_settings(
             task, default_gate=self.in_forest
         )
+        # 与门控同一处读。卡上没写时不进 task_hash，缺省飞行与改前相同。
+        self._leader_margin_from_card = "leader_margin_m" in task
+        self.leader_margin_m = read_leader_margin_m(task, default=_LEADER_MARGIN_M)
+        # E-PG3：默认关。关时不进 task_hash，短前缀时长仍是下面的常量。
+        self.leader_prefix_enabled, self.leader_prefix_s = read_leader_prefix(
+            task, default_s=_LEADER_PREFIX_S
+        )
         # 超前机悬停/短前缀用场景加速度。13a 之后计划契约已经是同一组限幅。
         self.gentle_limits = plan_limits_for_dynamics(card.get("dynamics"))
         self._progress = {did: 0.0 for did in self.members}
         spec = task["virtual_center"]
+        task_id = {
+            "origin": spec["origin_enu"],
+            "length_m": spec["length_m"],
+            "speed_mps": spec["speed_mps"],
+            "slots": {k: v.tolist() for k, v in self.slots.items()},
+            "window_len_s": window,
+            "commit_horizon_s": self.horizon,
+            "lookahead_s": self.lookahead_s,
+            "min_ahead_m": self.min_ahead_m,
+            "lateral_gain": self.lateral_gain,
+            "arrive_radius_m": self.arrive_radius,
+            "safe_radius_m": self.safe_radius_m,
+            "clearance_margin_m": self.clearance_margin_m,
+            "lateral_slack_m": self.lateral_slack_m,
+            "longitudinal_slack_m": self.longitudinal_slack_m,
+            "exit_tighten_m": self.exit_tighten_m,
+            "progress_gate": self.progress_gate,
+            "progress_percentile": self.progress_percentile,
+        }
+        if self._leader_margin_from_card and self.leader_margin_m != 1.0:
+            task_id["leader_margin_m"] = self.leader_margin_m
+        if self.leader_prefix_enabled:
+            task_id["leader_prefix"] = True
+            task_id["leader_prefix_s"] = self.leader_prefix_s
         self.cfg = ProtocolConfig(
             members=self.members,
             window_len=window,
-            task_hash=digest(
-                {
-                    "origin": spec["origin_enu"],
-                    "length_m": spec["length_m"],
-                    "speed_mps": spec["speed_mps"],
-                    "slots": {k: v.tolist() for k, v in self.slots.items()},
-                    "window_len_s": window,
-                    "commit_horizon_s": self.horizon,
-                    "lookahead_s": self.lookahead_s,
-                    "min_ahead_m": self.min_ahead_m,
-                    "lateral_gain": self.lateral_gain,
-                    "arrive_radius_m": self.arrive_radius,
-                    "safe_radius_m": self.safe_radius_m,
-                    "clearance_margin_m": self.clearance_margin_m,
-                    "lateral_slack_m": self.lateral_slack_m,
-                    "longitudinal_slack_m": self.longitudinal_slack_m,
-                    "exit_tighten_m": self.exit_tighten_m,
-                    "progress_gate": self.progress_gate,
-                    "progress_percentile": self.progress_percentile,
-                }
-            ),
+            task_hash=digest(task_id),
             # 冲突跳过是常态，不能三次失败就停飞。
             max_failed_rounds=10000,
             resend_period=None,
@@ -544,7 +561,13 @@ class CrossingFleet:
         s = self._progress.get(drone_id)
         if s is None:
             s = self.rail.along(np.asarray(head_p, dtype=float), self.slots[drone_id])
-        return float(s) > self.gate_s() + _LEADER_MARGIN_M
+        return float(s) > self.gate_s() + self.effective_leader_margin_m()
+
+    def effective_leader_margin_m(self) -> float:
+        """卡上的余量优先。没写字段时跟当前模块缺省走。"""
+        if self._leader_margin_from_card:
+            return self.leader_margin_m
+        return float(_LEADER_MARGIN_M)
 
     def _forest_six(self) -> bool:
         return self.in_forest and len(self.members) >= 6 and bool(self._trees)
@@ -814,8 +837,12 @@ class CrossingFleet:
         return None
 
     def _fit_short(self, raw: PiecewisePolynomial) -> PiecewisePolynomial | None:
-        """超前机的短前缀。尾巴用场景 a_max 停住。"""
-        return self._fit_horizon(raw, _LEADER_PREFIX_S, self.gentle_limits)
+        """超前机的短前缀。尾巴用场景 a_max 停住。
+
+        开关关时时长固定是 _LEADER_PREFIX_S，不读卡上的 leader_prefix_s。
+        """
+        horizon = self.leader_prefix_s if self.leader_prefix_enabled else _LEADER_PREFIX_S
+        return self._fit_horizon(raw, horizon, self.gentle_limits)
 
     def _gentle_hover(self, head: np.ndarray, t_start: float) -> PiecewisePolynomial | None:
         """已经停住就保持。还在走就按场景 a_max 刹停，停点之后由 state_at 保持。"""
@@ -824,7 +851,12 @@ class CrossingFleet:
         return _brake_motion(head, t_start, self.gentle_limits)
 
     def _leader_proposal(self, node: ProtocolNode, t_start: float, head: np.ndarray, goal: np.ndarray, frame, yaw: float):
-        """超前机只提悬停，或一条短前缀。不提交盖住下一轮窗口的长曲线。"""
+        """超前机只提悬停，或一条短前缀。不提交盖住下一轮窗口的长曲线。
+
+        开关关：先悬停，悬停接不上才试短前缀。开关开：先飞一段短前缀，接不上再等待或续接。
+        """
+        if self.leader_prefix_enabled:
+            return self._leader_prefix_first(node, t_start, head, goal, frame, yaw)
         hover = self._gentle_hover(head, t_start)
         if hover is not None and self._clearance_ok(hover):
             occ, _reject = self._as_plan(node, t_start, head, hover)
@@ -843,6 +875,34 @@ class CrossingFleet:
             occ, _reject = self._as_plan(node, t_start, head, motion)
             if occ is not None:
                 self._count(node.id, "LEADER_PREFIX")
+                return occ
+        self._count(node.id, "LEADER_HOLD")
+        return None
+
+    def _leader_prefix_first(self, node: ProtocolNode, t_start: float, head: np.ndarray, goal: np.ndarray, frame, yaw: float):
+        """开关打开：超前机先飞一段短前缀，然后等待或续接。
+
+        前缀接得上就提交，尾巴按场景 a_max 停住，下一扇窗口再续。接不上就悬停（等待）；
+        悬停也进不了预留，就留着上一份计划（续接）。不走盖住下一轮窗口的长曲线。
+        """
+        try:
+            motions, code = self._yopo_options(head, t_start, goal, frame.depth, yaw, short=True)
+        except (ValueError, np.linalg.LinAlgError, FloatingPointError):
+            motions, code = [], "YOPO_FAIL"
+        if code == "CORRIDOR_EMPTY_HOVER":
+            self.empty_solution += 1
+        for motion in motions:
+            if not self._clearance_ok(motion):
+                continue
+            occ, _reject = self._as_plan(node, t_start, head, motion)
+            if occ is not None:
+                self._count(node.id, "LEADER_PREFIX")
+                return occ
+        hover = self._gentle_hover(head, t_start)
+        if hover is not None and self._clearance_ok(hover):
+            occ, _reject = self._as_plan(node, t_start, head, hover)
+            if occ is not None:
+                self._count(node.id, "LEADER_HOVER")
                 return occ
         self._count(node.id, "LEADER_HOLD")
         return None
@@ -982,6 +1042,7 @@ class CrossingFleet:
             self._count(node.id, "ARRIVED_HOLD")
             return None
         # 到了终点槽位仍走原来的停住。没到、又超前于低分位的，只许悬停或短前缀。
+        # leader_prefix 打开时先走短前缀，再等待或续接。
         if self._ahead_of_gate(node.id, head[0]) and float(np.linalg.norm(head[0] - final)) >= self.arrive_radius:
             return self._leader_proposal(node, t_start, head, goal, frame, yaw)
         code = "OK"
@@ -1154,7 +1215,7 @@ class CrossingFleet:
             for key, value in self._codes[did].items():
                 decisions[key] = decisions.get(key, 0) + int(value)
         arr = np.asarray(self.errors, dtype=float)
-        return {
+        out = {
             "error_p95_m": None if arr.size == 0 else float(np.percentile(arr, 95)),
             "error_max_m": None if arr.size == 0 else float(arr.max()),
             "arrival_rate": float(arrived) / float(n_drones),
@@ -1168,7 +1229,7 @@ class CrossingFleet:
             "progress_gate": self.progress_gate,
             "progress_percentile": self.progress_percentile,
             "gate_s_m": self.gate_s() if self.progress_gate else None,
-            "leader_margin_m": _LEADER_MARGIN_M if self.progress_gate else None,
+            "leader_margin_m": self.effective_leader_margin_m() if self.progress_gate else None,
             "lateral_slack_m": self.lateral_slack_m,
             "longitudinal_slack_m": self.longitudinal_slack_m,
             "body_radius_m": self.radius,
@@ -1188,6 +1249,11 @@ class CrossingFleet:
             "committed_plan_hash": hashes,
             "virtual_center": "progress-gated" if self.progress_gate else "straight-rail",
         }
+        # 开关关时不加字段，摘要与改前逐键相同。打开才标出这段前缀。
+        if self.leader_prefix_enabled:
+            out["leader_prefix"] = True
+            out["leader_prefix_s"] = self.leader_prefix_s
+        return out
 
 
 def _crossing_verdict(rows: list[dict]) -> str:

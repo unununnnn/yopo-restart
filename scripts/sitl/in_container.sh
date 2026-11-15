@@ -64,6 +64,14 @@ case "$PLANNER" in
   offboard|yopo-l0) ;;
   *) echo "未知 YOPO_SITL_PLANNER=$PLANNER（只要 offboard 或 yopo-l0）" >&2; exit 2 ;;
 esac
+if [[ "$PLANNER" == "yopo-l0" ]]; then
+  # 只在 YOPO 实飞注入。参数都在 PX4 的 SITL 组，不改 COM_ / NAV_ / BAT_ 安全默认值。
+  # shellcheck disable=SC1091
+  set -a
+  # shellcheck disable=SC1091
+  . /repo/scripts/sitl/sitl-battery.env
+  set +a
+fi
 python3 /repo/scripts/sitl/fleet.py layout --n "$N" --mission "$MISSION_MODE" --format json >/dev/null
 
 run_yopo_l0() {
@@ -74,6 +82,7 @@ run_yopo_l0() {
       --scene "${YOPO_L0_SCENE:-scenes/g2-pillar.json}" \
       --n "$N" \
       --seed "${YOPO_L0_SEED:-0}" \
+      --policy "${YOPO_L0_POLICY:-upstream}" \
       --wall-timeout "${YOPO_SITL_WALL_TIMEOUT:-900}" \
       --positioning "$POSITIONING"
 }
@@ -155,6 +164,16 @@ if [[ "$N" -gt 3 ]]; then
 fi
 
 python3 /repo/scripts/sitl/fleet.py --n "$N" --format shell > "$OUT/layout.txt"
+if [[ "$PLANNER" == "yopo-l0" && "$N" -gt 1 ]]; then
+  # S2 沿 y 轴 0/3/6 m 生成。swap-3-open 的起点在半径 8 m 的圆上，两者不是同一套点。
+  # 实飞以场景卡为准写 PX4_GZ_MODEL_POSE。桥接用同一水平偏置把本地里程计抬到世界系。
+  python3 /repo/scripts/sitl/fleet.py yopo-poses \
+    --scene "${YOPO_L0_SCENE:-scenes/swap-3-open.json}" \
+    --n "$N" \
+    --layout "$OUT/layout.txt" > "$OUT/layout.yopo.txt"
+  mv "$OUT/layout.yopo.txt" "$OUT/layout.txt"
+  echo "yopo scene-card poses: $(grep '^pose=' "$OUT/layout.txt" | tr '\n' ' ')"
+fi
 XRCE_PORT="$(awk -F= '/^xrce_port=/{print $2; exit}' "$OUT/layout.txt")"
 DDS_DOMAIN_ID="$(awk -F= '/^dds_domain_id=/{print $2; exit}' "$OUT/layout.txt")"
 if [[ -z "${XRCE_PORT}" || -z "${DDS_DOMAIN_ID}" ]]; then

@@ -98,3 +98,17 @@ bash -n scripts/sitl/*.sh
 | `bash -n scripts/sitl/*.sh` | 退出码 0 |
 
 `tests/test_sitl_live_bridge.py` 覆盖 ENU↔NED 往返、深度图与障碍摘要、单步设定点和直接 `command` 一致、`px4_1`/`px4_2`/`px4_3` 隔离、`positioning=rtk` 只记结果、目标保持后降落并在上锁后 `DONE`、每机解锁命令的 system id、`g2-pillar` 全长闭环与 S4 假 PX4 对齐、三机 `swap` 前缀、`--fake-px4` 仍是 S4 schema，以及 shell dry-run。没有在本环境里拉起 PX4 / Gazebo 容器。
+
+## S4e 验收口径改为「SITL 与 L0 同卡对齐」（2026-11-14，UTC-3）
+
+`swap-3-open`（三机对穿圆心）在 L0 假动力学、默认上游策略下本来就是 0/15 到达、5/5 机间碰撞（见 `docs/research/e-b4c-sphere-avoid.md`），只有打开欧氏球研究开关才 15/15。所以三机 SITL 不再拿它判成败，只作对照报数。
+
+三机 SITL 验收改用 `scenes/open-3drone-sitl40.json`：与 `open-3drone` 相同的三机平行 6 m 任务，只把 `duration_s` 放到 40 s（任务钟含起飞）。
+
+```
+scripts/sitl/run_yopo_l0_sitl.sh --n 3 --scene scenes/open-3drone-sitl40.json
+```
+
+box 实测（cf3c2a4，镜像 yopo-restart-sitl:yopo-81d084c04186，2026-11-14 01:54 UTC-3）：SUCCESS，GOAL_REACHED_AND_HELD，到达 3/3（任务钟 27.2 / 28.1 / 28.8 s，含起飞），全部降落，最小机间 4.79 m，rtf 0.995。L0 同任务 upstream seeds 0–2：3/3，到达 3.68 s，最小机间 5.0 m。
+
+对照（只报数）：同一提交 `swap-3-open` 0/3 到达，MAX_S 40，三机在中心附近停住，最小机间 1.30 m，与 L0 默认策略的预期一致。

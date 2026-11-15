@@ -25,12 +25,83 @@ from yopo_l0.sitl_bridge import (
     live_topic_plan,
     make_live_session,
     normalize_positioning,
+    outcome_exit_code,
+    resolve_live_policy,
     vehicle_topics,
 )
 
 _REPO = Path(__file__).resolve().parents[2]
 ARMING_STATE_ARMED = 2
 NAV_STATE_OFFBOARD = 14
+# PX4 v1.17 ``COM_OF_LOSS_T`` 默认 1 s。规划一步会堵住主循环，设定点要在这段时间里继续发。
+SETPOINT_PERIOD_S = 0.05
+
+
+class MissionClock:
+    """任务时间从第一次拿到仿真钟开始。
+
+    Gazebo ``/clock`` 是开机以来的绝对时间。PX4 启动先走掉二十多秒，
+    再拿它和场景卡 ``duration_s`` 比较，会话里实际飞不够这个时长。
+    """
+
+    def __init__(self, max_s: float):
+        limit = float(max_s)
+        if not limit > 0.0:
+            raise ValueError(f"max_s 必须为正，收到 {max_s!r}")
+        self.max_s = limit
+        self.origin: float | None = None
+
+    def elapsed(self, t_sim: float) -> float:
+        t = float(t_sim)
+        if self.origin is None:
+            self.origin = t
+        return t - self.origin
+
+    def expired(self, t_sim: float) -> bool:
+        return self.elapsed(t_sim) > self.max_s
+
+
+def hold_setpoint(setpoint: dict | None) -> dict | None:
+    """心跳重发只守位置和航向。速度、加速度前馈清零。
+
+    规划一步常常超过 1 s。若把上一拍的 velocity 按 20 Hz 再发，PX4 会把这口
+    前馈一直积下去，三机都顺着这口速度漂。位置设定点仍是已经转到本地 NED 的那一份。
+    """
+    if setpoint is None:
+        return None
+    held = dict(setpoint)
+    held["velocity"] = [0.0, 0.0, 0.0]
+    held["acceleration"] = [0.0, 0.0, 0.0]
+    return held
+
+
+def streamed_setpoint(command, tracked: dict | None = None) -> tuple[dict | None, dict | None]:
+    """心跳发什么。
+
+    PLAN 阶段 ``tracked`` 是轨迹在当前仿真钟上的设定点，速度和加速度保留。
+    这口速度属于这一时刻，不是把 1 s 前的前馈再积一遍。
+    没有轨迹时，以及其他阶段，仍只守位置和航向。
+    """
+    if not getattr(command, "heartbeat", False):
+        return None, None
+    if tracked is None:
+        return offboard_stream(command)
+    mode = command.offboard
+    stamp = tracked.get("timestamp")
+    if mode is not None and stamp is not None:
+        mode = dict(mode)
+        mode["timestamp"] = stamp
+    return mode, tracked
+
+
+def offboard_stream(command) -> tuple[dict | None, dict | None]:
+    """持续心跳只带 OffboardControlMode 和位置保持设定点。
+
+    解锁、降落这类 VehicleCommand 不在这里重复发。设定点已是本地 NED，这里不再做坐标变换。
+    """
+    if not getattr(command, "heartbeat", False):
+        return None, None
+    return command.offboard, hold_setpoint(command.setpoint)
 
 
 class PreflightLatch:
@@ -75,6 +146,7 @@ class PreflightLatch:
         return False
 
 
+
 def _scene_path(raw: str) -> Path:
     path = Path(raw)
     if path.is_file():
@@ -102,6 +174,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap.add_argument("--wall-timeout", type=float, default=900.0)
     ap.add_argument("--max-s", type=float, default=None, help="仿真时间上限，默认用场景卡 duration_s")
     ap.add_argument("--positioning", choices=("default", "rtk"), default=None)
+    ap.add_argument(
+        "--policy",
+        choices=("upstream", "formation"),
+        default="upstream",
+        help="upstream 走 YOPO。formation 只用于编队卡，机间消息留在进程内总线",
+    )
     ap.add_argument("--world", default="default")
     ap.add_argument("--preflight-timeout", type=float, default=240.0)
     ap.add_argument("--dry-run", action="store_true", help="只写话题和定位模式，不连 ROS")
@@ -125,11 +203,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.n is not None and int(args.n) != n:
         print(f"--n {args.n} 和场景 {card.name} 的飞机数 {n} 不一致", file=sys.stderr)
         return 2
+    try:
+        policy = resolve_live_policy(card, args.policy)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     if args.dry_run:
-        _write(args.out, live_topic_plan(card, positioning=positioning, seed=args.seed))
+        _write(args.out, live_topic_plan(card, positioning=positioning, seed=args.seed, policy=policy))
         return 0
     try:
-        return _run_ros(args, card, positioning)
+        return _run_ros(args, card, positioning, policy)
     except ModuleNotFoundError as exc:
         missing = exc.name or "依赖"
         print(f"实飞入口停住：当前解释器没有 {missing}。不写飞控参数。", file=sys.stderr)
@@ -142,7 +225,7 @@ def _fill(msg, fields: dict):
     return msg
 
 
-def _run_ros(args, card, positioning: str) -> int:  # pragma: no cover - 需要 rclpy / px4_msgs
+def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no cover - 需要 rclpy / px4_msgs
     import rclpy
     from px4_msgs.msg import (
         OffboardControlMode,
@@ -158,10 +241,18 @@ def _run_ros(args, card, positioning: str) -> int:  # pragma: no cover - 需要 
 
     task = card.card.get("task") or {}
     max_s = float(args.max_s) if args.max_s is not None else float(task.get("duration_s", 45.0))
+    # 编队飞行大约 20 s。45 s 的缺省 PLAN 超时留给上游。编队放宽到 60 s，仍不含起飞。
+    plan_timeout_s = 60.0 if policy == "formation" else 45.0
     session = make_live_session(
         card,
         seed=args.seed,
-        live=LiveFleetConfig(positioning=positioning, depth_source="auto", initial_phase="WARMUP"),
+        policy=policy,
+        live=LiveFleetConfig(
+            positioning=positioning,
+            depth_source="auto",
+            initial_phase="WARMUP",
+            plan_timeout_s=plan_timeout_s,
+        ),
     )
     ports = [int(slot.ident["gcs_port"]) for slot in session.slots]
     stop = threading.Event()
@@ -255,10 +346,38 @@ def _run_ros(args, card, positioning: str) -> int:  # pragma: no cover - 需要 
         )
 
     wall0 = time.monotonic()
-    last_step = None
+    last_elapsed = None
     physics_dt = float(session.slots[0].bridge.cfg.physics_dt)
     failure = ""
     preflight = PreflightLatch(args.preflight_timeout)
+    clock = MissionClock(max_s)
+    streamed = {"commands": []}
+    stream_lock = threading.Lock()
+
+    def publish_stream() -> None:
+        # 规划（场景卡相机 + 网络）会占住主循环超过 COM_OF_LOSS_T。
+        # PLAN 阶段按仿真钟沿当前轨迹往前采样，速度是这一时刻的前馈。
+        # 其他阶段只重复位置和航向。解锁、降落不在这里重发。
+        while not stop.is_set():
+            with lock:
+                t_sim = sim["t"]
+            origin = clock.origin
+            elapsed = None if t_sim is None or origin is None else float(t_sim) - float(origin)
+            with stream_lock:
+                commands = list(streamed["commands"])
+            for command in commands:
+                tracked = None
+                if elapsed is not None and getattr(command, "phase", "") == "PLAN":
+                    tracked = session.stream_local_setpoint(command.namespace, elapsed)
+                mode, setpoint = streamed_setpoint(command, tracked)
+                pub = pubs[command.namespace]
+                if mode is not None:
+                    pub["ocm"].publish(_fill(OffboardControlMode(), mode))
+                if setpoint is not None:
+                    pub["sp"].publish(_fill(TrajectorySetpoint(), setpoint))
+            stop.wait(SETPOINT_PERIOD_S)
+
+    threading.Thread(target=publish_stream, daemon=True).start()
     try:
         while True:
             rclpy.spin_once(node, timeout_sec=0.02)
@@ -278,32 +397,33 @@ def _run_ros(args, card, positioning: str) -> int:  # pragma: no cover - 需要 
             if t_sim is None:
                 present = next((box for box in boxes.values() if box is not None), None)
                 if present is None:
-                    if last_step is None:
+                    if last_elapsed is None:
                         time.sleep(0.02)
                         continue
-                    t_sim = last_step
+                    elapsed = last_elapsed
                 else:
-                    t_sim = float(present.odometry.timestamp) * 1e-6
-            if t_sim > max_s and session.result()["outcome"] == "RUNNING":
+                    elapsed = clock.elapsed(float(present.odometry.timestamp) * 1e-6)
+            else:
+                elapsed = clock.elapsed(float(t_sim))
+            if elapsed > max_s and session.result()["outcome"] == "RUNNING":
                 failure = f"MAX_S {max_s}"
                 break
-            fresh = last_step is None or float(t_sim) + 1e-9 >= float(last_step) + physics_dt
+            fresh = last_elapsed is None or float(elapsed) + 1e-9 >= float(last_elapsed) + physics_dt
             if fresh:
-                commands = session.step(float(t_sim), boxes)
-                last_step = float(t_sim)
+                commands = session.step(float(elapsed), boxes)
+                last_elapsed = float(elapsed)
             else:
                 # 仿真时钟还没走到下一拍时，只重复上一拍的心跳和设定点，避免把解锁/降落再发一遍。
-                commands = session.step(float(last_step), boxes)
+                commands = session.step(float(last_elapsed), boxes)
+            with stream_lock:
+                streamed["commands"] = list(commands)
             for command in commands:
-                pub = pubs[command.namespace]
-                if command.heartbeat and command.offboard is not None:
-                    pub["ocm"].publish(_fill(OffboardControlMode(), command.offboard))
-                if command.setpoint is not None:
-                    pub["sp"].publish(_fill(TrajectorySetpoint(), command.setpoint))
                 if fresh:
+                    pub = pubs[command.namespace]
                     for fields in command.vehicle_commands:
                         pub["cmd"].publish(_fill(VehicleCommand(), fields))
-            if session.result()["ok"]:
+            snapshot = session.result()
+            if snapshot["ok"] or snapshot.get("terminal"):
                 break
             time.sleep(0.02)
     finally:
@@ -318,8 +438,9 @@ def _run_ros(args, card, positioning: str) -> int:  # pragma: no cover - 需要 
         payload["reason"] = failure
         payload["ok"] = False
     payload["positioning"] = positioning
+    payload["mission_t0_s"] = clock.origin
     _write(args.out, payload)
-    return 0 if payload["ok"] else 1
+    return outcome_exit_code(payload)
 
 
 if __name__ == "__main__":

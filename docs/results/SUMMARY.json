@@ -1,41 +1,40 @@
 {
   "schema": "yopo-restart/results-summary/1",
   "adr": "0016",
-  "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+  "commit": "5524cab42584ea54df54bbf38fc77e26117066dd",
   "commits": [
-    "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+    "5524cab42584ea54df54bbf38fc77e26117066dd"
   ],
   "sources": [
     "out/m5/core/results.json",
     "out/m5/m2-forest/results.json",
     "out/m5/m4-open/results.json",
-    "out/m5/m4-forest/（16 个 seed 的 result.json）",
-    "out/m5/m4-forest-sparse-rest/results.json"
+    "out/m5/m4-forest/results.json"
   ],
   "reproduce": [
-    "git checkout f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+    "git checkout 5524cab42584ea54df54bbf38fc77e26117066dd",
     "make venv",
-    ".venv/bin/python -m yopo_l0.batch scenes/g2-pillar.json@upstream scenes/formation-hold.json@formation scenes/crossing-pillars.json@crossing scenes/formation-switch.json@switch --jobs 8 --out out/m5/core",
+    ".venv/bin/python -m yopo_l0.batch scenes/g2-pillar.json@upstream scenes/formation-hold.json@formation scenes/crossing-pillars.json@crossing scenes/formation-switch.json@switch --jobs 4 --out out/m5/core",
     ".venv/bin/python -m yopo_l0.batch scenes/crossing-forest.json@crossing --jobs 4 --out out/m5/m2-forest",
     ".venv/bin/python -m yopo_l0.batch scenes/formation-6-open.json@formation --form inprocess --tiers scenes/formation-6-tiers.json --jobs 4 --out out/m5/m4-open",
     ".venv/bin/python -m yopo_l0.batch scenes/crossing-6-forest.json@crossing scenes/crossing-6-forest-sparse.json@crossing --jobs 4 --out out/m5/m4-forest",
     ".venv/bin/python -m yopo_l0.summary out/m5/core/results.json out/m5/m2-forest/results.json out/m5/m4-open/results.json out/m5/m4-forest --md docs/results/SUMMARY.md --json docs/results/SUMMARY.json"
   ],
-  "generated_at": "2026-11-10 23:30",
+  "generated_at": "2026-11-14 10:05",
   "rows": [
     {
       "milestone": "M0",
       "scene": "g2-pillar",
-      "scene_path": "/tmp/wt-t12b/scenes/g2-pillar.json",
+      "scene_path": "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/scenes/g2-pillar.json",
       "policy": "upstream",
       "tier": "L0",
       "form": "inprocess",
       "fault_tier": null,
       "forest_density": null,
       "shadow": true,
-      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commit": "5524cab42584ea54df54bbf38fc77e26117066dd",
       "commits": [
-        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+        "5524cab42584ea54df54bbf38fc77e26117066dd"
       ],
       "scene_card_hash": "9d385f4cfce543922961865d06ceeedd44afdddb52c706bf6e3da9929431d8ae",
       "scene_card_hashes": [
@@ -74,12 +73,17 @@
         "mean": 4.271
       },
       "wall_time_s": {
-        "min": 15.854169171012472,
-        "max": 19.899821803031955,
-        "mean": 18.104601514409296
+        "min": 19.817297257002792,
+        "max": 25.923012946994277,
+        "mean": 22.911071885099226
+      },
+      "plan_wall_ms": {
+        "min": 24.186115988413803,
+        "max": 42.36787599802483,
+        "mean": 32.59503829758614
       },
       "sources": [
-        "/tmp/wt-t12-runs/out/m5/core/results.json"
+        "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/out/m5/core/results.json"
       ],
       "frozen": true,
       "gates": {
@@ -98,16 +102,16 @@
     {
       "milestone": "M1",
       "scene": "formation-hold",
-      "scene_path": "/tmp/wt-t12b/scenes/formation-hold.json",
+      "scene_path": "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/scenes/formation-hold.json",
       "policy": "formation",
       "tier": "L0",
       "form": "inprocess",
       "fault_tier": null,
       "forest_density": null,
       "shadow": true,
-      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commit": "5524cab42584ea54df54bbf38fc77e26117066dd",
       "commits": [
-        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+        "5524cab42584ea54df54bbf38fc77e26117066dd"
       ],
       "scene_card_hash": "1b1894f5864a2f5f5fb0e06b7d44ec490acf8d012957829f0f599e19951c365e",
       "scene_card_hashes": [
@@ -143,12 +147,13 @@
         "mean": 18.63
       },
       "wall_time_s": {
-        "min": 6.0356058980105445,
-        "max": 6.656023498973809,
-        "mean": 6.43191767433503
+        "min": 5.529474492999725,
+        "max": 9.608332982010324,
+        "mean": 6.960855655333337
       },
+      "plan_wall_ms": null,
       "sources": [
-        "/tmp/wt-t12-runs/out/m5/core/results.json"
+        "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/out/m5/core/results.json"
       ],
       "frozen": true,
       "gates": {
@@ -170,16 +175,16 @@
     {
       "milestone": "M2",
       "scene": "crossing-pillars",
-      "scene_path": "/tmp/wt-t12b/scenes/crossing-pillars.json",
+      "scene_path": "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/scenes/crossing-pillars.json",
       "policy": "crossing",
       "tier": "L0",
       "form": "inprocess",
       "fault_tier": null,
       "forest_density": null,
       "shadow": true,
-      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commit": "5524cab42584ea54df54bbf38fc77e26117066dd",
       "commits": [
-        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+        "5524cab42584ea54df54bbf38fc77e26117066dd"
       ],
       "scene_card_hash": "1d39afbd780740b9e925569a70b27b670d73184d9b487d3adb2473fdf1ed279e",
       "scene_card_hashes": [
@@ -222,12 +227,17 @@
         "mean": 7.2700000000000005
       },
       "wall_time_s": {
-        "min": 20.003564664977603,
-        "max": 22.27335670305183,
-        "mean": 20.950924672401744
+        "min": 18.23135900699708,
+        "max": 19.82736687301076,
+        "mean": 18.78297573949967
+      },
+      "plan_wall_ms": {
+        "min": 12.75753270019777,
+        "max": 18.33695849491047,
+        "mean": 14.730067476120885
       },
       "sources": [
-        "/tmp/wt-t12-runs/out/m5/core/results.json"
+        "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/out/m5/core/results.json"
       ],
       "frozen": true,
       "gates": {
@@ -250,16 +260,16 @@
     {
       "milestone": "M2",
       "scene": "crossing-forest",
-      "scene_path": "/tmp/wt-t12b/scenes/crossing-forest.json",
+      "scene_path": "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/scenes/crossing-forest.json",
       "policy": "crossing",
       "tier": "L0",
       "form": "inprocess",
       "fault_tier": null,
       "forest_density": "medium",
       "shadow": true,
-      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commit": "5524cab42584ea54df54bbf38fc77e26117066dd",
       "commits": [
-        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+        "5524cab42584ea54df54bbf38fc77e26117066dd"
       ],
       "scene_card_hash": "e66b39061158c23e4c8e8c3fd53bae40c799b3dabef6ef32dad0b94eb265fa0c",
       "scene_card_hashes": [
@@ -302,12 +312,17 @@
         "mean": 23.235
       },
       "wall_time_s": {
-        "min": 86.20457049005199,
-        "max": 99.0243669639458,
-        "mean": 94.31104366139625
+        "min": 97.3113234279881,
+        "max": 140.71912982901267,
+        "mean": 122.16346976379864
+      },
+      "plan_wall_ms": {
+        "min": 14.5045152909006,
+        "max": 34.47548125041067,
+        "mean": 26.166753052311833
       },
       "sources": [
-        "/tmp/wt-t12-runs/out/m5/m2-forest/results.json"
+        "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/out/m5/m2-forest/results.json"
       ],
       "frozen": true,
       "gates": {
@@ -329,16 +344,16 @@
     {
       "milestone": "M3",
       "scene": "formation-switch",
-      "scene_path": "/tmp/wt-t12b/scenes/formation-switch.json",
+      "scene_path": "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/scenes/formation-switch.json",
       "policy": "switch",
       "tier": "L0",
       "form": "inprocess",
       "fault_tier": null,
       "forest_density": null,
       "shadow": true,
-      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commit": "5524cab42584ea54df54bbf38fc77e26117066dd",
       "commits": [
-        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+        "5524cab42584ea54df54bbf38fc77e26117066dd"
       ],
       "scene_card_hash": "4bff8a51c881f676cc9ce8c83290d43354b861fd911acabb51acba55a0ec7ae3",
       "scene_card_hashes": [
@@ -389,12 +404,13 @@
         "mean": 27.0
       },
       "wall_time_s": {
-        "min": 11.93075309501728,
-        "max": 13.565532109991182,
-        "mean": 12.96684350480209
+        "min": 11.598703616997227,
+        "max": 12.211601012997562,
+        "mean": 11.86299698289804
       },
+      "plan_wall_ms": null,
       "sources": [
-        "/tmp/wt-t12-runs/out/m5/core/results.json"
+        "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/out/m5/core/results.json"
       ],
       "frozen": true,
       "gates": {
@@ -422,16 +438,16 @@
     {
       "milestone": "M4",
       "scene": "formation-6-open",
-      "scene_path": "/tmp/wt-t12b/scenes/formation-6-open.json",
+      "scene_path": "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/scenes/formation-6-open.json",
       "policy": "formation",
       "tier": "L0",
       "form": "inprocess",
       "fault_tier": "none",
       "forest_density": null,
       "shadow": true,
-      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commit": "5524cab42584ea54df54bbf38fc77e26117066dd",
       "commits": [
-        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+        "5524cab42584ea54df54bbf38fc77e26117066dd"
       ],
       "scene_card_hash": "a803d8021c7774b3915c4b4f7c574b03ed73de67e3d7cb5ac1880cf0c9cca95d",
       "scene_card_hashes": [
@@ -469,12 +485,13 @@
         "mean": 20.13
       },
       "wall_time_s": {
-        "min": 10.549336131021846,
-        "max": 13.79408326401608,
-        "mean": 12.87783283800818
+        "min": 10.069181657992885,
+        "max": 13.192316040003789,
+        "mean": 12.3923880226037
       },
+      "plan_wall_ms": null,
       "sources": [
-        "/tmp/wt-t12-runs/out/m5/m4-open/results.json"
+        "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/out/m5/m4-open/results.json"
       ],
       "frozen": true,
       "gates": {
@@ -496,16 +513,16 @@
     {
       "milestone": "M4",
       "scene": "formation-6-open",
-      "scene_path": "/tmp/wt-t12b/scenes/formation-6-open.json",
+      "scene_path": "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/scenes/formation-6-open.json",
       "policy": "formation",
       "tier": "L0",
       "form": "inprocess",
       "fault_tier": "drop-5",
       "forest_density": null,
       "shadow": true,
-      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commit": "5524cab42584ea54df54bbf38fc77e26117066dd",
       "commits": [
-        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+        "5524cab42584ea54df54bbf38fc77e26117066dd"
       ],
       "scene_card_hash": "a803d8021c7774b3915c4b4f7c574b03ed73de67e3d7cb5ac1880cf0c9cca95d",
       "scene_card_hashes": [
@@ -543,12 +560,13 @@
         "mean": 20.13
       },
       "wall_time_s": {
-        "min": 11.074601376021747,
-        "max": 11.965780580008868,
-        "mean": 11.452074536017609
+        "min": 10.589162242991733,
+        "max": 11.40398119900783,
+        "mean": 10.952640648002852
       },
+      "plan_wall_ms": null,
       "sources": [
-        "/tmp/wt-t12-runs/out/m5/m4-open/results.json"
+        "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/out/m5/m4-open/results.json"
       ],
       "frozen": true,
       "gates": {
@@ -570,16 +588,16 @@
     {
       "milestone": "M4",
       "scene": "formation-6-open",
-      "scene_path": "/tmp/wt-t12b/scenes/formation-6-open.json",
+      "scene_path": "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/scenes/formation-6-open.json",
       "policy": "formation",
       "tier": "L0",
       "form": "inprocess",
       "fault_tier": "drop-20",
       "forest_density": null,
       "shadow": true,
-      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commit": "5524cab42584ea54df54bbf38fc77e26117066dd",
       "commits": [
-        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+        "5524cab42584ea54df54bbf38fc77e26117066dd"
       ],
       "scene_card_hash": "a803d8021c7774b3915c4b4f7c574b03ed73de67e3d7cb5ac1880cf0c9cca95d",
       "scene_card_hashes": [
@@ -617,12 +635,13 @@
         "mean": 20.13
       },
       "wall_time_s": {
-        "min": 11.960860045976005,
-        "max": 13.253861534991302,
-        "mean": 12.568714367586654
+        "min": 10.758322781999595,
+        "max": 12.641494651004905,
+        "mean": 11.9546015474014
       },
+      "plan_wall_ms": null,
       "sources": [
-        "/tmp/wt-t12-runs/out/m5/m4-open/results.json"
+        "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/out/m5/m4-open/results.json"
       ],
       "frozen": true,
       "gates": {
@@ -644,16 +663,16 @@
     {
       "milestone": "M4",
       "scene": "formation-6-open",
-      "scene_path": "/tmp/wt-t12b/scenes/formation-6-open.json",
+      "scene_path": "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/scenes/formation-6-open.json",
       "policy": "formation",
       "tier": "L0",
       "form": "inprocess",
       "fault_tier": "duplicate-10",
       "forest_density": null,
       "shadow": true,
-      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commit": "5524cab42584ea54df54bbf38fc77e26117066dd",
       "commits": [
-        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+        "5524cab42584ea54df54bbf38fc77e26117066dd"
       ],
       "scene_card_hash": "a803d8021c7774b3915c4b4f7c574b03ed73de67e3d7cb5ac1880cf0c9cca95d",
       "scene_card_hashes": [
@@ -691,12 +710,13 @@
         "mean": 20.13
       },
       "wall_time_s": {
-        "min": 10.533314134983812,
-        "max": 10.878343518008478,
-        "mean": 10.736866112996358
+        "min": 10.266716369995265,
+        "max": 10.969987040996784,
+        "mean": 10.559122285197372
       },
+      "plan_wall_ms": null,
       "sources": [
-        "/tmp/wt-t12-runs/out/m5/m4-open/results.json"
+        "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/out/m5/m4-open/results.json"
       ],
       "frozen": true,
       "gates": {
@@ -718,16 +738,16 @@
     {
       "milestone": "M4",
       "scene": "formation-6-open",
-      "scene_path": "/tmp/wt-t12b/scenes/formation-6-open.json",
+      "scene_path": "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/scenes/formation-6-open.json",
       "policy": "formation",
       "tier": "L0",
       "form": "inprocess",
       "fault_tier": "reorder-delay",
       "forest_density": null,
       "shadow": true,
-      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commit": "5524cab42584ea54df54bbf38fc77e26117066dd",
       "commits": [
-        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+        "5524cab42584ea54df54bbf38fc77e26117066dd"
       ],
       "scene_card_hash": "a803d8021c7774b3915c4b4f7c574b03ed73de67e3d7cb5ac1880cf0c9cca95d",
       "scene_card_hashes": [
@@ -765,12 +785,13 @@
         "mean": 20.13
       },
       "wall_time_s": {
-        "min": 15.668397041969001,
-        "max": 16.584761397971306,
-        "mean": 16.24842860578792
+        "min": 15.663275872997474,
+        "max": 15.95856469499995,
+        "mean": 15.775543983001262
       },
+      "plan_wall_ms": null,
       "sources": [
-        "/tmp/wt-t12-runs/out/m5/m4-open/results.json"
+        "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/out/m5/m4-open/results.json"
       ],
       "frozen": true,
       "gates": {
@@ -792,16 +813,16 @@
     {
       "milestone": "M4",
       "scene": "formation-6-open",
-      "scene_path": "/tmp/wt-t12b/scenes/formation-6-open.json",
+      "scene_path": "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/scenes/formation-6-open.json",
       "policy": "formation",
       "tier": "L0",
       "form": "inprocess",
       "fault_tier": "combined",
       "forest_density": null,
       "shadow": true,
-      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commit": "5524cab42584ea54df54bbf38fc77e26117066dd",
       "commits": [
-        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+        "5524cab42584ea54df54bbf38fc77e26117066dd"
       ],
       "scene_card_hash": "a803d8021c7774b3915c4b4f7c574b03ed73de67e3d7cb5ac1880cf0c9cca95d",
       "scene_card_hashes": [
@@ -839,12 +860,13 @@
         "mean": 20.13
       },
       "wall_time_s": {
-        "min": 16.289533918956295,
-        "max": 16.684474550012965,
-        "mean": 16.485072610003407
+        "min": 15.849029466000502,
+        "max": 16.587967722996837,
+        "mean": 16.22569825440005
       },
+      "plan_wall_ms": null,
       "sources": [
-        "/tmp/wt-t12-runs/out/m5/m4-open/results.json"
+        "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/out/m5/m4-open/results.json"
       ],
       "frozen": true,
       "gates": {
@@ -866,16 +888,16 @@
     {
       "milestone": "M4",
       "scene": "crossing-6-forest",
-      "scene_path": "/tmp/wt-t12b/scenes/crossing-6-forest.json",
+      "scene_path": "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/scenes/crossing-6-forest.json",
       "policy": "crossing",
       "tier": "L0",
       "form": "inprocess",
       "fault_tier": null,
       "forest_density": "medium",
       "shadow": true,
-      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commit": "5524cab42584ea54df54bbf38fc77e26117066dd",
       "commits": [
-        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+        "5524cab42584ea54df54bbf38fc77e26117066dd"
       ],
       "scene_card_hash": "657efeb6fae1a62ddc1b061d4cf04a3013f660d2e57b28f70a42d5c23c1db9ee",
       "scene_card_hashes": [
@@ -918,21 +940,17 @@
         "mean": 28.607
       },
       "wall_time_s": {
-        "min": 217.087942062004,
-        "max": 307.8261398469913,
-        "mean": 260.17585997629214
+        "min": 221.24508545199933,
+        "max": 278.4718730029999,
+        "mean": 255.22441131399538
+      },
+      "plan_wall_ms": {
+        "min": 15.846161004446913,
+        "max": 32.08275149518158,
+        "mean": 22.261676773559884
       },
       "sources": [
-        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest@crossing/seed0/result.json",
-        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest@crossing/seed1/result.json",
-        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest@crossing/seed2/result.json",
-        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest@crossing/seed3/result.json",
-        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest@crossing/seed4/result.json",
-        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest@crossing/seed5/result.json",
-        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest@crossing/seed6/result.json",
-        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest@crossing/seed7/result.json",
-        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest@crossing/seed8/result.json",
-        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest@crossing/seed9/result.json"
+        "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/out/m5/m4-forest/results.json"
       ],
       "frozen": true,
       "gates": {
@@ -953,16 +971,16 @@
     {
       "milestone": "M4",
       "scene": "crossing-6-forest-sparse",
-      "scene_path": "/tmp/wt-t12b/scenes/crossing-6-forest-sparse.json",
+      "scene_path": "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/scenes/crossing-6-forest-sparse.json",
       "policy": "crossing",
       "tier": "L0",
       "form": "inprocess",
       "fault_tier": null,
       "forest_density": "sparse",
       "shadow": true,
-      "commit": "f5985e4335fcc00a4e19c861dcd1a05e0113f797",
+      "commit": "5524cab42584ea54df54bbf38fc77e26117066dd",
       "commits": [
-        "f5985e4335fcc00a4e19c861dcd1a05e0113f797"
+        "5524cab42584ea54df54bbf38fc77e26117066dd"
       ],
       "scene_card_hash": "7e3328908444d4615c34e217fbb871fec2bed1e2fcb451f8738c13ba2b24762a",
       "scene_card_hashes": [
@@ -1005,18 +1023,17 @@
         "mean": 26.740999999999996
       },
       "wall_time_s": {
-        "min": 159.28719828900648,
-        "max": 225.57864103798056,
-        "mean": 187.59452874779237
+        "min": 146.9389077199885,
+        "max": 193.31353381399822,
+        "mean": 167.40784047569906
+      },
+      "plan_wall_ms": {
+        "min": 14.363063495693495,
+        "max": 16.292150047229374,
+        "mean": 15.341609929600963
       },
       "sources": [
-        "/tmp/wt-t12-runs/out/m5/m4-forest-sparse-rest/results.json",
-        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest-sparse@crossing/seed0/result.json",
-        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest-sparse@crossing/seed1/result.json",
-        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest-sparse@crossing/seed2/result.json",
-        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest-sparse@crossing/seed3/result.json",
-        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest-sparse@crossing/seed4/result.json",
-        "/tmp/wt-t12-runs/out/m5/m4-forest/crossing-6-forest-sparse@crossing/seed5/result.json"
+        "/workspace/wt/yopo-restart/yopo-restart-bot-closeout-run-5524cab/out/m5/m4-forest/results.json"
       ],
       "frozen": true,
       "gates": {
