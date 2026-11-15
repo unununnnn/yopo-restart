@@ -75,7 +75,15 @@ L0 和 S7 自由跑的数字取自 `s7-sitl-crossing-switch-runs.json`。到达�
 
 ## 回归
 
-REGRESS_PLACEHOLDER
+合入 origin/main（含 #139）后，在 `b7518b0` 上 13:55–14:24 跑 `scripts/regress.sh`：rc=0，pytest=通过，批跑=通过（`out/regress/20261115T135549`）。
+
+| 项 | 结果 |
+|---|---|
+| L0 pytest（`-n 4`） | 906 passed、27 skipped，952.6 s |
+| core pytest | 453 passed、3 skipped、4 deselected，259.8 s |
+| 批跑（suite.txt） | 通过，748.3 s |
+| certified 冒烟 | g2-pillar 0/1 TIMEOUT（未冻结、只报数，和 main 一致） |
+| `pytest -n 4 tests/test_sitl*.py` | 128 passed，30.6 s |
 
 ## 复现
 
