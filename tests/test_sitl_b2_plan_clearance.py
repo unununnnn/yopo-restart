@@ -95,7 +95,9 @@ def test_dry_run_b2_switches_default_off(tmp_path):
 
 def test_shell_entry_passes_b2_env_through():
     text = (ROOT / "scripts/sitl/run_yopo_l0_sitl.sh").read_text()
-    assert text.count("-e YOPO_B2_PLAN_DIAG -e YOPO_B2_SAFE_RADIUS -e YOPO_B2_FIX") == 2
+    # sudo docker 不继承调用者环境：必须显式带值。
+    assert text.count('-e YOPO_B2_PLAN_DIAG="${YOPO_B2_PLAN_DIAG:-}"') == 2
+    assert text.count('-e YOPO_B2_FIX="${YOPO_B2_FIX:-}"') == 2
 
 
 def test_b2_does_not_touch_px4_parameters():
