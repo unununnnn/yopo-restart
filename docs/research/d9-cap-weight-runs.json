@@ -1,0 +1,2597 @@
+{
+ "title": "票 D9：限速与 g2 加权 5 种子确认（只报数）",
+ "disclaimer": "D9 只报数，偏离上游：限速（policy_params.student.knot_speed_cap_mps）与 g2 加权都只在本脚本里打开，库默认不变；判据不变。",
+ "fit_seeds": [
+  0,
+  1,
+  2,
+  3,
+  4
+ ],
+ "eval_seeds": {
+  "open-3drone": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9
+  ],
+  "g2-pillar": [
+   0,
+   1,
+   2,
+   3,
+   4
+  ]
+ },
+ "altitudes_m": [
+  1.0,
+  1.5
+ ],
+ "caps": [
+  "off",
+  "1.5",
+  "2.0",
+  "2.5"
+ ],
+ "g2_weight": 4.0,
+ "main_arms": {
+  "对照": "ctrl/capoff",
+  "限速 2.0": "ctrl/cap2.0",
+  "加权 ×4": "g2w/capoff",
+  "限速 + 加权": "g2w/cap2.0"
+ },
+ "stats": {
+  "sign_test": "双侧精确符号检验，种子为单位，差为 0 去掉",
+  "bootstrap": "种子层面有放回重抽 20000 次，均值 95% 百分位区间"
+ },
+ "train": {
+  "ctrl-s0": {
+   "seed": 0,
+   "weights_sha256": "6378cedec9a603be61f57f67d08c7c50f22af069166433c19b2ce20f20499b46",
+   "holdout": {
+    "n_windows": 1126,
+    "n_runs": 2,
+    "loss": 0.06349305083998355,
+    "position_mse": 0.04912869514464062,
+    "velocity_mse": 0.05658469149316818,
+    "yaw_mse": 0.004363687214363849,
+    "position_rmse_m": 0.2216499382915335,
+    "position_xy_mse": 0.013162313087067532,
+    "position_xy_rmse_m": 0.11472712446090302
+   },
+   "g2_weight": 1.0,
+   "n_dagger_windows_by_scene": {
+    "open-3drone": 13572,
+    "g2-pillar": 1819
+   }
+  },
+  "ctrl-s1": {
+   "seed": 1,
+   "weights_sha256": "d5984a34fc166314957fb7242a47d5259c3fd5c109f352a38fb970f5fc45ff37",
+   "holdout": {
+    "n_windows": 1126,
+    "n_runs": 2,
+    "loss": 0.09968685620790264,
+    "position_mse": 0.0859469389857238,
+    "velocity_mse": 0.05432906023641886,
+    "yaw_mse": 0.003153022567263505,
+    "position_rmse_m": 0.293167083735067,
+    "position_xy_mse": 0.00870062279983111,
+    "position_xy_rmse_m": 0.09327712902866978
+   },
+   "g2_weight": 1.0,
+   "n_dagger_windows_by_scene": {
+    "open-3drone": 13572,
+    "g2-pillar": 1819
+   }
+  },
+  "ctrl-s2": {
+   "seed": 2,
+   "weights_sha256": "347b8052ff1a6ba42d58d65cbe912caa9a7a35110536ffb20670fd0527e3747f",
+   "holdout": {
+    "n_windows": 1126,
+    "n_runs": 2,
+    "loss": 0.04502029384140647,
+    "position_mse": 0.03192727955233564,
+    "velocity_mse": 0.05144615516357693,
+    "yaw_mse": 0.004629505512455137,
+    "position_rmse_m": 0.17868206276046747,
+    "position_xy_mse": 0.009173748015589867,
+    "position_xy_rmse_m": 0.09577968477495563
+   },
+   "g2_weight": 1.0,
+   "n_dagger_windows_by_scene": {
+    "open-3drone": 13572,
+    "g2-pillar": 1819
+   }
+  },
+  "ctrl-s3": {
+   "seed": 3,
+   "weights_sha256": "a511c5cda0f7e7a605493effb3f3d9b97973c23842d39b003a05a0d6e32297d4",
+   "holdout": {
+    "n_windows": 1126,
+    "n_runs": 2,
+    "loss": 0.05074808361475252,
+    "position_mse": 0.03954623040096374,
+    "velocity_mse": 0.04301727233623315,
+    "yaw_mse": 0.008950702530922464,
+    "position_rmse_m": 0.19886234032858946,
+    "position_xy_mse": 0.010198694334545736,
+    "position_xy_rmse_m": 0.1009885851695415
+   },
+   "g2_weight": 1.0,
+   "n_dagger_windows_by_scene": {
+    "open-3drone": 13572,
+    "g2-pillar": 1819
+   }
+  },
+  "ctrl-s4": {
+   "seed": 4,
+   "weights_sha256": "eddbf68ab86f6f358cfdee1063dea2d6906b6b420ade85f48ee74c30e769fd81",
+   "holdout": {
+    "n_windows": 1126,
+    "n_runs": 2,
+    "loss": 0.051984176172032874,
+    "position_mse": 0.02757565932576652,
+    "velocity_mse": 0.09651174836959127,
+    "yaw_mse": 0.005611583564040081,
+    "position_rmse_m": 0.16605920427897553,
+    "position_xy_mse": 0.010549164732808964,
+    "position_xy_rmse_m": 0.10270912682332065
+   },
+   "g2_weight": 1.0,
+   "n_dagger_windows_by_scene": {
+    "open-3drone": 13572,
+    "g2-pillar": 1819
+   }
+  },
+  "g2w-s0": {
+   "seed": 0,
+   "weights_sha256": "ab996b2fedd054bd730272be04cd1a4c43a4f173be2fb483999ad7f1aae70789",
+   "holdout": {
+    "n_windows": 1126,
+    "n_runs": 2,
+    "loss": 0.059551431623752336,
+    "position_mse": 0.04872905817643787,
+    "velocity_mse": 0.042538195372051286,
+    "yaw_mse": 0.003756471778899696,
+    "position_rmse_m": 0.22074659267231708,
+    "position_xy_mse": 0.010998232261199987,
+    "position_xy_rmse_m": 0.10487245711434431
+   },
+   "g2_weight": 4.0,
+   "n_dagger_windows_by_scene": {
+    "open-3drone": 13572,
+    "g2-pillar": 1819
+   }
+  },
+  "g2w-s1": {
+   "seed": 1,
+   "weights_sha256": "4c29553938cdad86e64cb3b6021ef4cee26e3889399831ed2beedb704bbb8cce",
+   "holdout": {
+    "n_windows": 1126,
+    "n_runs": 2,
+    "loss": 0.07518885418322752,
+    "position_mse": 0.06058988133263418,
+    "velocity_mse": 0.057983887866536424,
+    "yaw_mse": 0.0020600073907994145,
+    "position_rmse_m": 0.24615011950562646,
+    "position_xy_mse": 0.008807179164869271,
+    "position_xy_rmse_m": 0.09384657247267622
+   },
+   "g2_weight": 4.0,
+   "n_dagger_windows_by_scene": {
+    "open-3drone": 13572,
+    "g2-pillar": 1819
+   }
+  },
+  "g2w-s2": {
+   "seed": 2,
+   "weights_sha256": "0cd9c56ced4840d76e8ceee121e17f7f372d4327a348b47c8dad6a84dc7bae73",
+   "holdout": {
+    "n_windows": 1126,
+    "n_runs": 2,
+    "loss": 0.03991236339850917,
+    "position_mse": 0.028571050577725864,
+    "velocity_mse": 0.043489886881191396,
+    "yaw_mse": 0.0093768130612376,
+    "position_rmse_m": 0.1690297328215538,
+    "position_xy_mse": 0.009060036037845097,
+    "position_xy_rmse_m": 0.0951842215802866
+   },
+   "g2_weight": 4.0,
+   "n_dagger_windows_by_scene": {
+    "open-3drone": 13572,
+    "g2-pillar": 1819
+   }
+  },
+  "g2w-s3": {
+   "seed": 3,
+   "weights_sha256": "a93dffdd3b7957264e0f05ec136007cc3063fe06d9a6f3e0cc3703b6b5b14216",
+   "holdout": {
+    "n_windows": 1126,
+    "n_runs": 2,
+    "loss": 0.051666106671412505,
+    "position_mse": 0.040200835289053126,
+    "velocity_mse": 0.0449695644724856,
+    "yaw_mse": 0.004457630512352576,
+    "position_rmse_m": 0.200501459568386,
+    "position_xy_mse": 0.009307192296094094,
+    "position_xy_rmse_m": 0.09647379072107665
+   },
+   "g2_weight": 4.0,
+   "n_dagger_windows_by_scene": {
+    "open-3drone": 13572,
+    "g2-pillar": 1819
+   }
+  },
+  "g2w-s4": {
+   "seed": 4,
+   "weights_sha256": "9f03a9a5fd932b147bf264121f344e286f0663f39f85d639db0f1bd2b53dac5e",
+   "holdout": {
+    "n_windows": 1126,
+    "n_runs": 2,
+    "loss": 0.06379383417312882,
+    "position_mse": 0.04260007175575565,
+    "velocity_mse": 0.08421918710108126,
+    "yaw_mse": 0.002779348261057206,
+    "position_rmse_m": 0.20639784823431578,
+    "position_xy_mse": 0.010848221876931444,
+    "position_xy_rmse_m": 0.10415479766641306
+   },
+   "g2_weight": 4.0,
+   "n_dagger_windows_by_scene": {
+    "open-3drone": 13572,
+    "g2-pillar": 1819
+   }
+  }
+ },
+ "combos": {
+  "ctrl/capoff": {
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ],
+   "per_seed": [
+    {
+     "open_arrived": 10,
+     "open_denom": 60,
+     "g2_arrived": 0,
+     "g2_denom": 10,
+     "obstacle": 10,
+     "inter_drone": 0,
+     "timeout": 20,
+     "open_all3_within_0p05": 0,
+     "uav2_t_arrive_radius_median_s": 5.12,
+     "uav2_never_in_radius": 0
+    },
+    {
+     "open_arrived": 30,
+     "open_denom": 60,
+     "g2_arrived": 5,
+     "g2_denom": 10,
+     "obstacle": 5,
+     "inter_drone": 0,
+     "timeout": 20,
+     "open_all3_within_0p05": 0,
+     "uav2_t_arrive_radius_median_s": null,
+     "uav2_never_in_radius": 20
+    },
+    {
+     "open_arrived": 0,
+     "open_denom": 60,
+     "g2_arrived": 0,
+     "g2_denom": 10,
+     "obstacle": 10,
+     "inter_drone": 0,
+     "timeout": 20,
+     "open_all3_within_0p05": 0,
+     "uav2_t_arrive_radius_median_s": null,
+     "uav2_never_in_radius": 20
+    },
+    {
+     "open_arrived": 50,
+     "open_denom": 60,
+     "g2_arrived": 0,
+     "g2_denom": 10,
+     "obstacle": 10,
+     "inter_drone": 0,
+     "timeout": 10,
+     "open_all3_within_0p05": 20,
+     "uav2_t_arrive_radius_median_s": 4.945,
+     "uav2_never_in_radius": 0
+    },
+    {
+     "open_arrived": 60,
+     "open_denom": 60,
+     "g2_arrived": 10,
+     "g2_denom": 10,
+     "obstacle": 0,
+     "inter_drone": 0,
+     "timeout": 0,
+     "open_all3_within_0p05": 20,
+     "uav2_t_arrive_radius_median_s": 3.565,
+     "uav2_never_in_radius": 0
+    }
+   ],
+   "total": {
+    "open_arrived": 150,
+    "open_denom": 300,
+    "g2_arrived": 15,
+    "g2_denom": 50,
+    "obstacle": 35,
+    "inter_drone": 0,
+    "timeout": 70,
+    "open_all3_within_0p05": 40,
+    "uav2_never_in_radius": 40
+   },
+   "groups_per_seed": [
+    [
+     {
+      "arm": "ctrl-s0-capoff",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.04484304932735426,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 3.1771853159047962,
+      "final_goal_error_median_m": 4.335664857484154
+     },
+     {
+      "arm": "ctrl-s0-capoff",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.046296296296296294,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 3.201226077626656,
+      "final_goal_error_median_m": 4.416493784130217
+     },
+     {
+      "arm": "ctrl-s0-capoff",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 10,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.015833333333333335,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 4.6162976016656785,
+      "final_goal_error_median_m": 12.116303855102892
+     },
+     {
+      "arm": "ctrl-s0-capoff",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.026666666666666665,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.977291584568377,
+      "final_goal_error_median_m": 10.066318166923658
+     }
+    ],
+    [
+     {
+      "arm": "ctrl-s1-capoff",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.027883396704689485,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 3.352027520797925,
+      "final_goal_error_median_m": 0.02322947206734348
+     },
+     {
+      "arm": "ctrl-s1-capoff",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.08682634730538923,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 3.352765387097977,
+      "final_goal_error_median_m": 3.6577225324169196
+     },
+     {
+      "arm": "ctrl-s1-capoff",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.030416666666666665,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 4.088570611134077,
+      "final_goal_error_median_m": 4.412962839582413
+     },
+     {
+      "arm": "ctrl-s1-capoff",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 10,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.02416666666666667,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 4.123097680000091,
+      "final_goal_error_median_m": 6.762439553792935
+     }
+    ],
+    [
+     {
+      "arm": "ctrl-s2-capoff",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.09641873278236915,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.966380556627114,
+      "final_goal_error_median_m": 6.449481944563298
+     },
+     {
+      "arm": "ctrl-s2-capoff",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.09641873278236915,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.9701615846030194,
+      "final_goal_error_median_m": 6.435763895261289
+     },
+     {
+      "arm": "ctrl-s2-capoff",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.03375,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.3241603819236953,
+      "final_goal_error_median_m": 8.918132334164259
+     },
+     {
+      "arm": "ctrl-s2-capoff",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.036166666666666666,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.3244696229532344,
+      "final_goal_error_median_m": 5.917210028378131
+     }
+    ],
+    [
+     {
+      "arm": "ctrl-s3-capoff",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.09313725490196079,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.6613380814094403,
+      "final_goal_error_median_m": 2.6783935423562513
+     },
+     {
+      "arm": "ctrl-s3-capoff",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.09359605911330049,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.66462665507881,
+      "final_goal_error_median_m": 2.6843771194211
+     },
+     {
+      "arm": "ctrl-s3-capoff",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 30,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.024987506246876564,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.0725670373935934,
+      "final_goal_error_median_m": 0.02057741088234552
+     },
+     {
+      "arm": "ctrl-s3-capoff",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.02375,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.068579210226919,
+      "final_goal_error_median_m": 0.01940773617669649
+     }
+    ],
+    [
+     {
+      "arm": "ctrl-s4-capoff",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.02493765586034913,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.8932644677895616,
+      "final_goal_error_median_m": 0.014890226339070615
+     },
+     {
+      "arm": "ctrl-s4-capoff",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.024521833273186574,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.900314940579696,
+      "final_goal_error_median_m": 0.018999364582214705
+     },
+     {
+      "arm": "ctrl-s4-capoff",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 30,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.021148036253776432,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.734004258163492,
+      "final_goal_error_median_m": 0.02388206675166655
+     },
+     {
+      "arm": "ctrl-s4-capoff",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 30,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.01963350785340314,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.718901788519026,
+      "final_goal_error_median_m": 0.018029349853146054
+     }
+    ]
+   ]
+  },
+  "ctrl/cap1.5": {
+   "seeds": [
+    0
+   ],
+   "per_seed": [
+    {
+     "open_arrived": 30,
+     "open_denom": 60,
+     "g2_arrived": 0,
+     "g2_denom": 10,
+     "obstacle": 10,
+     "inter_drone": 0,
+     "timeout": 20,
+     "open_all3_within_0p05": 10,
+     "uav2_t_arrive_radius_median_s": 5.46,
+     "uav2_never_in_radius": 0
+    }
+   ],
+   "total": {
+    "open_arrived": 30,
+    "open_denom": 60,
+    "g2_arrived": 0,
+    "g2_denom": 10,
+    "obstacle": 10,
+    "inter_drone": 0,
+    "timeout": 20,
+    "open_all3_within_0p05": 10,
+    "uav2_never_in_radius": 0
+   },
+   "groups_per_seed": [
+    [
+     {
+      "arm": "ctrl-s0-cap1.5",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.037037037037037035,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.8178498989875633,
+      "final_goal_error_median_m": 2.3203164595553933
+     },
+     {
+      "arm": "ctrl-s0-cap1.5",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.03690036900369004,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.8164554801740993,
+      "final_goal_error_median_m": 2.3210791491953815
+     },
+     {
+      "arm": "ctrl-s0-cap1.5",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 10,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.012500000000000002,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 1.8954572392275262,
+      "final_goal_error_median_m": 0.49891203543881846
+     },
+     {
+      "arm": "ctrl-s0-cap1.5",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.012500000000000002,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 1.826944996620354,
+      "final_goal_error_median_m": 0.0214114299609098
+     }
+    ]
+   ]
+  },
+  "ctrl/cap2.0": {
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ],
+   "per_seed": [
+    {
+     "open_arrived": 30,
+     "open_denom": 60,
+     "g2_arrived": 5,
+     "g2_denom": 10,
+     "obstacle": 5,
+     "inter_drone": 0,
+     "timeout": 20,
+     "open_all3_within_0p05": 0,
+     "uav2_t_arrive_radius_median_s": 7.21,
+     "uav2_never_in_radius": 10
+    },
+    {
+     "open_arrived": 40,
+     "open_denom": 60,
+     "g2_arrived": 10,
+     "g2_denom": 10,
+     "obstacle": 0,
+     "inter_drone": 0,
+     "timeout": 20,
+     "open_all3_within_0p05": 0,
+     "uav2_t_arrive_radius_median_s": 5.62,
+     "uav2_never_in_radius": 0
+    },
+    {
+     "open_arrived": 0,
+     "open_denom": 60,
+     "g2_arrived": 0,
+     "g2_denom": 10,
+     "obstacle": 10,
+     "inter_drone": 0,
+     "timeout": 20,
+     "open_all3_within_0p05": 0,
+     "uav2_t_arrive_radius_median_s": null,
+     "uav2_never_in_radius": 20
+    },
+    {
+     "open_arrived": 60,
+     "open_denom": 60,
+     "g2_arrived": 0,
+     "g2_denom": 10,
+     "obstacle": 10,
+     "inter_drone": 0,
+     "timeout": 0,
+     "open_all3_within_0p05": 20,
+     "uav2_t_arrive_radius_median_s": 4.27,
+     "uav2_never_in_radius": 0
+    },
+    {
+     "open_arrived": 60,
+     "open_denom": 60,
+     "g2_arrived": 0,
+     "g2_denom": 10,
+     "obstacle": 10,
+     "inter_drone": 0,
+     "timeout": 0,
+     "open_all3_within_0p05": 20,
+     "uav2_t_arrive_radius_median_s": 3.705,
+     "uav2_never_in_radius": 0
+    }
+   ],
+   "total": {
+    "open_arrived": 190,
+    "open_denom": 300,
+    "g2_arrived": 15,
+    "g2_denom": 50,
+    "obstacle": 35,
+    "inter_drone": 0,
+    "timeout": 60,
+    "open_all3_within_0p05": 40,
+    "uav2_never_in_radius": 30
+   },
+   "groups_per_seed": [
+    [
+     {
+      "arm": "ctrl-s0-cap2.0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.029498525073746312,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.322233596619425,
+      "final_goal_error_median_m": 1.649958070225381
+     },
+     {
+      "arm": "ctrl-s0-cap2.0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.01658374792703151,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.3223056688573522,
+      "final_goal_error_median_m": 0.020917319797237086
+     },
+     {
+      "arm": "ctrl-s0-cap2.0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 10,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.015416666666666667,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.499323048047259,
+      "final_goal_error_median_m": 1.7312696080872954
+     },
+     {
+      "arm": "ctrl-s0-cap2.0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.015000000000000003,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.4245476902749443,
+      "final_goal_error_median_m": 0.498367297922124
+     }
+    ],
+    [
+     {
+      "arm": "ctrl-s1-cap2.0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.03949730700179533,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.353797013529869,
+      "final_goal_error_median_m": 0.0189266985959463
+     },
+     {
+      "arm": "ctrl-s1-cap2.0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.039285714285714285,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.3492320189772986,
+      "final_goal_error_median_m": 0.02084513252999227
+     },
+     {
+      "arm": "ctrl-s1-cap2.0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.018333333333333337,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.3775771942757227,
+      "final_goal_error_median_m": 0.17961922830182156
+     },
+     {
+      "arm": "ctrl-s1-cap2.0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.03145833333333334,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.392711182676609,
+      "final_goal_error_median_m": 0.09262960131123626
+     }
+    ],
+    [
+     {
+      "arm": "ctrl-s2-cap2.0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.07988980716253444,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.3453631868978384,
+      "final_goal_error_median_m": 2.65909161155681
+     },
+     {
+      "arm": "ctrl-s2-cap2.0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.07967032967032966,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.3458056687792896,
+      "final_goal_error_median_m": 2.656681109402574
+     },
+     {
+      "arm": "ctrl-s2-cap2.0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.03125,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.352361445510833,
+      "final_goal_error_median_m": 9.441077235546931
+     },
+     {
+      "arm": "ctrl-s2-cap2.0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.035833333333333335,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.3789399368232544,
+      "final_goal_error_median_m": 6.098503209246497
+     }
+    ],
+    [
+     {
+      "arm": "ctrl-s3-cap2.0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.095,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.7331753783278214,
+      "final_goal_error_median_m": 2.6804164582522327
+     },
+     {
+      "arm": "ctrl-s3-cap2.0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.095,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.7345854612240692,
+      "final_goal_error_median_m": 2.6737046919171843
+     },
+     {
+      "arm": "ctrl-s3-cap2.0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 30,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.029207232267037548,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.0697827127609503,
+      "final_goal_error_median_m": 0.02259635924126483
+     },
+     {
+      "arm": "ctrl-s3-cap2.0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 30,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.03258470098845686,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.06551911670115,
+      "final_goal_error_median_m": 0.023360062163171325
+     }
+    ],
+    [
+     {
+      "arm": "ctrl-s4-cap2.0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.041811846689895474,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.326204246699772,
+      "final_goal_error_median_m": 2.6375590773806086
+     },
+     {
+      "arm": "ctrl-s4-cap2.0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.057432432432432436,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.327533461922119,
+      "final_goal_error_median_m": 2.6386036480699833
+     },
+     {
+      "arm": "ctrl-s4-cap2.0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 30,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.020231213872832367,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.3425261713191894,
+      "final_goal_error_median_m": 0.01877022212341589
+     },
+     {
+      "arm": "ctrl-s4-cap2.0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 30,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.021067415730337078,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.3231561272581978,
+      "final_goal_error_median_m": 0.019574603064733333
+     }
+    ]
+   ]
+  },
+  "g2w/capoff": {
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ],
+   "per_seed": [
+    {
+     "open_arrived": 40,
+     "open_denom": 60,
+     "g2_arrived": 0,
+     "g2_denom": 10,
+     "obstacle": 10,
+     "inter_drone": 0,
+     "timeout": 20,
+     "open_all3_within_0p05": 0,
+     "uav2_t_arrive_radius_median_s": 7.6899999999999995,
+     "uav2_never_in_radius": 0
+    },
+    {
+     "open_arrived": 10,
+     "open_denom": 60,
+     "g2_arrived": 0,
+     "g2_denom": 10,
+     "obstacle": 10,
+     "inter_drone": 0,
+     "timeout": 20,
+     "open_all3_within_0p05": 0,
+     "uav2_t_arrive_radius_median_s": null,
+     "uav2_never_in_radius": 20
+    },
+    {
+     "open_arrived": 60,
+     "open_denom": 60,
+     "g2_arrived": 10,
+     "g2_denom": 10,
+     "obstacle": 0,
+     "inter_drone": 0,
+     "timeout": 0,
+     "open_all3_within_0p05": 20,
+     "uav2_t_arrive_radius_median_s": 3.28,
+     "uav2_never_in_radius": 0
+    },
+    {
+     "open_arrived": 40,
+     "open_denom": 60,
+     "g2_arrived": 10,
+     "g2_denom": 10,
+     "obstacle": 0,
+     "inter_drone": 0,
+     "timeout": 20,
+     "open_all3_within_0p05": 0,
+     "uav2_t_arrive_radius_median_s": 4.970000000000001,
+     "uav2_never_in_radius": 0
+    },
+    {
+     "open_arrived": 60,
+     "open_denom": 60,
+     "g2_arrived": 0,
+     "g2_denom": 10,
+     "obstacle": 10,
+     "inter_drone": 0,
+     "timeout": 0,
+     "open_all3_within_0p05": 20,
+     "uav2_t_arrive_radius_median_s": 2.615,
+     "uav2_never_in_radius": 0
+    }
+   ],
+   "total": {
+    "open_arrived": 210,
+    "open_denom": 300,
+    "g2_arrived": 20,
+    "g2_denom": 50,
+    "obstacle": 30,
+    "inter_drone": 0,
+    "timeout": 60,
+    "open_all3_within_0p05": 40,
+    "uav2_never_in_radius": 20
+   },
+   "groups_per_seed": [
+    [
+     {
+      "arm": "g2w-s0-capoff",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.1246684350132626,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.657358967112652,
+      "final_goal_error_median_m": 2.67119281755438
+     },
+     {
+      "arm": "g2w-s0-capoff",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.14285714285714285,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.8244146326328694,
+      "final_goal_error_median_m": 2.6607632999621
+     },
+     {
+      "arm": "g2w-s0-capoff",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.018749999999999996,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.263831526476724,
+      "final_goal_error_median_m": 1.3628565285916379
+     },
+     {
+      "arm": "g2w-s0-capoff",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.018333333333333333,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.275286180949705,
+      "final_goal_error_median_m": 0.9299861324763973
+     }
+    ],
+    [
+     {
+      "arm": "g2w-s1-capoff",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.0851063829787234,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.1355614014620325,
+      "final_goal_error_median_m": 2.6565466769072614
+     },
+     {
+      "arm": "g2w-s1-capoff",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.08189655172413793,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.1583989078519994,
+      "final_goal_error_median_m": 2.673213884457764
+     },
+     {
+      "arm": "g2w-s1-capoff",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 10,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.03875,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.7418593619661733,
+      "final_goal_error_median_m": 2.227169309476195
+     },
+     {
+      "arm": "g2w-s1-capoff",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.06412500000000002,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.2230308477985243,
+      "final_goal_error_median_m": 3.8359037021965676
+     }
+    ],
+    [
+     {
+      "arm": "g2w-s2-capoff",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.04036697247706422,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.7983118820600112,
+      "final_goal_error_median_m": 0.023433068328070978
+     },
+     {
+      "arm": "g2w-s2-capoff",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.035897435897435895,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.799632475393186,
+      "final_goal_error_median_m": 0.009822470734219635
+     },
+     {
+      "arm": "g2w-s2-capoff",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 30,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.029770619814543674,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.0492292091407114,
+      "final_goal_error_median_m": 0.02862226295375398
+     },
+     {
+      "arm": "g2w-s2-capoff",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 30,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.04273506449783074,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.0493469364559296,
+      "final_goal_error_median_m": 0.026640670062259127
+     }
+    ],
+    [
+     {
+      "arm": "g2w-s3-capoff",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.02019261420167499,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.8047677023626125,
+      "final_goal_error_median_m": 0.01964530850661891
+     },
+     {
+      "arm": "g2w-s3-capoff",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.020602218700475437,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.805216426596134,
+      "final_goal_error_median_m": 0.020805744288130666
+     },
+     {
+      "arm": "g2w-s3-capoff",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.027041666666666665,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.270814176800455,
+      "final_goal_error_median_m": 0.13268908495133813
+     },
+     {
+      "arm": "g2w-s3-capoff",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.03141666666666666,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.335841773870275,
+      "final_goal_error_median_m": 0.08015697104325639
+     }
+    ],
+    [
+     {
+      "arm": "g2w-s4-capoff",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.125,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 3.2798898391739697,
+      "final_goal_error_median_m": 2.638230917829343
+     },
+     {
+      "arm": "g2w-s4-capoff",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.125,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 3.3185961986715977,
+      "final_goal_error_median_m": 2.636367878873407
+     },
+     {
+      "arm": "g2w-s4-capoff",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 30,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.016920473773265655,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.3188559243616815,
+      "final_goal_error_median_m": 0.02305626095305488
+     },
+     {
+      "arm": "g2w-s4-capoff",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 30,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.022950819672131147,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 3.262198635687148,
+      "final_goal_error_median_m": 0.020516190117435253
+     }
+    ]
+   ]
+  },
+  "g2w/cap2.0": {
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ],
+   "per_seed": [
+    {
+     "open_arrived": 60,
+     "open_denom": 60,
+     "g2_arrived": 0,
+     "g2_denom": 10,
+     "obstacle": 10,
+     "inter_drone": 0,
+     "timeout": 0,
+     "open_all3_within_0p05": 20,
+     "uav2_t_arrive_radius_median_s": 4.550000000000001,
+     "uav2_never_in_radius": 0
+    },
+    {
+     "open_arrived": 10,
+     "open_denom": 60,
+     "g2_arrived": 0,
+     "g2_denom": 10,
+     "obstacle": 10,
+     "inter_drone": 0,
+     "timeout": 20,
+     "open_all3_within_0p05": 0,
+     "uav2_t_arrive_radius_median_s": null,
+     "uav2_never_in_radius": 20
+    },
+    {
+     "open_arrived": 40,
+     "open_denom": 60,
+     "g2_arrived": 10,
+     "g2_denom": 10,
+     "obstacle": 0,
+     "inter_drone": 0,
+     "timeout": 20,
+     "open_all3_within_0p05": 20,
+     "uav2_t_arrive_radius_median_s": 4.27,
+     "uav2_never_in_radius": 0
+    },
+    {
+     "open_arrived": 20,
+     "open_denom": 60,
+     "g2_arrived": 10,
+     "g2_denom": 10,
+     "obstacle": 0,
+     "inter_drone": 0,
+     "timeout": 20,
+     "open_all3_within_0p05": 0,
+     "uav2_t_arrive_radius_median_s": 6.91,
+     "uav2_never_in_radius": 0
+    },
+    {
+     "open_arrived": 60,
+     "open_denom": 60,
+     "g2_arrived": 5,
+     "g2_denom": 10,
+     "obstacle": 5,
+     "inter_drone": 0,
+     "timeout": 0,
+     "open_all3_within_0p05": 20,
+     "uav2_t_arrive_radius_median_s": 3.695,
+     "uav2_never_in_radius": 0
+    }
+   ],
+   "total": {
+    "open_arrived": 190,
+    "open_denom": 300,
+    "g2_arrived": 25,
+    "g2_denom": 50,
+    "obstacle": 25,
+    "inter_drone": 0,
+    "timeout": 60,
+    "open_all3_within_0p05": 60,
+    "uav2_never_in_radius": 20
+   },
+   "groups_per_seed": [
+    [
+     {
+      "arm": "g2w-s0-cap2.0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.12398921832884095,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 1.912467212131706,
+      "final_goal_error_median_m": 2.6663834776610096
+     },
+     {
+      "arm": "g2w-s0-cap2.0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.12672176308539945,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.1367051193838256,
+      "final_goal_error_median_m": 2.657830629457154
+     },
+     {
+      "arm": "g2w-s0-cap2.0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 30,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.018205461638491547,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.3432950325165853,
+      "final_goal_error_median_m": 0.023049866697949267
+     },
+     {
+      "arm": "g2w-s0-cap2.0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 30,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.018205461638491547,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.3551128265441683,
+      "final_goal_error_median_m": 0.02367951636354773
+     }
+    ],
+    [
+     {
+      "arm": "g2w-s1-cap2.0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.06578947368421052,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.1066973191592564,
+      "final_goal_error_median_m": 2.6539951687805234
+     },
+     {
+      "arm": "g2w-s1-cap2.0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.08225108225108226,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.1533501645179403,
+      "final_goal_error_median_m": 2.664505695658522
+     },
+     {
+      "arm": "g2w-s1-cap2.0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 10,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.03470833333333333,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.226768472442667,
+      "final_goal_error_median_m": 4.592764557902644
+     },
+     {
+      "arm": "g2w-s1-cap2.0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 0,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.054166666666666675,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.302954509708785,
+      "final_goal_error_median_m": 3.5987283336860627
+     }
+    ],
+    [
+     {
+      "arm": "g2w-s2-cap2.0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.05714285714285714,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.374077453063759,
+      "final_goal_error_median_m": 0.011422219841265695
+     },
+     {
+      "arm": "g2w-s2-cap2.0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.05247376311844078,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.373369294835823,
+      "final_goal_error_median_m": 0.013246617321717806
+     },
+     {
+      "arm": "g2w-s2-cap2.0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.032916666666666664,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.3517268282786583,
+      "final_goal_error_median_m": 0.028792361288852493
+     },
+     {
+      "arm": "g2w-s2-cap2.0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 20,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.021666666666666667,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.3494396165340063,
+      "final_goal_error_median_m": 0.028495801647912197
+     }
+    ],
+    [
+     {
+      "arm": "g2w-s3-cap2.0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.018105849582172703,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.3268242681577673,
+      "final_goal_error_median_m": 0.019921983454747213
+     },
+     {
+      "arm": "g2w-s3-cap2.0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.01813110181311018,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.326733799741005,
+      "final_goal_error_median_m": 0.019268908860256374
+     },
+     {
+      "arm": "g2w-s3-cap2.0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 10,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.019958333333333335,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.345653969335208,
+      "final_goal_error_median_m": 0.10764646967206448
+     },
+     {
+      "arm": "g2w-s3-cap2.0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 10,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 10,
+      "hover_frac_mean": 0.031375,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.3177318187560934,
+      "final_goal_error_median_m": 0.2569696426438405
+     }
+    ],
+    [
+     {
+      "arm": "g2w-s4-cap2.0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.0,
+      "seeds": 5,
+      "arrived": 0,
+      "denom": 5,
+      "obstacle": 5,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.06589147286821706,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.3065810259273176,
+      "final_goal_error_median_m": 1.8565650584650428
+     },
+     {
+      "arm": "g2w-s4-cap2.0",
+      "scene": "g2-pillar",
+      "label": "g2 柱子",
+      "altitude_m": 1.5,
+      "seeds": 5,
+      "arrived": 5,
+      "denom": 5,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.030303030303030304,
+      "n_never_left_hover": 0,
+      "n_drones": 5,
+      "max_speed_median_mps": 2.30124866077684,
+      "final_goal_error_median_m": 0.021109381256629704
+     },
+     {
+      "arm": "g2w-s4-cap2.0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.0,
+      "seeds": 10,
+      "arrived": 30,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.014641288433382138,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.330725261966648,
+      "final_goal_error_median_m": 0.01771973749044852
+     },
+     {
+      "arm": "g2w-s4-cap2.0",
+      "scene": "open-3drone",
+      "label": "开阔三机平行",
+      "altitude_m": 1.5,
+      "seeds": 10,
+      "arrived": 30,
+      "denom": 30,
+      "obstacle": 0,
+      "inter_drone": 0,
+      "timeout": 0,
+      "hover_frac_mean": 0.014430014430014428,
+      "n_never_left_hover": 0,
+      "n_drones": 30,
+      "max_speed_median_mps": 2.3489370999267445,
+      "final_goal_error_median_m": 0.016235743718790004
+     }
+    ]
+   ]
+  }
+ },
+ "comparisons": [
+  {
+   "name": "限速 2.0 − 对照",
+   "a": "ctrl/capoff",
+   "b": "ctrl/cap2.0",
+   "pairing": "同一权重，只开关限速",
+   "metrics": {
+    "open_arrived": {
+     "diffs": [
+      20,
+      10,
+      0,
+      10,
+      0
+     ],
+     "sign": {
+      "n_pos": 3,
+      "n_neg": 0,
+      "n_tie": 2,
+      "p_two_sided": 0.25
+     },
+     "bootstrap": {
+      "mean": 8.0,
+      "ci95": [
+       2.0,
+       14.0
+      ],
+      "n_boot": 20000
+     }
+    },
+    "g2_arrived": {
+     "diffs": [
+      5,
+      5,
+      0,
+      0,
+      -10
+     ],
+     "sign": {
+      "n_pos": 2,
+      "n_neg": 1,
+      "n_tie": 2,
+      "p_two_sided": 1.0
+     },
+     "bootstrap": {
+      "mean": 0.0,
+      "ci95": [
+       -5.0,
+       4.0
+      ],
+      "n_boot": 20000
+     }
+    },
+    "obstacle": {
+     "diffs": [
+      -5,
+      -5,
+      0,
+      0,
+      10
+     ],
+     "sign": {
+      "n_pos": 1,
+      "n_neg": 2,
+      "n_tie": 2,
+      "p_two_sided": 1.0
+     },
+     "bootstrap": {
+      "mean": 0.0,
+      "ci95": [
+       -4.0,
+       5.0
+      ],
+      "n_boot": 20000
+     }
+    },
+    "inter_drone": {
+     "diffs": [
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "sign": {
+      "n_pos": 0,
+      "n_neg": 0,
+      "n_tie": 5,
+      "p_two_sided": 1.0
+     },
+     "bootstrap": {
+      "mean": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ],
+      "n_boot": 20000
+     }
+    }
+   }
+  },
+  {
+   "name": "加权 ×4 − 对照",
+   "a": "ctrl/capoff",
+   "b": "g2w/capoff",
+   "pairing": "同一训练种子、不同数据权重（重训，不是严格配对）",
+   "metrics": {
+    "open_arrived": {
+     "diffs": [
+      30,
+      -20,
+      60,
+      -10,
+      0
+     ],
+     "sign": {
+      "n_pos": 2,
+      "n_neg": 2,
+      "n_tie": 1,
+      "p_two_sided": 1.0
+     },
+     "bootstrap": {
+      "mean": 12.0,
+      "ci95": [
+       -12.0,
+       40.0
+      ],
+      "n_boot": 20000
+     }
+    },
+    "g2_arrived": {
+     "diffs": [
+      0,
+      -5,
+      10,
+      10,
+      -10
+     ],
+     "sign": {
+      "n_pos": 2,
+      "n_neg": 2,
+      "n_tie": 1,
+      "p_two_sided": 1.0
+     },
+     "bootstrap": {
+      "mean": 1.0,
+      "ci95": [
+       -6.0,
+       8.0
+      ],
+      "n_boot": 20000
+     }
+    },
+    "obstacle": {
+     "diffs": [
+      0,
+      5,
+      -10,
+      -10,
+      10
+     ],
+     "sign": {
+      "n_pos": 2,
+      "n_neg": 2,
+      "n_tie": 1,
+      "p_two_sided": 1.0
+     },
+     "bootstrap": {
+      "mean": -1.0,
+      "ci95": [
+       -8.0,
+       6.0
+      ],
+      "n_boot": 20000
+     }
+    },
+    "inter_drone": {
+     "diffs": [
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "sign": {
+      "n_pos": 0,
+      "n_neg": 0,
+      "n_tie": 5,
+      "p_two_sided": 1.0
+     },
+     "bootstrap": {
+      "mean": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ],
+      "n_boot": 20000
+     }
+    }
+   }
+  },
+  {
+   "name": "限速 + 加权 − 加权",
+   "a": "g2w/capoff",
+   "b": "g2w/cap2.0",
+   "pairing": "同一权重，只开关限速",
+   "metrics": {
+    "open_arrived": {
+     "diffs": [
+      20,
+      0,
+      -20,
+      -20,
+      0
+     ],
+     "sign": {
+      "n_pos": 1,
+      "n_neg": 2,
+      "n_tie": 2,
+      "p_two_sided": 1.0
+     },
+     "bootstrap": {
+      "mean": -4.0,
+      "ci95": [
+       -16.0,
+       8.0
+      ],
+      "n_boot": 20000
+     }
+    },
+    "g2_arrived": {
+     "diffs": [
+      0,
+      0,
+      0,
+      0,
+      5
+     ],
+     "sign": {
+      "n_pos": 1,
+      "n_neg": 0,
+      "n_tie": 4,
+      "p_two_sided": 1.0
+     },
+     "bootstrap": {
+      "mean": 1.0,
+      "ci95": [
+       0.0,
+       3.0
+      ],
+      "n_boot": 20000
+     }
+    },
+    "obstacle": {
+     "diffs": [
+      0,
+      0,
+      0,
+      0,
+      -5
+     ],
+     "sign": {
+      "n_pos": 0,
+      "n_neg": 1,
+      "n_tie": 4,
+      "p_two_sided": 1.0
+     },
+     "bootstrap": {
+      "mean": -1.0,
+      "ci95": [
+       -3.0,
+       0.0
+      ],
+      "n_boot": 20000
+     }
+    },
+    "inter_drone": {
+     "diffs": [
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "sign": {
+      "n_pos": 0,
+      "n_neg": 0,
+      "n_tie": 5,
+      "p_two_sided": 1.0
+     },
+     "bootstrap": {
+      "mean": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ],
+      "n_boot": 20000
+     }
+    }
+   }
+  },
+  {
+   "name": "限速 + 加权 − 对照",
+   "a": "ctrl/capoff",
+   "b": "g2w/cap2.0",
+   "pairing": "同一训练种子（重训，不是严格配对）",
+   "metrics": {
+    "open_arrived": {
+     "diffs": [
+      50,
+      -20,
+      40,
+      -30,
+      0
+     ],
+     "sign": {
+      "n_pos": 2,
+      "n_neg": 2,
+      "n_tie": 1,
+      "p_two_sided": 1.0
+     },
+     "bootstrap": {
+      "mean": 8.0,
+      "ci95": [
+       -20.0,
+       36.0
+      ],
+      "n_boot": 20000
+     }
+    },
+    "g2_arrived": {
+     "diffs": [
+      0,
+      -5,
+      10,
+      10,
+      -5
+     ],
+     "sign": {
+      "n_pos": 2,
+      "n_neg": 2,
+      "n_tie": 1,
+      "p_two_sided": 1.0
+     },
+     "bootstrap": {
+      "mean": 2.0,
+      "ci95": [
+       -4.0,
+       8.0
+      ],
+      "n_boot": 20000
+     }
+    },
+    "obstacle": {
+     "diffs": [
+      0,
+      5,
+      -10,
+      -10,
+      5
+     ],
+     "sign": {
+      "n_pos": 2,
+      "n_neg": 2,
+      "n_tie": 1,
+      "p_two_sided": 1.0
+     },
+     "bootstrap": {
+      "mean": -2.0,
+      "ci95": [
+       -8.0,
+       4.0
+      ],
+      "n_boot": 20000
+     }
+    },
+    "inter_drone": {
+     "diffs": [
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "sign": {
+      "n_pos": 0,
+      "n_neg": 0,
+      "n_tie": 5,
+      "p_two_sided": 1.0
+     },
+     "bootstrap": {
+      "mean": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ],
+      "n_boot": 20000
+     }
+    }
+   }
+  },
+  {
+   "name": "限速 + 加权 − 限速",
+   "a": "ctrl/cap2.0",
+   "b": "g2w/cap2.0",
+   "pairing": "同一训练种子（重训，不是严格配对）",
+   "metrics": {
+    "open_arrived": {
+     "diffs": [
+      30,
+      -30,
+      40,
+      -40,
+      0
+     ],
+     "sign": {
+      "n_pos": 2,
+      "n_neg": 2,
+      "n_tie": 1,
+      "p_two_sided": 1.0
+     },
+     "bootstrap": {
+      "mean": 0.0,
+      "ci95": [
+       -28.0,
+       28.0
+      ],
+      "n_boot": 20000
+     }
+    },
+    "g2_arrived": {
+     "diffs": [
+      -5,
+      -10,
+      10,
+      10,
+      5
+     ],
+     "sign": {
+      "n_pos": 3,
+      "n_neg": 2,
+      "n_tie": 0,
+      "p_two_sided": 1.0
+     },
+     "bootstrap": {
+      "mean": 2.0,
+      "ci95": [
+       -5.0,
+       9.0
+      ],
+      "n_boot": 20000
+     }
+    },
+    "obstacle": {
+     "diffs": [
+      5,
+      10,
+      -10,
+      -10,
+      -5
+     ],
+     "sign": {
+      "n_pos": 2,
+      "n_neg": 3,
+      "n_tie": 0,
+      "p_two_sided": 1.0
+     },
+     "bootstrap": {
+      "mean": -2.0,
+      "ci95": [
+       -9.0,
+       5.0
+      ],
+      "n_boot": 20000
+     }
+    },
+    "inter_drone": {
+     "diffs": [
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "sign": {
+      "n_pos": 0,
+      "n_neg": 0,
+      "n_tie": 5,
+      "p_two_sided": 1.0
+     },
+     "bootstrap": {
+      "mean": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ],
+      "n_boot": 20000
+     }
+    }
+   }
+  }
+ ]
+}
