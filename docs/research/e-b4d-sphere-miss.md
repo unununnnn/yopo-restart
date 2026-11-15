@@ -75,3 +75,14 @@ seed 1 两臂都是 `uav1-uav2` 相撞，最小距 0.694 m，贴着 0.70 m 碰�
 ```
 
 `--partial` 永远不飞。第二条只在 `peer_sphere_enabled` 可用时跑完四粒并覆盖这份报告。
+
+## L0-DET 确定性重跑（2026-11-15）
+
+当前 main `046d25a`。后段缺省 `budget="evals"`（0.020 s → 10 次评估）。四粒仍是 014-swap3 的 seed 0 和 seed 1、`sphere` 与 `sphere+track_geom_multi`。命令是 `--write`，输出没有覆盖这份正文。连跑两遍，去掉墙钟字段后逐位相同。
+
+| 臂 | 旧 seed 1 | 新 seed 1 | 旧 seed 1 最小机间 m | 新 seed 1 最小机间 m | 旧 seed 0 | 新 seed 0 | 新 seed 0 最小机间 m |
+|---|---|---|---|---|---|---|---|
+| sphere | COLLISION | SUCCESS | 0.694 | 0.917 | SUCCESS | SUCCESS | 0.948 |
+| sphere+track_geom_multi | COLLISION | SUCCESS | 0.694 | 0.885 | SUCCESS | SUCCESS | 0.948 |
+
+结论变了。这张票的题目是 seed 1 没被推开。确定性预算下两臂都把 seed 1 推过了 0.70 m，最近接近在 2.67 s，距离 0.917 m 和 0.885 m，规划码仍是 OK，不是一侧悬停。第 0 拍仍没有邻机，事件前 1.0 s 内后段仍收到邻机。铰链仍会激活，末端三个控制点仍钉死。这些机制还在，但「未推开、停在 0.694 m」不再成立。

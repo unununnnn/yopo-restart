@@ -72,3 +72,5 @@ bash scripts/sitl/run_yopo_l0_sitl.sh --dry-run --n 3 --scene scenes/formation-h
 | 上面的 shell dry-run | 退出码 0，`policy=formation` |
 
 `tests/test_sitl_s5a_formation.py` 用假 PX4 走命令序列：同步出发前设定点停在起点；编队钟 6 s 时三机都已 commit，设定点沿直线段离开起点，跳步和 0.02 s 连拍的位置一致；心跳采样更靠前的时刻并保留速度；假 PX4 积分 8 s，直线段最小机间大于 1.5 m，队形 p95 小于 0.5 m；停在终点槽位满 1 s 后发 `command=21`，上锁后 `SUCCESS`。没有拉起 PX4 / Gazebo。
+
+box 上的 SITL 复验数字见 [s5b-sitl-formation-verify.md](s5b-sitl-formation-verify.md)。

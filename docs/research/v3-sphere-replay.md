@@ -97,3 +97,18 @@
 ```
 
 测试不跑完整闭环。它用假轨迹走 `--partial`，检查 `summary.json` 的字段、gif / png 的文件头，以及绘图函数能在 `tmp_path` 里写出图。场景卡的字节不被改写。缺开关时，不带 `--partial` 的调用返回 2，并且一次仿真都不启动。
+
+## L0-DET 确定性重跑（2026-11-15）
+
+当前 main `046d25a`。后段缺省 `budget="evals"`（0.020 s → 10 次评估）。重跑的是上面这张 `--partial` 冒烟，仿真前缀仍是 2.0 s，三粒不变。连跑两遍，去掉墙钟字段后逐位相同。六档仍是 `TIMEOUT` / `GOAL_NOT_REACHED`，到达 0/3，2 s 里没有碰撞对。
+
+| 卡 | seed | 臂 | 旧最小机间 m | 新最小机间 m |
+|---|---|---|---|---|
+| swap-3-open | 0 | base | 2.553 | 2.557 |
+| swap-3-open | 0 | sphere | 2.420 | 2.517 |
+| ego-density-014-swap3 | 0 | base | 7.413 | 7.421 |
+| ego-density-014-swap3 | 0 | sphere | 7.297 | 7.287 |
+| ego-density-014-swap3 | 1 | base | 7.462 | 7.480 |
+| ego-density-014-swap3 | 1 | sphere | 7.317 | 7.349 |
+
+结论没变。这 2 s 仍停在对穿之前，最近一对仍是 `uav1-uav2`，距离仍在 2.5 m 以上。sphere 的前缀最小机间仍比 base 略小。这不是全程避碰的结果；全程见 [E-B4c](e-b4c-sphere-avoid.md) 文末的重跑。
