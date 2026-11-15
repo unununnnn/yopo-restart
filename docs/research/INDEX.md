@@ -10,6 +10,8 @@
 | b2-sitl-plan-clearance.md | b2 | 票 B2：锁步交叉卡规划净空归因（只报数） | report-only |
 | b3-sitl-launch-tracking-runs.json | b3 | 票 B3：锁步交叉卡起步跟踪修复候选（只报数） | report-only |
 | b3-sitl-launch-tracking.md | b3 | 票 B3：锁步交叉卡起步跟踪修复候选（只报数） | report-only、冻结 |
+| b4-center-launch-ramp-runs.json | b4 | 票 B4：交叉卡虚拟中心起步斜坡（只报数） | report-only |
+| b4-center-launch-ramp.md | b4 | 票 B4：交叉卡虚拟中心起步斜坡（只报数） | report-only、冻结 |
 | d1-geometric-fallback.md | d1 | 票 D1：提交前的一次性几何回退 | report-only、冻结 |
 | d2-teacher-batch.json | d2 | （无说明字段） | 无 |
 | d2-teacher-data.md | d2 | D2：EGO-Swarm 教师数据 | 冻结 |
