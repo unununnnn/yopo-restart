@@ -119,7 +119,7 @@ def test_engage_waits_for_the_clock_to_stop_then_steps_exactly_on_the_grid():
     assert diffs == {STEP}
     s = stepper.stats.summary()
     assert s["steps"] == 250 and s["sim_stepped_s"] == pytest.approx(1.0)
-    assert s["handshake_timeouts_total"] == 0 and s["dropped"] == []
+    assert s["handshake_timeouts_total"] == 0
     # 暂停前在途的 7 条先收完再记基线，之后每步恰好一条
     assert world.counts == {n: 7 + 250 for n in ns}
 
@@ -137,6 +137,18 @@ def test_each_step_waits_for_the_slowest_px4():
     assert stepper.stats.handshake_timeouts == {}
 
 
+def test_extra_motor_messages_do_not_let_a_later_step_through_early():
+    ns = ["px4_1"]
+    world = FakeWorld(ns)
+    stepper, _ = _stepper(world, ns, handshake_timeout_s=0.01)
+    stepper.engage()
+    stepper.advance(STEP)
+    world.counts["px4_1"] += 10
+    world.dead.add("px4_1")
+    with pytest.raises(TimeoutError, match="PX4 电机握手超时"):
+        stepper.advance(STEP)
+
+
 def test_lost_requests_are_resent_and_never_overshoot():
     ns = ["px4_1"]
     world = FakeWorld(ns, lose_every=3)
@@ -151,17 +163,17 @@ def test_lost_requests_are_resent_and_never_overshoot():
     assert world.counts["px4_1"] == 100
 
 
-def test_dead_px4_times_out_then_is_dropped_without_blocking_the_others():
+def test_dead_px4_fails_closed_without_advancing_the_others_again():
     ns = ["px4_1", "px4_2"]
     world = FakeWorld(ns, dead={"px4_2"})
-    stepper, _ = _stepper(world, ns, handshake_timeout_s=0.01, drop_after=4)
+    stepper, _ = _stepper(world, ns, handshake_timeout_s=0.01)
     stepper.engage()
-    for _ in range(4):
+    t0 = world.t
+    with pytest.raises(TimeoutError, match="px4_2"):
         stepper.advance(0.02)
-    s = stepper.stats.summary()
-    assert s["dropped"] == ["px4_2"]
-    assert s["handshake_timeouts"] == {"px4_2": 4}
-    assert world.counts["px4_1"] == 20
+    assert world.t == pytest.approx(t0 + STEP)
+    assert stepper.stats.handshake_timeouts == {"px4_2": 1}
+    assert stepper.stats.steps == 0
 
 
 def test_slow_agent_changes_wall_time_but_not_the_sim_schedule():

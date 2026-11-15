@@ -276,6 +276,10 @@ def lockstep_plan(card, args) -> dict:
     }
 
 
+class _LockstepAbort(Exception):
+    """锁步没接上：不退回自由跑，直接写失败结果。"""
+
+
 class GzWorldPort:  # pragma: no cover - 需要 gz-transport
     """``LockstepStepper`` 的 gz-transport 实现。clock 和电机计数由订阅回调写进共享 dict。"""
 
@@ -525,9 +529,22 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
         with lock:
             return {ns: state["odom_sim"] for ns, state in slots.items()}
 
+    def lock_advance() -> str:
+        # 握手或 clock 超时就失败关闭：写结果、放开世界，不丢下慢的 PX4 继续跑。
+        try:
+            stepper.advance(physics_dt)
+        except TimeoutError as exc:
+            return f"LOCKSTEP_TIMEOUT {exc}"
+        return ""
+
     try:
         if stepper is not None:
-            stepper.engage()
+            try:
+                stepper.engage()
+            except TimeoutError as exc:
+                failure = f"LOCKSTEP_TIMEOUT {exc}"
+                stepper = None
+                raise _LockstepAbort() from exc
         while stepper is not None:
             # 票 B1：锁步主循环。世界停着时代理算多久都行；每拍算完再推进一拍（physics_dt）。
             wall = time.monotonic() - wall0
@@ -540,7 +557,9 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
                 if preflight.failure:
                     failure = preflight.failure
                     break
-                stepper.advance(physics_dt)
+                failure = lock_advance()
+                if failure:
+                    break
                 continue
             elapsed = clock.elapsed(float(t_sim))
             if elapsed > max_s and session.result()["outcome"] == "RUNNING":
@@ -571,7 +590,9 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
             if snapshot["ok"] or snapshot.get("terminal"):
                 break
             before = {ns: state["odom_n"] for ns, state in slots.items()}
-            stepper.advance(physics_dt)
+            failure = lock_advance()
+            if failure:
+                break
             # 这一拍里 PX4 已经发过里程计；等它经 uXRCE 到达本进程再算下一拍（墙钟上限 50 ms）。
             w_odom = time.monotonic()
             while any(slots[ns]["odom_n"] <= before[ns] for ns in slots):
@@ -579,7 +600,7 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
                     odom_wait_timeouts += 1
                     break
                 time.sleep(0.0005)
-        while stepper is None:
+        while stepper is None and not failure:
             rclpy.spin_once(node, timeout_sec=0.02)
             wall = time.monotonic() - wall0
             if wall > args.wall_timeout:
@@ -636,6 +657,8 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
             if snapshot["ok"] or snapshot.get("terminal"):
                 break
             time.sleep(0.02)
+    except _LockstepAbort:
+        pass
     finally:
         stop.set()
         if stepper is not None:

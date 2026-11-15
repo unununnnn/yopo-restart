@@ -11,8 +11,9 @@ PX4 v1.17 的 GZBridge 在每个 ``/world/<w>/clock`` 回调里把自己的单�
    ``WorldControl(pause=False, run_to_sim_time=t_k)``。``run_to_sim_time`` 是绝对时刻，
    重发是幂等的：请求丢了就重发，已经到了也不会多走。
 3. 握手：等 ``/world/<w>/clock`` 走到 ``t_k``，并且每架 PX4 在 gz 上发出的
-   ``/<model>/command/motor_speed`` 计数比锁步起点多出 k 条。PX4 每吃一帧 IMU 出一条电机指令
-   （实测 250 Hz、每步恰好 1 条），所以这一条到了就说明这架 PX4 已经算完了这一步。
+   ``/<model>/command/motor_speed`` 在发出这一步请求之后又来了新的一条。PX4 每吃一帧 IMU 出一条
+   电机指令（实测 250 Hz、每步恰好 1 条），所以这一条到了就说明这架 PX4 已经算完了这一步。
+   等不到就抛 ``TimeoutError``，入口写失败结果，不丢下慢实例继续跑。
 4. 代理在两个物理步之间算多久都行：世界停着，PX4 的钟也停着，``COM_OF_LOSS_T`` 和传感器
    超时都按仿真钟算，不会触发。
 
@@ -41,10 +42,8 @@ DEFAULT_PHYSICS_STEP_S = 0.004
 REQUEST_TIMEOUT_MS = 5
 # clock 这么久没走到目标就重发同一个 run_to_sim_time（幂等）。
 RESEND_AFTER_S = 0.2
-# 一步里等 PX4 电机指令的墙钟上限。超时记一次，按当前计数重定基线，继续走。
-HANDSHAKE_TIMEOUT_S = 0.5
-# 同一架连续这么多步握手超时，就不再等它（PX4 退出或卡死），记进 dropped。
-DROP_AFTER_TIMEOUTS = 20
+# 一步里等 PX4 电机指令的墙钟上限。超时中止，绝不丢掉慢实例继续跑。
+HANDSHAKE_TIMEOUT_S = 10.0
 
 
 class WorldPort(Protocol):
@@ -97,7 +96,6 @@ class LockstepStats:
     steps: int = 0
     resends: int = 0
     handshake_timeouts: dict[str, int] = field(default_factory=dict)
-    dropped: list[str] = field(default_factory=list)
     clock_overshoots: int = 0
     step_wall_s: list[float] = field(default_factory=list)
     agent_wall_s: float = 0.0  # 世界停着、代理在算的墙钟合计
@@ -119,7 +117,6 @@ class LockstepStats:
             "resends": int(self.resends),
             "handshake_timeouts": dict(sorted(self.handshake_timeouts.items())),
             "handshake_timeouts_total": int(sum(self.handshake_timeouts.values())),
-            "dropped": list(self.dropped),
             "clock_overshoots": int(self.clock_overshoots),
             "step_wall_ms_median": None if arr.size == 0 else float(np.median(arr) * 1e3),
             "step_wall_ms_p95": None if arr.size == 0 else float(np.percentile(arr, 95) * 1e3),
@@ -144,7 +141,6 @@ class LockstepStepper:
         physics_step_s: float = DEFAULT_PHYSICS_STEP_S,
         handshake_timeout_s: float = HANDSHAKE_TIMEOUT_S,
         resend_after_s: float = RESEND_AFTER_S,
-        drop_after: int = DROP_AFTER_TIMEOUTS,
         now: Callable[[], float] = time.perf_counter,
         sleep: Callable[[float], None] = time.sleep,
         poll_s: float = 0.0002,
@@ -158,20 +154,16 @@ class LockstepStepper:
         self.step_s = float(physics_step_s)
         self.handshake_timeout_s = float(handshake_timeout_s)
         self.resend_after_s = float(resend_after_s)
-        self.drop_after = int(drop_after)
         self._now = now
         self._sleep = sleep
         self.poll_s = float(poll_s)
         self.stats = LockstepStats(physics_step_s=self.step_s)
         self.t: float | None = None  # 当前已握手完成的仿真时刻
-        self._base: dict[str, int] = {}
-        self._k = 0  # 自基线以来走了几步
-        self._streak: dict[str, int] = {}
         self._mark: float | None = None  # 上一次推进结束的墙钟，代理计时从这里起
 
     # -- 生命周期 -------------------------------------------------------
     def engage(self, settle_s: float = 0.05, timeout_s: float = 10.0) -> float:
-        """暂停世界，等 clock 停稳，记下电机计数基线。返回暂停时的仿真时刻。"""
+        """暂停世界，等 clock 停稳、在途电机指令收完。返回暂停时的仿真时刻。"""
         t0 = self._now()
         last_req = -math.inf
         last_t = None
@@ -198,8 +190,6 @@ class LockstepStepper:
             self._sleep(0.005)
         t_now = float(last_t)
         self.t = t_now
-        self._base = {ns: int(self.world.motor_counts().get(ns, 0)) for ns in self.namespaces}
-        self._k = 0
         self.stats.engaged = True
         self.stats.t_engage_s = t_now
         self._mark = self._now()
@@ -230,6 +220,7 @@ class LockstepStepper:
     def _one_step(self) -> None:
         target = quantize(float(self.t) + self.step_s, self.step_s)
         w0 = self._now()
+        before = self.world.motor_counts()
         self.world.request_run_to(target)
         last_req = w0
         # 1) clock 走到目标
@@ -240,32 +231,25 @@ class LockstepStepper:
                     self.stats.clock_overshoots += 1
                 break
             now = self._now()
+            if now - w0 > 10.0:
+                raise TimeoutError("锁步：Gazebo clock 推进超时")
             if now - last_req >= self.resend_after_s:
                 self.world.request_run_to(target)
                 self.stats.resends += 1
                 last_req = now
             self._sleep(self.poll_s)
-        self._k += 1
-        # 2) 每架 PX4 都出了这一步的电机指令
-        waiting = [ns for ns in self.namespaces if ns not in self.stats.dropped]
+        # 本步之前的消息绝不顶账；每个实例都必须在发步进请求之后出新指令。
+        waiting = list(self.namespaces)
         while waiting:
             counts = self.world.motor_counts()
-            waiting = [ns for ns in waiting if int(counts.get(ns, 0)) - self._base[ns] < self._k]
+            waiting = [ns for ns in waiting if int(counts.get(ns, 0)) <= before[ns]]
             if not waiting:
                 break
             if self._now() - w0 > self.handshake_timeout_s:
                 for ns in waiting:
                     self.stats.handshake_timeouts[ns] = self.stats.handshake_timeouts.get(ns, 0) + 1
-                    self._streak[ns] = self._streak.get(ns, 0) + 1
-                    # 重定基线：这一步算它已到，后面不再追旧账
-                    self._base[ns] = int(counts.get(ns, 0)) - self._k
-                    if self._streak[ns] >= self.drop_after and ns not in self.stats.dropped:
-                        self.stats.dropped.append(ns)
-                break
+                raise TimeoutError("锁步：PX4 电机握手超时：" + ",".join(waiting))
             self._sleep(self.poll_s)
-        for ns in self.namespaces:
-            if ns not in waiting:
-                self._streak[ns] = 0
         self.t = target
         self.stats.steps += 1
         self.stats.step_wall_s.append(self._now() - w0)
