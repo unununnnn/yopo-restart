@@ -106,4 +106,4 @@ scripts/sitl/run_yopo_l0_sitl.sh --n 3 --scene scenes/crossing-pillars-sitl80.js
 
 ## pytest
 
-见合入前 `scripts/regress.sh` 的记录。新增 `tests/test_sitl_sh2_shadow_evidence.py`：开关默认关、打开不改设定点、缺省 crossing 仍不开影子、打开才记拒绝并标偏离上游、不提前渲染懒深度。
+`PYTHONPATH=$PWD scripts/regress.sh`：L0 **922 passed，27 skipped**；core **453 passed，3 skipped，4 deselected**；批跑通过。新增 `tests/test_sitl_sh2_shadow_evidence.py`：开关默认关、打开不改设定点、缺省 crossing 仍不开影子、打开才记拒绝并标偏离上游、不提前渲染懒深度。
