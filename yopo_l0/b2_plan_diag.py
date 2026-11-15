@@ -235,6 +235,7 @@ def parse_fix(raw: str | None) -> dict:
     * ``lead=<秒>``：设定点取已提交计划上提前这么久的那一点（见 LiveFleetConfig.setpoint_lead_s）。
     * ``odomhead=<米>``：交叉卡实际位置偏离计划头超过这么多时，从里程计外推的头状态起规划
       （CrossingFleet 的 policy_params.b2.head_from_odom_m）。
+    * ``stiff=<kp>:<kv>``：设定点加代理侧误差增益（LiveFleetConfig.setpoint_gain_p / _v）。
     """
     out: dict = {}
     for item in (raw or "").split(","):
@@ -252,6 +253,13 @@ def parse_fix(raw: str | None) -> dict:
             if not (math.isfinite(thr) and thr >= 0.0):
                 raise ValueError(f"YOPO_B2_FIX odomhead 要非负，收到 {value!r}")
             out["head_from_odom_m"] = thr
+        elif key == "stiff":
+            kp, _, kv = value.partition(":")
+            gp, gv = float(kp), float(kv or 0.0)
+            if not (0.0 <= gp <= 5.0 and 0.0 <= gv <= 5.0) or gp + gv <= 0.0:
+                raise ValueError(f"YOPO_B2_FIX stiff 要 kp:kv 在 [0, 5] 且不全为 0，收到 {value!r}")
+            out["setpoint_gain_p"] = gp
+            out["setpoint_gain_v"] = gv
         else:
             raise ValueError(f"YOPO_B2_FIX 不认识 {key!r}")
     return out
@@ -261,6 +269,8 @@ def fix_deviations(fix: dict) -> list[str]:
     out = []
     if "setpoint_lead_s" in fix:
         out.append(f"偏离上游：设定点提前 {fix['setpoint_lead_s']:g} s")
+    if "setpoint_gain_p" in fix:
+        out.append(f"偏离上游：设定点误差增益 kp={fix['setpoint_gain_p']:g} kv={fix['setpoint_gain_v']:g}")
     if "head_from_odom_m" in fix:
         out.append(f"偏离上游：偏差超过 {fix['head_from_odom_m']:g} m 时从里程计起规划")
     return out

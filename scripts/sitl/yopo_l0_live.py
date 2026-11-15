@@ -391,6 +391,8 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
             initial_phase="WARMUP",
             plan_timeout_s=plan_timeout_s,
             setpoint_lead_s=float(getattr(args, "b2_fix_cfg", {}).get("setpoint_lead_s", 0.0)),
+            setpoint_gain_p=float(getattr(args, "b2_fix_cfg", {}).get("setpoint_gain_p", 0.0)),
+            setpoint_gain_v=float(getattr(args, "b2_fix_cfg", {}).get("setpoint_gain_v", 0.0)),
         ),
     )
     plan_diag = None

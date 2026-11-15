@@ -208,3 +208,20 @@ def test_odomhead_fix_parses_and_marks_deviation(tmp_path):
     assert r.returncode == 0, r.stderr
     b2 = json.loads(out.read_text())["b2"]
     assert b2["deviations"] == ["偏离上游：偏差超过 0.3 m 时从里程计起规划"]
+
+
+def test_stiffen_default_returns_the_same_arrays_and_clips():
+    from yopo_l0.sitl_bridge import _stiffen
+
+    p, v = np.array([1.0, 0.0, 1.5]), np.array([2.0, 0.0, 0.0])
+    state = {"position_enu": [0.0, 0.5, 1.5], "velocity_enu": [1.0, 0.0, 0.0]}
+    p0, v0 = _stiffen(p, v, state, 0.0, 0.0)
+    assert p0 is p and v0 is v
+    p1, v1 = _stiffen(p, v, state, 1.0, 0.5)
+    assert np.allclose(p1, [2.0, -0.5, 1.5]) and np.allclose(v1, [2.5, 0.0, 0.0])
+    far = {"position_enu": [-10.0, 0.0, 1.5], "velocity_enu": [2.0, 0.0, 0.0]}
+    p2, _ = _stiffen(p, v, far, 5.0, 0.0)
+    assert np.linalg.norm(p2 - p) == pytest.approx(1.5)
+    assert parse_fix("stiff=1.3:0.7") == {"setpoint_gain_p": 1.3, "setpoint_gain_v": 0.7}
+    with pytest.raises(ValueError):
+        parse_fix("stiff=0:0")

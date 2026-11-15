@@ -1359,11 +1359,19 @@ class LiveFleetConfig:
     # 票 B2：默认 0（关）。>0 时编队类策略的设定点取已提交计划上 t + lead 的那一点，
     # 补 PX4 位置环的跟踪滞后。打开即偏离上游。计划、协议和深度都不变。
     setpoint_lead_s: float = 0.0
+    # 票 B2：默认 0（关）。>0 时编队类策略的设定点加上代理侧误差增益：
+    # p_sp = p_ref + kp·(p_ref − p_odom)，v_sp = v_ref + kv·(v_ref − v_odom)，修正量限幅。
+    # 等于从代理侧把 PX4 位置环、速度环增益抬高（不写 PX4 参数）。打开即偏离上游。
+    setpoint_gain_p: float = 0.0
+    setpoint_gain_v: float = 0.0
 
     def __post_init__(self) -> None:
         self.positioning = normalize_positioning(self.positioning)
         if not (0.0 <= float(self.setpoint_lead_s) <= 0.5):
             raise ValueError(f"setpoint_lead_s 要在 [0, 0.5]，收到 {self.setpoint_lead_s}")
+        for name in ("setpoint_gain_p", "setpoint_gain_v"):
+            if not (0.0 <= float(getattr(self, name)) <= 5.0):
+                raise ValueError(f"{name} 要在 [0, 5]，收到 {getattr(self, name)}")
         if self.depth_source not in ("auto", "depth", "summary", "scene-card"):
             raise ValueError(f"depth_source 非法：{self.depth_source!r}")
         if self.initial_phase not in ("WARMUP", "PLAN"):
@@ -1399,6 +1407,26 @@ class _LiveSlot:
         self.shadow = None
         self.fleet_frame = None  # 票 S7：crossing 最近一帧场景卡深度
 
+
+
+_STIFF_MAX_DP_M = 1.5
+_STIFF_MAX_DV_MPS = 3.0
+
+
+def _clip_norm(x: np.ndarray, limit: float) -> np.ndarray:
+    n = float(np.linalg.norm(x))
+    return x if n <= limit else x * (limit / n)
+
+
+def _stiffen(p: np.ndarray, v: np.ndarray, state: dict, gain_p: float, gain_v: float):
+    """票 B2：两个增益都为 0 时原样返回同一对数组（默认路径不变）。"""
+    if gain_p <= 0.0 and gain_v <= 0.0:
+        return p, v
+    odom_p = np.asarray(state["position_enu"], dtype=float)
+    odom_v = np.asarray(state["velocity_enu"], dtype=float)
+    p2 = p + _clip_norm(gain_p * (p - odom_p), _STIFF_MAX_DP_M) if gain_p > 0.0 else p
+    v2 = v + _clip_norm(gain_v * (v - odom_v), _STIFF_MAX_DV_MPS) if gain_v > 0.0 else v
+    return p2, v2
 
 
 class _LazyDepthFrame:
@@ -1936,6 +1964,7 @@ class LiveFleetSession:
         p = np.asarray(p, dtype=float).copy()
         v = np.asarray(v, dtype=float).copy()
         a = np.asarray(a, dtype=float).copy()
+        p, v = _stiffen(p, v, state, float(self.cfg.setpoint_gain_p), float(self.cfg.setpoint_gain_v))
         setpoint = trajectory_setpoint_ned(p, v, a, float(yaw), now_s)
         self._note_arrival(slot, now_s, state["position_enu"], state["velocity_enu"])
         return self._pack(
