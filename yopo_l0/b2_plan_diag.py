@@ -258,6 +258,7 @@ def parse_fix(raw: str | None) -> dict:
     * ``stiff=<kp>:<kv>``：设定点加代理侧误差增益（LiveFleetConfig.setpoint_gain_p / _v）。
     * ``launch=<a_max>:<秒>``（票 B3）：起步段计划加速度上限（policy_params.b3.launch_a_max_mps2 / launch_s）。
     * ``relat=<米>``（票 B3）：横向偏差超过这么多时从里程计起规划（policy_params.b3.replan_lateral_m）。
+    * ``ramp=<m/s²>``（票 B4）：交叉卡虚拟中心起步按这个加速度斜坡（policy_params.b3.center_ramp_mps2）。
     """
     out: dict = {}
     for item in (raw or "").split(","):
@@ -294,6 +295,11 @@ def parse_fix(raw: str | None) -> dict:
             if not (math.isfinite(thr) and thr > 0.0):
                 raise ValueError(f"YOPO_B2_FIX relat 要为正，收到 {value!r}")
             out["replan_lateral_m"] = thr
+        elif key == "ramp":
+            ramp = float(value)
+            if not (math.isfinite(ramp) and ramp > 0.0):
+                raise ValueError(f"YOPO_B2_FIX ramp 要为正，收到 {value!r}")
+            out["center_ramp_mps2"] = ramp
         else:
             raise ValueError(f"YOPO_B2_FIX 不认识 {key!r}")
     return out
@@ -311,10 +317,12 @@ def fix_deviations(fix: dict) -> list[str]:
         out.append(f"偏离上游：起步 {fix['launch_s']:g} s 内计划加速度上限 {fix['launch_a_max_mps2']:g} m/s²")
     if "replan_lateral_m" in fix:
         out.append(f"偏离上游：横向偏差超过 {fix['replan_lateral_m']:g} m 时从里程计起规划")
+    if "center_ramp_mps2" in fix:
+        out.append(f"偏离上游：虚拟中心起步按 {fix['center_ramp_mps2']:g} m/s² 斜坡")
     return out
 
 
-B3_KEYS = ("launch_a_max_mps2", "launch_s", "replan_lateral_m")
+B3_KEYS = ("launch_a_max_mps2", "launch_s", "replan_lateral_m", "center_ramp_mps2")
 
 
 def b3_from_fix(fix: dict) -> dict | None:
