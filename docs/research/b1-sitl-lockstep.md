@@ -82,7 +82,7 @@ L0 和 S7 自由跑的数字取自 `s7-sitl-crossing-switch-runs.json`。到达�
 | L0 pytest（`-n 4`） | 906 passed、27 skipped，952.6 s |
 | core pytest | 453 passed、3 skipped、4 deselected，259.8 s |
 | 批跑（suite.txt） | 通过，748.3 s |
-| certified 冒烟 | g2-pillar 0/1 TIMEOUT（未冻结、只报数，和 main 一致） |
+| certified 冒烟 | g2-pillar 0/1 TIMEOUT（未冻结、只报数，不计入通过判定） |
 | `pytest -n 4 tests/test_sitl*.py` | 128 passed，30.6 s |
 
 ## 复现
