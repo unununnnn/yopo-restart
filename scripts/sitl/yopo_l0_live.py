@@ -37,6 +37,7 @@ from yopo_l0.sitl_lockstep import (
     REQUEST_TIMEOUT_MS,
     LockstepStepper,
     SimStampSkewMeter,
+    model_name,
     motor_topic,
 )
 
@@ -356,6 +357,21 @@ class GzWorldPort:  # pragma: no cover - 需要 gz-transport
             self._request(self._WorldControl(pause=False))
 
 
+def _truth_reader(session, truth: dict, lock):  # pragma: no cover - 需要 gz-transport
+    names = {slot.bridge.drone_id: model_name(int(slot.ident["instance"])) for slot in session.slots}
+
+    def read(drone_id: str):
+        with lock:
+            p = truth.get(names.get(drone_id, ""))
+        if p is None:
+            return None
+        import numpy as np
+
+        return np.asarray(p, dtype=float)
+
+    return read
+
+
 def _fill(msg, fields: dict):
     for key, value in fields.items():
         setattr(msg, key, value)
@@ -402,6 +418,7 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
             card.min_distance,
             float(card.card["criteria"]["body_radius_m"]),
             abs_offset=lambda: float(session._plan_origin or 0.0),
+            truth=_truth_reader(session, truth, lock),
         )
     ports = [int(slot.ident["gcs_port"]) for slot in session.slots]
     stop = threading.Event()
@@ -464,6 +481,22 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
                     motor_counts[ns] += 1
 
             gz.subscribe(Actuators, motor_topic(int(slot.ident["instance"])), on_motor)
+
+    truth: dict = {}
+    if args.plan_diag and gz is not None:
+        # 票 B2：只读。gz 世界系的真值位置，和 PX4 的 EKF 里程计对照，分清是控制没跟上还是估计偏了。
+        try:
+            from gz.msgs10.pose_v_pb2 import Pose_V
+
+            def on_poses(msg) -> None:
+                with lock:
+                    for pose in msg.pose:
+                        if pose.name.startswith("x500_"):
+                            truth[pose.name] = (pose.position.x, pose.position.y, pose.position.z)
+
+            gz.subscribe(Pose_V, f"/world/{args.world}/dynamic_pose/info", on_poses)
+        except Exception:
+            truth = {}
 
     rclpy.init()
     node = rclpy.create_node("yopo_l0_sitl_live")

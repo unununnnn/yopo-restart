@@ -60,12 +60,22 @@ def _stats(vals: list[float]) -> dict | None:
 class PlanDiag:
     """装在一个 CrossingFleet 实例上。``distance`` 是场景卡点到障碍表面的距离。"""
 
-    def __init__(self, fleet, distance: Callable[[np.ndarray], float], body_radius: float, *, abs_offset: Callable[[], float] | None = None):
+    def __init__(
+        self,
+        fleet,
+        distance: Callable[[np.ndarray], float],
+        body_radius: float,
+        *,
+        abs_offset: Callable[[], float] | None = None,
+        truth: Callable[[str], np.ndarray | None] | None = None,
+    ):
         self.fleet = fleet
         self.distance = distance
         self.body = float(body_radius)
         # SITL：ingest 的状态时刻是绝对仿真钟，协议钟要减去 PLAN 起点。L0 两者相同。
         self.abs_offset = abs_offset or (lambda: 0.0)
+        # SITL：gz 真值位置（世界系）。L0 没有，记 None。
+        self.truth = truth
         self.state: dict[str, tuple[np.ndarray, np.ndarray, float]] = {}
         self.frame_pose: dict[str, tuple[int, np.ndarray, float]] = {}
         self.plans: list[dict] = []
@@ -176,11 +186,14 @@ class PlanDiag:
             return
         sp, sv, _sa = state_at(rec.occupancy.plan, now)
         odom_p = st[0]
+        true_p = None if self.truth is None else self.truth(did)
         along, lat = _split(odom_p - sp, np.asarray(sv)[:2])
         rows.append({
             "t": round(now, 3),
             "sp": [float(x) for x in sp],
             "odom": [float(x) for x in odom_p],
+            "truth": None if true_p is None else [float(x) for x in true_p],
+            "truth_clear": None if true_p is None else self._clear(true_p),
             "sp_clear": self._clear(sp),
             "odom_clear": self._clear(odom_p),
             "err": float(np.linalg.norm(odom_p - sp)),
