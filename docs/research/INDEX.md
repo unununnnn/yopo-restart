@@ -95,10 +95,14 @@
 | e-pg3-leader-prefix.md |  | 票 E-PG3：超前机改走短前缀 | report-only、冻结 |
 | e-so3-dynamics-gap-runs.json |  | 只报数。report-only。SO3 两臂是偏离默认动力学（L0 点质量不变）。不改 yopo_l0/ 的默认动力学，不改 core/、scenes/、docs/tickets.md、README.md、scripts/premerge.sh、scripts/regress.sh。规划与策略保持场景卡默认：upstream（柱群和穿林由 CrossingFleet 走上游 YOPO），影子盾开。外环 kp/kd/a_max 与 PointMassLag 相同。τ_att、τ_thrust 和倾角是票面给定的假设，不是本仓库的 SITL 辨识。未冻结，不进 scenes/suite.txt，不设 gates，不改已冻门。 | report-only、冻结 |
 | e-so3-dynamics-gap.md |  | 票 E-SO3：L0 SO3 四旋翼滞后 vs 点质量，只报数 | report-only、冻结 |
+| e-so3b-suite-runs.json |  | 票 E-SO3b：冻结套件上的一阶 SO3，只报数 | report-only、冻结 |
+| e-so3b-suite.md |  | 票 E-SO3b：冻结套件上的一阶 SO3，只报数 | report-only、冻结 |
 | ego-c2-swap3.md |  | 票 E-C2：三机开阔对向（只报数） | report-only、冻结 |
 | ego-swarm-baseline.md |  | EGO-Swarm 外部基线（E-C1） | 无 |
 | ego-swarm-comparison.md |  | yopo-restart 与 EGO-Swarm 对照 | report-only、冻结 |
 | ego-swarm-density.json |  | （无说明字段） | 无 |
+| m4-ros2-matrix-runs.json | m4 | M4-ROS2：formation-6-open 六档 × seeds 0–4 的 ROS 2 矩阵 | report-only、冻结 |
+| m4-ros2-matrix.md | m4 | 票 M4-ROS2：formation-6-open 六档 ROS 2 矩阵（只报数） | report-only、冻结 |
 | m5-a1-closeout-audit.md | m5 | M5-A1：口径 A 第一期收口前置核验 | report-only |
 | p1-inference-speed.md | p1 | P1：YOPO 单次推理耗时 | 冻结 |
 | p1b-sensor-speed.md | p1b | P1b：深度相机求交加速（默认关） | report-only、冻结 |
@@ -106,5 +110,7 @@
 | s4b-sitl-live.md | s4b | 票 S4b：YOPO L0 规划桥接进 PX4 / Gazebo 容器 | report-only |
 | s4c-sitl-yopo-image.md | s4c | 票 S4c：SITL 容器内 YOPO L0 运行时分层镜像 | report-only |
 | s5a-sitl-formation.md | s5a | 票 S5a：SITL 实飞入口跑 formation-hold（只报数） | report-only |
+| s6-sitl-upstream-m0-runs.json | s6 | 票 S6：upstream + 影子盾接到单机 PX4 SITL，与 M0 g2-pillar 对照 | report-only |
+| s6-sitl-upstream-m0.md | s6 | 票 S6：upstream + 影子盾接到单机 PX4 SITL，与 M0 g2-pillar 对照（只报数） | report-only |
 | v2-clearance-replay.md | v2 | 票 V2：穿林跟踪净空门前后对比回放，只出图 | 冻结 |
 | v3-sphere-replay.md | v3 | 票 V3：E-B4c 欧氏碰撞球开关对比回放，只出图 | 无 |
