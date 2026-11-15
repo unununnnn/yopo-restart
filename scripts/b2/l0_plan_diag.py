@@ -16,7 +16,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from yopo_l0 import crossing  # noqa: E402
-from yopo_l0.b2_plan_diag import PlanDiag, apply_b2_overrides  # noqa: E402
+from yopo_l0.b2_plan_diag import PlanDiag, apply_b2_overrides, b3_from_fix, fix_deviations, parse_fix  # noqa: E402
 from yopo_l0.runner import RunConfig, run  # noqa: E402
 from yopo_l0.scene import load_card  # noqa: E402
 
@@ -27,6 +27,7 @@ def one(card, seed: int, safe_radius: float | None) -> dict:
 
     def from_card(cls, card_dict, physics_dt, *, record_inputs=False):
         fleet = original(cls, card_dict, physics_dt, record_inputs=record_inputs)
+        holder["fleet"] = fleet
         holder["diag"] = PlanDiag(fleet, card.min_distance, float(card.card["criteria"]["body_radius_m"]))
         return fleet
 
@@ -46,6 +47,8 @@ def one(card, seed: int, safe_radius: float | None) -> dict:
         "min_obstacle_m": res.get("min_obstacle_distance_m"),
         "result_keys_min": {k: res.get(k) for k in res if "min" in k and not isinstance(res.get(k), (dict, list))},
         "b2_plan_diag": holder["diag"].summary() if "diag" in holder else None,
+        "b3": dict(holder["fleet"].b3_counts) if getattr(holder.get("fleet"), "b3", None) else None,
+        "arrival_time_s": res.get("arrival_time_s"),
     }
 
 
@@ -59,8 +62,13 @@ def main(argv: list[str]) -> int:
         "--dynamics", default="",
         help="只在本进程里改场景卡 dynamics，如 tau_s=0.3,kp=2（对照用，偏离上游）",
     )
+    ap.add_argument("--fix", default="", help="同 YOPO_B2_FIX，例如 launch=3:2.5,relat=0.4（票 B3，偏离上游）")
     args = ap.parse_args(argv)
-    card, deviations = apply_b2_overrides(load_card(args.scene), head_from_odom_m=args.odomhead)
+    fix = parse_fix(args.fix)
+    card, deviations = apply_b2_overrides(
+        load_card(args.scene), head_from_odom_m=args.odomhead, b3=b3_from_fix(fix)
+    )
+    deviations += [d for d in fix_deviations(fix) if "里程计" in d or "起步" in d]
     if args.dynamics:
         dyn = dict(card.card["dynamics"])
         for item in args.dynamics.split(","):

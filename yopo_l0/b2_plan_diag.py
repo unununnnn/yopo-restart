@@ -256,6 +256,8 @@ def parse_fix(raw: str | None) -> dict:
     * ``odomhead=<米>``：交叉卡实际位置偏离计划头超过这么多时，从里程计外推的头状态起规划
       （CrossingFleet 的 policy_params.b2.head_from_odom_m）。
     * ``stiff=<kp>:<kv>``：设定点加代理侧误差增益（LiveFleetConfig.setpoint_gain_p / _v）。
+    * ``launch=<a_max>:<秒>``（票 B3）：起步段计划加速度上限（policy_params.b3.launch_a_max_mps2 / launch_s）。
+    * ``relat=<米>``（票 B3）：横向偏差超过这么多时从里程计起规划（policy_params.b3.replan_lateral_m）。
     """
     out: dict = {}
     for item in (raw or "").split(","):
@@ -280,6 +282,18 @@ def parse_fix(raw: str | None) -> dict:
                 raise ValueError(f"YOPO_B2_FIX stiff 要 kp:kv 在 [0, 5] 且不全为 0，收到 {value!r}")
             out["setpoint_gain_p"] = gp
             out["setpoint_gain_v"] = gv
+        elif key == "launch":
+            cap, _, span = value.partition(":")
+            a_cap, t_span = float(cap), float(span or 2.5)
+            if not (math.isfinite(a_cap) and a_cap > 0.0 and math.isfinite(t_span) and t_span > 0.0):
+                raise ValueError(f"YOPO_B2_FIX launch 要 a_max:秒 且都为正，收到 {value!r}")
+            out["launch_a_max_mps2"] = a_cap
+            out["launch_s"] = t_span
+        elif key == "relat":
+            thr = float(value)
+            if not (math.isfinite(thr) and thr > 0.0):
+                raise ValueError(f"YOPO_B2_FIX relat 要为正，收到 {value!r}")
+            out["replan_lateral_m"] = thr
         else:
             raise ValueError(f"YOPO_B2_FIX 不认识 {key!r}")
     return out
@@ -293,16 +307,31 @@ def fix_deviations(fix: dict) -> list[str]:
         out.append(f"偏离上游：设定点误差增益 kp={fix['setpoint_gain_p']:g} kv={fix['setpoint_gain_v']:g}")
     if "head_from_odom_m" in fix:
         out.append(f"偏离上游：偏差超过 {fix['head_from_odom_m']:g} m 时从里程计起规划")
+    if "launch_a_max_mps2" in fix:
+        out.append(f"偏离上游：起步 {fix['launch_s']:g} s 内计划加速度上限 {fix['launch_a_max_mps2']:g} m/s²")
+    if "replan_lateral_m" in fix:
+        out.append(f"偏离上游：横向偏差超过 {fix['replan_lateral_m']:g} m 时从里程计起规划")
     return out
 
 
-def apply_b2_overrides(card, *, safe_radius: float | None = None, head_from_odom_m: float | None = None):
+B3_KEYS = ("launch_a_max_mps2", "launch_s", "replan_lateral_m")
+
+
+def b3_from_fix(fix: dict) -> dict | None:
+    """parse_fix 结果里票 B3 的键。没有就是 None（全关）。"""
+    out = {k: fix[k] for k in B3_KEYS if k in fix}
+    return out or None
+
+
+def apply_b2_overrides(
+    card, *, safe_radius: float | None = None, head_from_odom_m: float | None = None, b3: dict | None = None
+):
     """在内存里盖过场景卡的研究开关。都缺省时原样返回同一个对象，卡哈希不变。
 
     返回 (card, deviations)。deviations 非空就是「偏离上游」。
     """
     deviations: list[str] = []
-    if safe_radius is None and head_from_odom_m is None:
+    if safe_radius is None and head_from_odom_m is None and not b3:
         return card, deviations
     params = dict(card.card.get("policy_params") or {})
     if safe_radius is not None:
@@ -317,6 +346,8 @@ def apply_b2_overrides(card, *, safe_radius: float | None = None, head_from_odom
         b2 = dict(params.get("b2") or {})
         b2["head_from_odom_m"] = float(head_from_odom_m)
         params["b2"] = b2
+    if b3:
+        params["b3"] = {**dict(params.get("b3") or {}), **{k: float(v) for k, v in b3.items()}}
     return dataclasses.replace(card, card={**card.card, "policy_params": params}), deviations
 
 

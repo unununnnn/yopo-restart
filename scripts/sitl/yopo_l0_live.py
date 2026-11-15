@@ -18,7 +18,7 @@ import threading
 import time
 from pathlib import Path
 
-from yopo_l0.b2_plan_diag import PlanDiag, apply_b2_overrides, fix_deviations, parse_fix
+from yopo_l0.b2_plan_diag import PlanDiag, apply_b2_overrides, b3_from_fix, fix_deviations, parse_fix
 from yopo_l0.scene import load_card
 from yopo_l0.sitl_bridge import (
     ClockSkewMeter,
@@ -262,7 +262,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         args.b2_fix_cfg = parse_fix(args.b2_fix)
         card, b2_deviations = apply_b2_overrides(
-            card, safe_radius=args.safe_radius, head_from_odom_m=args.b2_fix_cfg.get("head_from_odom_m")
+            card,
+            safe_radius=args.safe_radius,
+            head_from_odom_m=args.b2_fix_cfg.get("head_from_odom_m"),
+            b3=b3_from_fix(args.b2_fix_cfg),
         )
         b2_deviations += fix_deviations(args.b2_fix_cfg)
     except ValueError as exc:
@@ -761,6 +764,8 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
         payload["b2_plan_diag"] = plan_diag.summary()
     if getattr(args, "b2_deviations", None):
         payload["b2_deviations"] = list(args.b2_deviations)
+    if getattr(session.fleet, "b3", None):
+        payload["b3"] = {"config": dict(session.fleet.b3), "counts": dict(session.fleet.b3_counts)}
     if stepper is not None:
         payload["lockstep"] = stepper.stats.summary()
         payload["lockstep"]["odom_wait_timeouts"] = int(odom_wait_timeouts)
