@@ -163,3 +163,48 @@ def test_setpoint_lead_is_bounded():
     with pytest.raises(ValueError):
         LiveFleetConfig(setpoint_lead_s=-0.1)
     assert parse_fix("") == {} and parse_fix("lead=0.12") == {"setpoint_lead_s": 0.12}
+
+
+def _fleet(params=None):
+    card = dict(load_card(CROSS).card)
+    if params is not None:
+        card["policy_params"] = params
+    return crossing.CrossingFleet.from_card(card, 0.01)
+
+
+def test_odom_head_is_off_by_default_and_keeps_the_task_hash():
+    off = _fleet()
+    assert off.head_from_odom_m is None
+    on = _fleet({"b2": {"head_from_odom_m": 0.3}})
+    assert on.head_from_odom_m == 0.3
+    assert off.cfg.task_hash != on.cfg.task_hash  # 打开才进 task_hash
+    assert _fleet({}).cfg.task_hash == off.cfg.task_hash
+    with pytest.raises(ValueError):
+        _fleet({"b2": {"head_from_odom_m": -1}})
+
+
+def test_odom_head_replaces_the_head_only_beyond_the_threshold():
+    from types import SimpleNamespace
+
+    fleet = _fleet({"b2": {"head_from_odom_m": 0.3}})
+    head = np.array([[1.0, 0.0, 1.5], [2.0, 0.0, 0.0], [0.5, 0.0, 0.0]])
+    frame = SimpleNamespace(stamp=0.0, depth=np.zeros((2, 2)))
+    near = SimpleNamespace(p=np.array([0.5, 0.1, 1.5]), v=np.array([2.0, 0.0, 0.0]), yaw=0.0)
+    fleet.ingest("uav0", frame, near)
+    # 外推 0.25 s：0.5 + 2*0.25 = 1.0，离计划头 0.1 m，不换头。
+    assert np.array_equal(fleet._odom_head("uav0", head, 0.0, 0.25), head)
+    far = SimpleNamespace(p=np.array([0.5, 0.6, 1.5]), v=np.array([2.0, 0.4, 0.0]), yaw=0.0)
+    fleet.ingest("uav0", frame, far)
+    out = fleet._odom_head("uav0", head, 0.0, 0.25)
+    assert np.allclose(out[0], [1.0, 0.7, 1.5]) and np.allclose(out[1], [2.0, 0.4, 0.0])
+    assert np.allclose(out[2], 0.0) and fleet.head_from_odom_count == 1
+
+
+def test_odomhead_fix_parses_and_marks_deviation(tmp_path):
+    assert parse_fix("odomhead=0.3,lead=0.1") == {"head_from_odom_m": 0.3, "setpoint_lead_s": 0.1}
+    out = tmp_path / "p.json"
+    r = _live("--scene", str(CROSS_SITL), "--policy", "crossing", "--dry-run", "--out", str(out),
+              env={"YOPO_B2_FIX": "odomhead=0.3"})
+    assert r.returncode == 0, r.stderr
+    b2 = json.loads(out.read_text())["b2"]
+    assert b2["deviations"] == ["偏离上游：偏差超过 0.3 m 时从里程计起规划"]

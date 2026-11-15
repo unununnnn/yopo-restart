@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import sys
 from pathlib import Path
@@ -15,7 +16,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from yopo_l0 import crossing  # noqa: E402
-from yopo_l0.b2_plan_diag import PlanDiag  # noqa: E402
+from yopo_l0.b2_plan_diag import PlanDiag, apply_b2_overrides  # noqa: E402
 from yopo_l0.runner import RunConfig, run  # noqa: E402
 from yopo_l0.scene import load_card  # noqa: E402
 
@@ -53,10 +54,22 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--scene", default=str(REPO / "scenes/crossing-pillars.json"))
     ap.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2, 3, 4])
     ap.add_argument("--safe-radius", type=float, default=None)
+    ap.add_argument("--odomhead", type=float, default=None, help="policy_params.b2.head_from_odom_m（偏离上游）")
+    ap.add_argument(
+        "--dynamics", default="",
+        help="只在本进程里改场景卡 dynamics，如 tau_s=0.3,kp=2（对照用，偏离上游）",
+    )
     args = ap.parse_args(argv)
-    card = load_card(args.scene)
+    card, deviations = apply_b2_overrides(load_card(args.scene), head_from_odom_m=args.odomhead)
+    if args.dynamics:
+        dyn = dict(card.card["dynamics"])
+        for item in args.dynamics.split(","):
+            key, _, value = item.partition("=")
+            dyn[key.strip()] = float(value)
+        card = dataclasses.replace(card, card={**card.card, "dynamics": dyn})
+        deviations.append(f"偏离上游：L0 动力学 {args.dynamics}")
     rows = [one(card, s, args.safe_radius) for s in args.seeds]
-    json.dump({"scene": card.name, "rows": rows}, sys.stdout, indent=1, ensure_ascii=False)
+    json.dump({"scene": card.name, "deviations": deviations, "odomhead": args.odomhead, "rows": rows}, sys.stdout, indent=1, ensure_ascii=False)
     sys.stdout.write("\n")
     return 0
 

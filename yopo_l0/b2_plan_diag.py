@@ -223,6 +223,7 @@ class PlanDiag:
             "at_plan_head_from_view_along": _stats([p.get("head_from_view_along_m") for p in moving_plans]),
             "at_plan_frame_age_s": _stats([p.get("frame_age_s") for p in self.plans]),
             "at_plan_odom_age_s": _stats([p.get("odom_age_s") for p in self.plans]),
+            "head_from_odom_count": getattr(self.fleet, "head_from_odom_count", None),
             "options_per_call": _stats([p.get("options") for p in self.plans if p.get("options") is not None]),
             "plans": self.plans,
         }
@@ -231,7 +232,9 @@ class PlanDiag:
 def parse_fix(raw: str | None) -> dict:
     """``YOPO_B2_FIX``：逗号分隔的 ``key=value``。空就是全关。
 
-    目前只有 ``lead=<秒>``：设定点取已提交计划上提前这么久的那一点（见 LiveFleetConfig.setpoint_lead_s）。
+    * ``lead=<秒>``：设定点取已提交计划上提前这么久的那一点（见 LiveFleetConfig.setpoint_lead_s）。
+    * ``odomhead=<米>``：交叉卡实际位置偏离计划头超过这么多时，从里程计外推的头状态起规划
+      （CrossingFleet 的 policy_params.b2.head_from_odom_m）。
     """
     out: dict = {}
     for item in (raw or "").split(","):
@@ -244,29 +247,44 @@ def parse_fix(raw: str | None) -> dict:
             if not 0.0 < lead <= 0.5:
                 raise ValueError(f"YOPO_B2_FIX lead 要在 (0, 0.5]，收到 {value!r}")
             out["setpoint_lead_s"] = lead
+        elif key == "odomhead":
+            thr = float(value)
+            if not (math.isfinite(thr) and thr >= 0.0):
+                raise ValueError(f"YOPO_B2_FIX odomhead 要非负，收到 {value!r}")
+            out["head_from_odom_m"] = thr
         else:
             raise ValueError(f"YOPO_B2_FIX 不认识 {key!r}")
     return out
 
 
 def fix_deviations(fix: dict) -> list[str]:
-    return [f"偏离上游：设定点提前 {fix['setpoint_lead_s']:g} s"] if "setpoint_lead_s" in fix else []
+    out = []
+    if "setpoint_lead_s" in fix:
+        out.append(f"偏离上游：设定点提前 {fix['setpoint_lead_s']:g} s")
+    if "head_from_odom_m" in fix:
+        out.append(f"偏离上游：偏差超过 {fix['head_from_odom_m']:g} m 时从里程计起规划")
+    return out
 
 
-def apply_b2_overrides(card, *, safe_radius: float | None = None):
+def apply_b2_overrides(card, *, safe_radius: float | None = None, head_from_odom_m: float | None = None):
     """在内存里盖过场景卡的研究开关。都缺省时原样返回同一个对象，卡哈希不变。
 
     返回 (card, deviations)。deviations 非空就是「偏离上游」。
     """
     deviations: list[str] = []
-    if safe_radius is None:
+    if safe_radius is None and head_from_odom_m is None:
         return card, deviations
-    radius = float(safe_radius)
-    if not radius > 0.0 or not math.isfinite(radius):
-        raise ValueError(f"--safe-radius 必须为正，收到 {safe_radius}")
     params = dict(card.card.get("policy_params") or {})
-    upstream = dict(params.get("upstream") or {})
-    upstream["safe_radius"] = radius
-    params["upstream"] = upstream
-    deviations.append(f"偏离上游：safe_radius={radius:g}")
+    if safe_radius is not None:
+        radius = float(safe_radius)
+        if not radius > 0.0 or not math.isfinite(radius):
+            raise ValueError(f"--safe-radius 必须为正，收到 {safe_radius}")
+        upstream = dict(params.get("upstream") or {})
+        upstream["safe_radius"] = radius
+        params["upstream"] = upstream
+        deviations.append(f"偏离上游：safe_radius={radius:g}")
+    if head_from_odom_m is not None:
+        b2 = dict(params.get("b2") or {})
+        b2["head_from_odom_m"] = float(head_from_odom_m)
+        params["b2"] = b2
     return dataclasses.replace(card, card={**card.card, "policy_params": params}), deviations

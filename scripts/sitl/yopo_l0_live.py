@@ -259,8 +259,10 @@ def main(argv: list[str] | None = None) -> int:
     positioning = _positioning(args.positioning)
     card = load_card(_scene_path(args.scene))
     try:
-        card, b2_deviations = apply_b2_overrides(card, safe_radius=args.safe_radius)
         args.b2_fix_cfg = parse_fix(args.b2_fix)
+        card, b2_deviations = apply_b2_overrides(
+            card, safe_radius=args.safe_radius, head_from_odom_m=args.b2_fix_cfg.get("head_from_odom_m")
+        )
         b2_deviations += fix_deviations(args.b2_fix_cfg)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
