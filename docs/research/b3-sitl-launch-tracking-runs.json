@@ -1,0 +1,1818 @@
+{
+ "ticket": "B3",
+ "title": "票 B3：锁步交叉卡起步跟踪修复候选（只报数）",
+ "timezone": "UTC-3",
+ "disclaimer": "只报数，判据未冻结；SITL report_only=true；px4_parameters_written 全部为空；开关打开即偏离上游",
+ "cap_measurement": {
+  "runs": [
+   "20261115T153037-yopo-n3",
+   "20261115T153419-yopo-n3",
+   "20261115T153548-yopo-n3",
+   "20261115T153655-yopo-n3",
+   "20261115T153850-yopo-n3",
+   "20261115T154036-yopo-n3",
+   "20261115T154223-yopo-n3",
+   "20261115T154330-yopo-n3",
+   "20261115T154505-yopo-n3",
+   "20261115T154646-yopo-n3"
+  ],
+  "lag_s": 0.12,
+  "window_s": 0.5,
+  "table": {
+   "early a_along 0-1": {
+    "n": 211,
+    "follow_p50": 1.1,
+    "follow_p25": 0.2
+   },
+   "early a_along 1-2": {
+    "n": 134,
+    "follow_p50": 1.1,
+    "follow_p25": 0.27
+   },
+   "early a_along 2-3": {
+    "n": 115,
+    "follow_p50": 1.11,
+    "follow_p25": 0.97
+   },
+   "early a_along 3-4": {
+    "n": 78,
+    "follow_p50": 0.95,
+    "follow_p25": 0.64
+   },
+   "early a_along 4-5": {
+    "n": 10,
+    "follow_p50": 0.13,
+    "follow_p25": -0.01
+   },
+   "late a_along 0-1": {
+    "n": 1111,
+    "follow_p50": 1.13,
+    "follow_p25": 0.93
+   },
+   "late a_along 1-2": {
+    "n": 570,
+    "follow_p50": 1.2,
+    "follow_p25": 1.04
+   },
+   "late a_along 2-3": {
+    "n": 257,
+    "follow_p50": 1.41,
+    "follow_p25": 1.24
+   },
+   "late a_along 3-4": {
+    "n": 98,
+    "follow_p50": 1.54,
+    "follow_p25": 1.38
+   },
+   "late a_along 4-5": {
+    "n": 48,
+    "follow_p50": 1.29,
+    "follow_p25": 1.19
+   }
+  },
+  "source": "B2 缺省设定点路径 10 趟（truth2 + sr035-final）逐拍记录"
+ },
+ "lateral_error_distribution_b2": {
+  "success_drones": {
+   "early": {
+    "n": 3187,
+    "p50": 0.05,
+    "p90": 0.87,
+    "p95": 1.11,
+    "max": 1.8
+   },
+   "late": {
+    "n": 14598,
+    "p50": 0.12,
+    "p90": 0.37,
+    "p95": 0.49,
+    "max": 1.85
+   }
+  },
+  "failing_drone_last_0_6s": {
+   "n": 75,
+   "p50": 0.11,
+   "p90": 0.56,
+   "p95": 0.61,
+   "max": 0.67
+  }
+ },
+ "arms": {
+  "default(B2:base-diag)": "缺省（复用 B2 base-diag）",
+  "a": "launch=3:1.5",
+  "b05": "relat=0.5",
+  "ab": "launch=3:1.5,relat=0.5",
+  "b03": "relat=0.3",
+  "a-v1": "第一版 launch=3:2.5（每拍刹停，作废）",
+  "sw-ab": "formation-switch-sitl80，launch=3:1.5,relat=0.5"
+ },
+ "sitl": {
+  "default(B2:base-diag)": [
+   {
+    "seed": 0,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T144205-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 16.6,
+    "plan_m": 1.017,
+    "flight_m": 0.001,
+    "lat_p95": 1.137,
+    "b3": null,
+    "px4": [],
+    "rtf": 0.42,
+    "dev": null
+   },
+   {
+    "seed": 1,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T144353-yopo-n3",
+    "outcome": "FAIL",
+    "reason": "uav1:OBSTACLE",
+    "arrived": 0,
+    "collisions": 1,
+    "t_arr": null,
+    "plan_m": -0.029,
+    "flight_m": -0.029,
+    "lat_p95": 0.642,
+    "b3": null,
+    "px4": [],
+    "rtf": 0.51,
+    "dev": null
+   },
+   {
+    "seed": 2,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T144506-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 11.46,
+    "plan_m": 0.406,
+    "flight_m": 0.002,
+    "lat_p95": 0.588,
+    "b3": null,
+    "px4": [],
+    "rtf": 0.45,
+    "dev": null
+   },
+   {
+    "seed": 3,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T144641-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 14.02,
+    "plan_m": 0.699,
+    "flight_m": 0.001,
+    "lat_p95": 0.959,
+    "b3": null,
+    "px4": [],
+    "rtf": 0.43,
+    "dev": null
+   },
+   {
+    "seed": 4,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T144827-yopo-n3",
+    "outcome": "FAIL",
+    "reason": "uav2:OBSTACLE",
+    "arrived": 0,
+    "collisions": 1,
+    "t_arr": null,
+    "plan_m": -0.044,
+    "flight_m": -0.044,
+    "lat_p95": 0.803,
+    "b3": null,
+    "px4": [],
+    "rtf": 0.48,
+    "dev": null
+   },
+   {
+    "seed": 5,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T144943-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 9.64,
+    "plan_m": 1.016,
+    "flight_m": 0.001,
+    "lat_p95": 0.584,
+    "b3": null,
+    "px4": [],
+    "rtf": 0.45,
+    "dev": null
+   },
+   {
+    "seed": 6,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T145114-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 12.519999999999996,
+    "plan_m": 0.948,
+    "flight_m": 0.001,
+    "lat_p95": 0.605,
+    "b3": null,
+    "px4": [],
+    "rtf": 0.46,
+    "dev": null
+   },
+   {
+    "seed": 7,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T145251-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 17.06,
+    "plan_m": 0.768,
+    "flight_m": 0.003,
+    "lat_p95": 1.058,
+    "b3": null,
+    "px4": [],
+    "rtf": 0.44,
+    "dev": null
+   },
+   {
+    "seed": 8,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T145441-yopo-n3",
+    "outcome": "FAIL",
+    "reason": "uav0:OBSTACLE",
+    "arrived": 0,
+    "collisions": 1,
+    "t_arr": null,
+    "plan_m": -0.024,
+    "flight_m": -0.024,
+    "lat_p95": 0.458,
+    "b3": null,
+    "px4": [],
+    "rtf": 0.49,
+    "dev": null
+   },
+   {
+    "seed": 9,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T145557-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 16.86,
+    "plan_m": 0.8,
+    "flight_m": 0.004,
+    "lat_p95": 1.264,
+    "b3": null,
+    "px4": [],
+    "rtf": 0.44,
+    "dev": null
+   }
+  ],
+  "default(B2:truth2)": [
+   {
+    "seed": 0,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T154223-yopo-n3",
+    "outcome": "FAIL",
+    "reason": "uav2:OBSTACLE",
+    "arrived": 0,
+    "collisions": 1,
+    "t_arr": null,
+    "plan_m": -0.002,
+    "flight_m": -0.002,
+    "lat_p95": 0.922,
+    "b3": null,
+    "px4": [],
+    "rtf": 0.54,
+    "dev": null
+   },
+   {
+    "seed": 1,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T153037-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 16.759999999999998,
+    "plan_m": 0.829,
+    "flight_m": 0.0,
+    "lat_p95": 1.244,
+    "b3": null,
+    "px4": [],
+    "rtf": 0.45,
+    "dev": null
+   },
+   {
+    "seed": 2,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T154330-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 13.120000000000005,
+    "plan_m": 0.73,
+    "flight_m": 0.006,
+    "lat_p95": 1.551,
+    "b3": null,
+    "px4": [],
+    "rtf": 0.48,
+    "dev": null
+   },
+   {
+    "seed": 3,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T154505-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 17.139999999999997,
+    "plan_m": 0.962,
+    "flight_m": 0.001,
+    "lat_p95": 1.194,
+    "b3": null,
+    "px4": [],
+    "rtf": 0.47,
+    "dev": null
+   },
+   {
+    "seed": 4,
+    "run_dir": "/workspace/yopo-ops/sitl/runs/20261115T154646-yopo-n3",
+    "outcome": "FAIL",
+    "reason": "uav0:OBSTACLE",
+    "arrived": 0,
+    "collisions": 1,
+    "t_arr": null,
+    "plan_m": -0.047,
+    "flight_m": -0.047,
+    "lat_p95": 0.752,
+    "b3": null,
+    "px4": [],
+    "rtf": 0.55,
+    "dev": null
+   }
+  ],
+  "a-v1": [
+   {
+    "seed": 0,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T164736-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 12.120000000000001,
+    "plan_m": 0.777,
+    "flight_m": 0.003,
+    "lat_p95": 0.648,
+    "b3": {
+     "launch_plans": 12,
+     "launch_scaled": 66,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.28,
+    "dev": [
+     "偏离上游：起步 2.5 s 内计划加速度上限 3 m/s²"
+    ]
+   },
+   {
+    "seed": 1,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T164956-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 14.300000000000004,
+    "plan_m": 0.635,
+    "flight_m": 0.002,
+    "lat_p95": 0.634,
+    "b3": {
+     "launch_plans": 12,
+     "launch_scaled": 68,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.28,
+    "dev": [
+     "偏离上游：起步 2.5 s 内计划加速度上限 3 m/s²"
+    ]
+   },
+   {
+    "seed": 2,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T165214-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 14.620000000000005,
+    "plan_m": 0.565,
+    "flight_m": 0.002,
+    "lat_p95": 0.595,
+    "b3": {
+     "launch_plans": 12,
+     "launch_scaled": 68,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.29,
+    "dev": [
+     "偏离上游：起步 2.5 s 内计划加速度上限 3 m/s²"
+    ]
+   },
+   {
+    "seed": 3,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T165429-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 13.540000000000003,
+    "plan_m": 0.402,
+    "flight_m": 0.002,
+    "lat_p95": 0.527,
+    "b3": {
+     "launch_plans": 12,
+     "launch_scaled": 70,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.29,
+    "dev": [
+     "偏离上游：起步 2.5 s 内计划加速度上限 3 m/s²"
+    ]
+   },
+   {
+    "seed": 4,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T165648-yopo-n3",
+    "outcome": "FAIL",
+    "reason": "uav1:OBSTACLE",
+    "arrived": 0,
+    "collisions": 1,
+    "t_arr": null,
+    "plan_m": -0.047,
+    "flight_m": -0.047,
+    "lat_p95": 0.436,
+    "b3": {
+     "launch_plans": 12,
+     "launch_scaled": 71,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.27,
+    "dev": [
+     "偏离上游：起步 2.5 s 内计划加速度上限 3 m/s²"
+    ]
+   },
+   {
+    "seed": 5,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T170109-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 12.339999999999996,
+    "plan_m": 0.57,
+    "flight_m": 0.006,
+    "lat_p95": 0.562,
+    "b3": {
+     "launch_plans": 12,
+     "launch_scaled": 71,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.28,
+    "dev": [
+     "偏离上游：起步 2.5 s 内计划加速度上限 3 m/s²"
+    ]
+   },
+   {
+    "seed": 6,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T170325-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 13.16,
+    "plan_m": 1.017,
+    "flight_m": 0.005,
+    "lat_p95": 1.232,
+    "b3": {
+     "launch_plans": 12,
+     "launch_scaled": 71,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.29,
+    "dev": [
+     "偏离上游：起步 2.5 s 内计划加速度上限 3 m/s²"
+    ]
+   },
+   {
+    "seed": 7,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T170541-yopo-n3",
+    "outcome": "FAIL",
+    "reason": "uav0:OBSTACLE",
+    "arrived": 0,
+    "collisions": 1,
+    "t_arr": null,
+    "plan_m": -0.021,
+    "flight_m": -0.021,
+    "lat_p95": 0.246,
+    "b3": {
+     "launch_plans": 12,
+     "launch_scaled": 70,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.29,
+    "dev": [
+     "偏离上游：起步 2.5 s 内计划加速度上限 3 m/s²"
+    ]
+   },
+   {
+    "seed": 8,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T170731-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 12.559999999999995,
+    "plan_m": 0.729,
+    "flight_m": 0.002,
+    "lat_p95": 0.555,
+    "b3": {
+     "launch_plans": 12,
+     "launch_scaled": 71,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.31,
+    "dev": [
+     "偏离上游：起步 2.5 s 内计划加速度上限 3 m/s²"
+    ]
+   },
+   {
+    "seed": 9,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T170939-yopo-n3",
+    "outcome": "FAIL",
+    "reason": "uav0:OBSTACLE",
+    "arrived": 0,
+    "collisions": 1,
+    "t_arr": null,
+    "plan_m": -0.002,
+    "flight_m": -0.002,
+    "lat_p95": 0.429,
+    "b3": {
+     "launch_plans": 12,
+     "launch_scaled": 68,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.32,
+    "dev": [
+     "偏离上游：起步 2.5 s 内计划加速度上限 3 m/s²"
+    ]
+   }
+  ],
+  "a-v1_timeout": [
+   {
+    "seed": 5,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T165847-yopo-n3",
+    "outcome": "FAIL",
+    "reason": "LOCKSTEP_TIMEOUT 锁步：PX4 电机握手超时：px4_3",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 12.759999999999998,
+    "plan_m": 0.936,
+    "flight_m": 0.001,
+    "lat_p95": 1.22,
+    "b3": {
+     "launch_plans": 12,
+     "launch_scaled": 67,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.25,
+    "dev": [
+     "偏离上游：起步 2.5 s 内计划加速度上限 3 m/s²"
+    ]
+   }
+  ],
+  "b05": [
+   {
+    "seed": 0,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T171118-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 12.379999999999999,
+    "plan_m": 1.02,
+    "flight_m": 0.004,
+    "lat_p95": 0.499,
+    "b3": {
+     "launch_plans": 0,
+     "launch_scaled": 0,
+     "launch_uncapped": 0,
+     "replan_lateral": 1
+    },
+    "px4": [],
+    "rtf": 0.5,
+    "dev": [
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 1,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T171411-yopo-n3",
+    "outcome": "FAIL",
+    "reason": "uav2:OBSTACLE",
+    "arrived": 0,
+    "collisions": 1,
+    "t_arr": null,
+    "plan_m": -0.009,
+    "flight_m": -0.009,
+    "lat_p95": 2.281,
+    "b3": {
+     "launch_plans": 0,
+     "launch_scaled": 0,
+     "launch_uncapped": 0,
+     "replan_lateral": 6
+    },
+    "px4": [],
+    "rtf": 0.41,
+    "dev": [
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 2,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T171540-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 11.980000000000004,
+    "plan_m": 1.022,
+    "flight_m": 0.002,
+    "lat_p95": 0.667,
+    "b3": {
+     "launch_plans": 0,
+     "launch_scaled": 0,
+     "launch_uncapped": 0,
+     "replan_lateral": 3
+    },
+    "px4": [],
+    "rtf": 0.44,
+    "dev": [
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 3,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T171719-yopo-n3",
+    "outcome": "FAIL",
+    "reason": "uav1:OBSTACLE",
+    "arrived": 0,
+    "collisions": 1,
+    "t_arr": null,
+    "plan_m": -0.073,
+    "flight_m": -0.073,
+    "lat_p95": 0.708,
+    "b3": {
+     "launch_plans": 0,
+     "launch_scaled": 0,
+     "launch_uncapped": 0,
+     "replan_lateral": 2
+    },
+    "px4": [],
+    "rtf": 0.48,
+    "dev": [
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 4,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T171834-yopo-n3",
+    "outcome": "FAIL",
+    "reason": "uav2:OBSTACLE",
+    "arrived": 0,
+    "collisions": 1,
+    "t_arr": null,
+    "plan_m": -0.007,
+    "flight_m": -0.007,
+    "lat_p95": 0.807,
+    "b3": {
+     "launch_plans": 0,
+     "launch_scaled": 0,
+     "launch_uncapped": 0,
+     "replan_lateral": 2
+    },
+    "px4": [],
+    "rtf": 0.47,
+    "dev": [
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 5,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T171947-yopo-n3",
+    "outcome": "FAIL",
+    "reason": "uav1:OBSTACLE",
+    "arrived": 0,
+    "collisions": 1,
+    "t_arr": null,
+    "plan_m": -0.036,
+    "flight_m": -0.036,
+    "lat_p95": 0.713,
+    "b3": {
+     "launch_plans": 0,
+     "launch_scaled": 0,
+     "launch_uncapped": 0,
+     "replan_lateral": 2
+    },
+    "px4": [],
+    "rtf": 0.5,
+    "dev": [
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 6,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T172101-yopo-n3",
+    "outcome": "FAIL",
+    "reason": "uav2:OBSTACLE",
+    "arrived": 0,
+    "collisions": 1,
+    "t_arr": null,
+    "plan_m": -0.029,
+    "flight_m": -0.029,
+    "lat_p95": 0.943,
+    "b3": {
+     "launch_plans": 0,
+     "launch_scaled": 0,
+     "launch_uncapped": 0,
+     "replan_lateral": 2
+    },
+    "px4": [],
+    "rtf": 0.51,
+    "dev": [
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 7,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T172213-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 12.820000000000004,
+    "plan_m": 1.039,
+    "flight_m": 0.005,
+    "lat_p95": 0.804,
+    "b3": {
+     "launch_plans": 0,
+     "launch_scaled": 0,
+     "launch_uncapped": 0,
+     "replan_lateral": 6
+    },
+    "px4": [],
+    "rtf": 0.46,
+    "dev": [
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 8,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T172343-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 14.16,
+    "plan_m": 1.019,
+    "flight_m": 0.0,
+    "lat_p95": 0.99,
+    "b3": {
+     "launch_plans": 0,
+     "launch_scaled": 0,
+     "launch_uncapped": 0,
+     "replan_lateral": 6
+    },
+    "px4": [],
+    "rtf": 0.45,
+    "dev": [
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 9,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T172524-yopo-n3",
+    "outcome": "FAIL",
+    "reason": "uav1:OBSTACLE",
+    "arrived": 0,
+    "collisions": 1,
+    "t_arr": null,
+    "plan_m": -0.057,
+    "flight_m": -0.057,
+    "lat_p95": 0.725,
+    "b3": {
+     "launch_plans": 0,
+     "launch_scaled": 0,
+     "launch_uncapped": 0,
+     "replan_lateral": 1
+    },
+    "px4": [],
+    "rtf": 0.48,
+    "dev": [
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   }
+  ],
+  "a": [
+   {
+    "seed": 0,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T172639-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 16.980000000000004,
+    "plan_m": 0.174,
+    "flight_m": 0.0,
+    "lat_p95": 0.878,
+    "b3": {
+     "launch_plans": 6,
+     "launch_scaled": 36,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.42,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²"
+    ]
+   },
+   {
+    "seed": 1,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T172833-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 10.32,
+    "plan_m": 0.412,
+    "flight_m": 0.004,
+    "lat_p95": 0.613,
+    "b3": {
+     "launch_plans": 6,
+     "launch_scaled": 36,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.46,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²"
+    ]
+   },
+   {
+    "seed": 2,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T173004-yopo-n3",
+    "outcome": "FAIL",
+    "reason": "uav2:OBSTACLE",
+    "arrived": 0,
+    "collisions": 1,
+    "t_arr": null,
+    "plan_m": -0.037,
+    "flight_m": -0.037,
+    "lat_p95": 0.562,
+    "b3": {
+     "launch_plans": 6,
+     "launch_scaled": 36,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.49,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²"
+    ]
+   },
+   {
+    "seed": 3,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T173115-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 11.68,
+    "plan_m": 0.734,
+    "flight_m": 0.001,
+    "lat_p95": 0.528,
+    "b3": {
+     "launch_plans": 6,
+     "launch_scaled": 36,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.49,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²"
+    ]
+   },
+   {
+    "seed": 4,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T173241-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 10.280000000000005,
+    "plan_m": 0.201,
+    "flight_m": 0.003,
+    "lat_p95": 0.854,
+    "b3": {
+     "launch_plans": 6,
+     "launch_scaled": 36,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.45,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²"
+    ]
+   },
+   {
+    "seed": 5,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T173412-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 10.520000000000003,
+    "plan_m": 0.904,
+    "flight_m": 0.003,
+    "lat_p95": 1.15,
+    "b3": {
+     "launch_plans": 6,
+     "launch_scaled": 36,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.47,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²"
+    ]
+   },
+   {
+    "seed": 6,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T173541-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 10.459999999999997,
+    "plan_m": 0.813,
+    "flight_m": 0.001,
+    "lat_p95": 0.692,
+    "b3": {
+     "launch_plans": 6,
+     "launch_scaled": 36,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.43,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²"
+    ]
+   },
+   {
+    "seed": 7,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T173719-yopo-n3",
+    "outcome": "FAIL",
+    "reason": "uav0:OBSTACLE",
+    "arrived": 0,
+    "collisions": 1,
+    "t_arr": null,
+    "plan_m": -0.045,
+    "flight_m": -0.045,
+    "lat_p95": 0.469,
+    "b3": {
+     "launch_plans": 6,
+     "launch_scaled": 36,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.51,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²"
+    ]
+   },
+   {
+    "seed": 8,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T173833-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 9.839999999999996,
+    "plan_m": 0.851,
+    "flight_m": 0.007,
+    "lat_p95": 0.541,
+    "b3": {
+     "launch_plans": 6,
+     "launch_scaled": 36,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.44,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²"
+    ]
+   },
+   {
+    "seed": 9,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T174006-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 13.420000000000002,
+    "plan_m": 0.237,
+    "flight_m": 0.001,
+    "lat_p95": 0.991,
+    "b3": {
+     "launch_plans": 6,
+     "launch_scaled": 36,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.42,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²"
+    ]
+   }
+  ],
+  "ab": [
+   {
+    "seed": 0,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T174149-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 18.299999999999997,
+    "plan_m": 0.904,
+    "flight_m": 0.005,
+    "lat_p95": 0.608,
+    "b3": {
+     "launch_plans": 6,
+     "launch_scaled": 36,
+     "launch_uncapped": 0,
+     "replan_lateral": 3
+    },
+    "px4": [],
+    "rtf": 0.44,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²",
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 1,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T174341-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 12.96,
+    "plan_m": 1.0,
+    "flight_m": 0.004,
+    "lat_p95": 0.643,
+    "b3": {
+     "launch_plans": 6,
+     "launch_scaled": 36,
+     "launch_uncapped": 0,
+     "replan_lateral": 7
+    },
+    "px4": [],
+    "rtf": 0.45,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²",
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 2,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T174518-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 11.060000000000002,
+    "plan_m": 0.758,
+    "flight_m": 0.001,
+    "lat_p95": 0.497,
+    "b3": {
+     "launch_plans": 6,
+     "launch_scaled": 36,
+     "launch_uncapped": 0,
+     "replan_lateral": 1
+    },
+    "px4": [],
+    "rtf": 0.46,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²",
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 3,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T174651-yopo-n3",
+    "outcome": "FAIL",
+    "reason": "uav0:OBSTACLE",
+    "arrived": 0,
+    "collisions": 1,
+    "t_arr": null,
+    "plan_m": -0.021,
+    "flight_m": -0.021,
+    "lat_p95": 0.487,
+    "b3": {
+     "launch_plans": 6,
+     "launch_scaled": 36,
+     "launch_uncapped": 0,
+     "replan_lateral": 2
+    },
+    "px4": [],
+    "rtf": 0.48,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²",
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 4,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T174803-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 12.7,
+    "plan_m": 0.28,
+    "flight_m": 0.007,
+    "lat_p95": 0.904,
+    "b3": {
+     "launch_plans": 6,
+     "launch_scaled": 36,
+     "launch_uncapped": 0,
+     "replan_lateral": 11
+    },
+    "px4": [],
+    "rtf": 0.39,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²",
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 5,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T174950-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 11.16,
+    "plan_m": 0.744,
+    "flight_m": 0.009,
+    "lat_p95": 0.426,
+    "b3": {
+     "launch_plans": 6,
+     "launch_scaled": 36,
+     "launch_uncapped": 0,
+     "replan_lateral": 0
+    },
+    "px4": [],
+    "rtf": 0.44,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²",
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 6,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T175125-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 11.339999999999996,
+    "plan_m": 0.19,
+    "flight_m": 0.0,
+    "lat_p95": 0.641,
+    "b3": {
+     "launch_plans": 6,
+     "launch_scaled": 36,
+     "launch_uncapped": 0,
+     "replan_lateral": 3
+    },
+    "px4": [],
+    "rtf": 0.44,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²",
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 7,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T175302-yopo-n3",
+    "outcome": "FAIL",
+    "reason": "uav0:OBSTACLE",
+    "arrived": 0,
+    "collisions": 1,
+    "t_arr": null,
+    "plan_m": -0.008,
+    "flight_m": -0.008,
+    "lat_p95": 0.401,
+    "b3": {
+     "launch_plans": 6,
+     "launch_scaled": 36,
+     "launch_uncapped": 0,
+     "replan_lateral": 1
+    },
+    "px4": [],
+    "rtf": 0.48,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²",
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 8,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T175416-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 11.939999999999998,
+    "plan_m": 0.729,
+    "flight_m": 0.002,
+    "lat_p95": 0.466,
+    "b3": {
+     "launch_plans": 6,
+     "launch_scaled": 36,
+     "launch_uncapped": 0,
+     "replan_lateral": 1
+    },
+    "px4": [],
+    "rtf": 0.44,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²",
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 9,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T175553-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 12.239999999999995,
+    "plan_m": 0.335,
+    "flight_m": 0.001,
+    "lat_p95": 0.647,
+    "b3": {
+     "launch_plans": 6,
+     "launch_scaled": 36,
+     "launch_uncapped": 0,
+     "replan_lateral": 3
+    },
+    "px4": [],
+    "rtf": 0.42,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²",
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   }
+  ],
+  "b03": [
+   {
+    "seed": 0,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T175736-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 18.040000000000003,
+    "plan_m": 0.897,
+    "flight_m": 0.004,
+    "lat_p95": 0.888,
+    "b3": {
+     "launch_plans": 0,
+     "launch_scaled": 0,
+     "launch_uncapped": 0,
+     "replan_lateral": 25
+    },
+    "px4": [],
+    "rtf": 0.39,
+    "dev": [
+     "偏离上游：横向偏差超过 0.3 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 1,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T175939-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 17.84,
+    "plan_m": 0.59,
+    "flight_m": 0.006,
+    "lat_p95": 0.847,
+    "b3": {
+     "launch_plans": 0,
+     "launch_scaled": 0,
+     "launch_uncapped": 0,
+     "replan_lateral": 16
+    },
+    "px4": [],
+    "rtf": 0.39,
+    "dev": [
+     "偏离上游：横向偏差超过 0.3 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 2,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T180142-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 19.64,
+    "plan_m": 0.63,
+    "flight_m": 0.001,
+    "lat_p95": 0.765,
+    "b3": {
+     "launch_plans": 0,
+     "launch_scaled": 0,
+     "launch_uncapped": 0,
+     "replan_lateral": 18
+    },
+    "px4": [],
+    "rtf": 0.37,
+    "dev": [
+     "偏离上游：横向偏差超过 0.3 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 3,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T180353-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 20.060000000000002,
+    "plan_m": 0.634,
+    "flight_m": 0.003,
+    "lat_p95": 0.879,
+    "b3": {
+     "launch_plans": 0,
+     "launch_scaled": 0,
+     "launch_uncapped": 0,
+     "replan_lateral": 14
+    },
+    "px4": [],
+    "rtf": 0.43,
+    "dev": [
+     "偏离上游：横向偏差超过 0.3 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 4,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T180552-yopo-n3",
+    "outcome": "FAIL",
+    "reason": "uav1:OBSTACLE",
+    "arrived": 0,
+    "collisions": 1,
+    "t_arr": null,
+    "plan_m": -0.091,
+    "flight_m": -0.091,
+    "lat_p95": 0.82,
+    "b3": {
+     "launch_plans": 0,
+     "launch_scaled": 0,
+     "launch_uncapped": 0,
+     "replan_lateral": 2
+    },
+    "px4": [],
+    "rtf": 0.5,
+    "dev": [
+     "偏离上游：横向偏差超过 0.3 m 时从里程计起规划"
+    ]
+   }
+  ],
+  "sw-ab": [
+   {
+    "seed": 0,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T180708-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 27.54,
+    "plan_m": 0.665,
+    "flight_m": 0.0,
+    "lat_p95": null,
+    "b3": null,
+    "px4": [],
+    "rtf": 0.56,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²",
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 1,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T180858-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 27.52,
+    "plan_m": 0.632,
+    "flight_m": 0.001,
+    "lat_p95": null,
+    "b3": null,
+    "px4": [],
+    "rtf": 0.56,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²",
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   },
+   {
+    "seed": 2,
+    "run_dir": "/workspace/yopo-ops/b3/sitl/runs/20261115T181048-yopo-n3",
+    "outcome": "SUCCESS",
+    "reason": "GOAL_REACHED_AND_HELD",
+    "arrived": 3,
+    "collisions": 0,
+    "t_arr": 27.620000000000005,
+    "plan_m": 0.647,
+    "flight_m": 0.008,
+    "lat_p95": null,
+    "b3": null,
+    "px4": [],
+    "rtf": 0.52,
+    "dev": [
+     "偏离上游：起步 1.5 s 内计划加速度上限 3 m/s²",
+     "偏离上游：横向偏差超过 0.5 m 时从里程计起规划"
+    ]
+   }
+  ]
+ },
+ "l0": {
+  "crossing-pillars a15": [
+   {
+    "seed": 0,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.78,
+    "formation_error_p95_m": 5.9639992198204235,
+    "collisions": null
+   },
+   {
+    "seed": 1,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.76,
+    "formation_error_p95_m": 6.130070750490585,
+    "collisions": null
+   },
+   {
+    "seed": 2,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.75,
+    "formation_error_p95_m": 5.958191732214119,
+    "collisions": null
+   },
+   {
+    "seed": 3,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.76,
+    "formation_error_p95_m": 5.974950092064071,
+    "collisions": null
+   },
+   {
+    "seed": 4,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.76,
+    "formation_error_p95_m": 5.9619974626928,
+    "collisions": null
+   },
+   {
+    "seed": 5,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.76,
+    "formation_error_p95_m": 5.983520036493134,
+    "collisions": null
+   },
+   {
+    "seed": 6,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.79,
+    "formation_error_p95_m": 6.288843048448468,
+    "collisions": null
+   },
+   {
+    "seed": 7,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.76,
+    "formation_error_p95_m": 5.965563000934369,
+    "collisions": null
+   },
+   {
+    "seed": 8,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.75,
+    "formation_error_p95_m": 5.985356213944888,
+    "collisions": null
+   },
+   {
+    "seed": 9,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.77,
+    "formation_error_p95_m": 6.130240485493406,
+    "collisions": null
+   }
+  ],
+  "crossing-pillars b05": [
+   {
+    "seed": 0,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.06,
+    "formation_error_p95_m": 4.609515916214519,
+    "collisions": null
+   },
+   {
+    "seed": 1,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.06,
+    "formation_error_p95_m": 4.341757878767904,
+    "collisions": null
+   },
+   {
+    "seed": 2,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.06,
+    "formation_error_p95_m": 4.471000377344179,
+    "collisions": null
+   },
+   {
+    "seed": 3,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.76,
+    "formation_error_p95_m": 4.138738082168524,
+    "collisions": null
+   },
+   {
+    "seed": 4,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.05,
+    "formation_error_p95_m": 4.205149786595312,
+    "collisions": null
+   },
+   {
+    "seed": 5,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.77,
+    "formation_error_p95_m": 4.14857379246172,
+    "collisions": null
+   },
+   {
+    "seed": 6,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.07,
+    "formation_error_p95_m": 4.249063604933958,
+    "collisions": null
+   },
+   {
+    "seed": 7,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.76,
+    "formation_error_p95_m": 4.12951281128063,
+    "collisions": null
+   },
+   {
+    "seed": 8,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.06,
+    "formation_error_p95_m": 4.497965137525098,
+    "collisions": null
+   },
+   {
+    "seed": 9,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.05,
+    "formation_error_p95_m": 4.202483258869437,
+    "collisions": null
+   }
+  ],
+  "crossing-pillars a10": [
+   {
+    "seed": 0,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.78,
+    "formation_error_p95_m": 5.9639992198204235,
+    "collisions": null
+   },
+   {
+    "seed": 1,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.76,
+    "formation_error_p95_m": 6.130070750490585,
+    "collisions": null
+   },
+   {
+    "seed": 2,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.75,
+    "formation_error_p95_m": 5.958191732214119,
+    "collisions": null
+   },
+   {
+    "seed": 3,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.76,
+    "formation_error_p95_m": 5.974950092064071,
+    "collisions": null
+   },
+   {
+    "seed": 4,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.76,
+    "formation_error_p95_m": 5.9619974626928,
+    "collisions": null
+   },
+   {
+    "seed": 5,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.76,
+    "formation_error_p95_m": 5.983520036493134,
+    "collisions": null
+   },
+   {
+    "seed": 6,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.79,
+    "formation_error_p95_m": 6.288843048448468,
+    "collisions": null
+   },
+   {
+    "seed": 7,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.76,
+    "formation_error_p95_m": 5.965563000934369,
+    "collisions": null
+   },
+   {
+    "seed": 8,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.75,
+    "formation_error_p95_m": 5.985356213944888,
+    "collisions": null
+   },
+   {
+    "seed": 9,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.77,
+    "formation_error_p95_m": 6.130240485493406,
+    "collisions": null
+   }
+  ],
+  "suite crossing cards, launch=3:1.5+relat=0.5": [
+   {
+    "card": "crossing-6-forest-sparse@crossing",
+    "seed": 0,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 29.33,
+    "formation_error_p95_m": 23.71097086644868,
+    "collisions": null
+   },
+   {
+    "card": "crossing-6-forest@crossing",
+    "seed": 0,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 24.9,
+    "formation_error_p95_m": 23.576927713804324,
+    "collisions": null
+   },
+   {
+    "card": "crossing-forest@crossing",
+    "seed": 0,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 27.67,
+    "formation_error_p95_m": 4.4784169617108835,
+    "collisions": null
+   },
+   {
+    "card": "crossing-pillars@crossing",
+    "seed": 0,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.78,
+    "formation_error_p95_m": 5.9639992198204235,
+    "collisions": null
+   },
+   {
+    "card": "crossing-pillars@crossing",
+    "seed": 1,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.76,
+    "formation_error_p95_m": 6.130070750490585,
+    "collisions": null
+   },
+   {
+    "card": "crossing-pillars@crossing",
+    "seed": 2,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.75,
+    "formation_error_p95_m": 5.958191732214119,
+    "collisions": null
+   },
+   {
+    "card": "crossing-pillars@crossing",
+    "seed": 3,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.76,
+    "formation_error_p95_m": 5.974950092064071,
+    "collisions": null
+   },
+   {
+    "card": "crossing-pillars@crossing",
+    "seed": 4,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.76,
+    "formation_error_p95_m": 5.9619974626928,
+    "collisions": null
+   },
+   {
+    "card": "crossing-pillars@crossing",
+    "seed": 5,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.76,
+    "formation_error_p95_m": 5.983520036493134,
+    "collisions": null
+   },
+   {
+    "card": "crossing-pillars@crossing",
+    "seed": 6,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.79,
+    "formation_error_p95_m": 6.288843048448468,
+    "collisions": null
+   },
+   {
+    "card": "crossing-pillars@crossing",
+    "seed": 7,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.76,
+    "formation_error_p95_m": 5.965563000934369,
+    "collisions": null
+   },
+   {
+    "card": "crossing-pillars@crossing",
+    "seed": 8,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.75,
+    "formation_error_p95_m": 5.985356213944888,
+    "collisions": null
+   },
+   {
+    "card": "crossing-pillars@crossing",
+    "seed": 9,
+    "outcome": "SUCCESS",
+    "arrival_time_s": 7.77,
+    "formation_error_p95_m": 6.130240485493406,
+    "collisions": null
+   }
+  ]
+ }
+}
