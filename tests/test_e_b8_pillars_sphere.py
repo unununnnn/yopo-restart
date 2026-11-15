@@ -335,7 +335,10 @@ def test_committed_runs_quote_the_window_and_the_conclusion():
     assert data["window_s"] == pytest.approx(1.0)
     assert "report-only / 偏离上游" in report
     assert "只报数" in report
-    assert report == mod.render_markdown(data)
+    rendered = mod.render_markdown(data)
+    # 原文仍是这次提交记录的渲染结果。L0-DET 重跑只加在文末，不改原结论段。
+    assert report.startswith(rendered)
+    assert "\n## L0-DET 确定性重跑（2026-11-15）\n" in report
     rows = data["rows"]
     assert [(int(row["seed"]), row["arm"]) for row in rows] == [
         (seed, arm) for seed in mod.SEEDS for arm in mod.ARMS
