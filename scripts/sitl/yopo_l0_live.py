@@ -20,6 +20,8 @@ from pathlib import Path
 
 from yopo_l0.scene import load_card
 from yopo_l0.sitl_bridge import (
+    ClockSkewMeter,
+    FLEET_POLICIES,
     LiveFleetConfig,
     VehicleInbox,
     live_topic_plan,
@@ -176,9 +178,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap.add_argument("--positioning", choices=("default", "rtk"), default=None)
     ap.add_argument(
         "--policy",
-        choices=("upstream", "formation"),
+        choices=("upstream", "formation", "crossing", "switch"),
         default="upstream",
-        help="upstream 走 YOPO。formation 只用于编队卡，机间消息留在进程内总线",
+        help="upstream 走 YOPO。formation / crossing / switch 只用于同名 task.type 的卡，机间消息留在进程内总线",
     )
     ap.add_argument("--world", default="default")
     ap.add_argument("--preflight-timeout", type=float, default=240.0)
@@ -242,7 +244,8 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
     task = card.card.get("task") or {}
     max_s = float(args.max_s) if args.max_s is not None else float(task.get("duration_s", 45.0))
     # 编队飞行大约 20 s。45 s 的缺省 PLAN 超时留给上游。编队放宽到 60 s，仍不含起飞。
-    plan_timeout_s = 60.0 if policy == "formation" else 45.0
+    # 票 S7：crossing / switch 也走协议 fleet，同样放宽到 60 s。upstream 仍是 45 s。
+    plan_timeout_s = 60.0 if policy in FLEET_POLICIES else 45.0
     session = make_live_session(
         card,
         seed=args.seed,
@@ -351,6 +354,7 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
     failure = ""
     preflight = PreflightLatch(args.preflight_timeout)
     clock = MissionClock(max_s)
+    skew = ClockSkewMeter()  # 票 S7：只报数
     streamed = {"commands": []}
     stream_lock = threading.Lock()
 
@@ -410,6 +414,13 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
                 break
             fresh = last_elapsed is None or float(elapsed) + 1e-9 >= float(last_elapsed) + physics_dt
             if fresh:
+                skew.note(
+                    t_sim,
+                    {
+                        ns: (None if box is None else float(box.odometry.timestamp) * 1e-6)
+                        for ns, box in boxes.items()
+                    },
+                )
                 commands = session.step(float(elapsed), boxes)
                 last_elapsed = float(elapsed)
             else:
@@ -439,6 +450,7 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
         payload["ok"] = False
     payload["positioning"] = positioning
     payload["mission_t0_s"] = clock.origin
+    payload["clock_skew"] = skew.summary()
     _write(args.out, payload)
     return outcome_exit_code(payload)
 

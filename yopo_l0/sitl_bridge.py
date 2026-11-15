@@ -54,7 +54,9 @@ SITL_LINE_SPACING_M = 3.0
 # ``--partial`` 只跑这么长的前缀，用来做离线校验，不等到达。
 PARTIAL_PREFIX_S = 0.5
 POSITIONING_MODES = ("default", "rtk")
-LIVE_POLICIES = ("upstream", "formation")
+LIVE_POLICIES = ("upstream", "formation", "crossing", "switch")
+# 票 S7：带协议 fleet 的实飞策略。策略名必须和场景卡 task.type 相同，机间消息留在进程内总线。
+FLEET_POLICIES = ("formation", "crossing", "switch")
 VEHICLE_CMD_NAV_LAND = 21  # MAV_CMD_NAV_LAND，与 offboard_mission 同一条命令号
 GCS_PORT_BASE = 18570
 # 与 yopo_l0.runner 的总线盐相同。零故障时这条随机流不被消耗。
@@ -778,16 +780,75 @@ def normalize_positioning(value: str | None) -> str:
 
 
 def resolve_live_policy(card: SceneCard, policy: str | None) -> str:
-    """实飞策略。formation 只接 formation 卡，机间消息留在进程内总线。"""
+    """实飞策略。formation / crossing / switch 只接同名 task.type 的卡，机间消息留在进程内总线。"""
     name = "upstream" if policy is None or str(policy).strip() == "" else str(policy).strip().lower()
     if name not in LIVE_POLICIES:
         raise ValueError(f"policy 只要 {' 或 '.join(LIVE_POLICIES)}，收到 {policy!r}")
     task = str((card.card.get("task") or {}).get("type") or "")
-    if name == "formation" and task != "formation":
-        raise ValueError("policy=formation 只适用于 task.type 为 formation 的场景卡")
-    if task == "formation" and name != "formation":
-        raise ValueError("formation 场景卡需要 policy=formation。机间消息走进程内 MessageBus，不走上游 YOPO")
+    if name in FLEET_POLICIES and task != name:
+        raise ValueError(f"policy={name} 只适用于 task.type 为 {name} 的场景卡")
+    if task in FLEET_POLICIES and name != task:
+        raise ValueError(f"{task} 场景卡需要 policy={task}。机间消息走进程内 MessageBus，不走上游 YOPO")
     return name
+
+
+def _fleet_for(name: str, card: SceneCard, physics_dt: float):
+    """按策略名建同一套 L0 协议 fleet。crossing / switch 只在用到时导入。"""
+    if name == "formation":
+        return FormationFleet.from_card(card.card, float(physics_dt))
+    if name == "crossing":
+        from .crossing import CrossingFleet
+
+        return CrossingFleet.from_card(card.card, float(physics_dt))
+    if name == "switch":
+        from .switch import SwitchFleet
+
+        return SwitchFleet.from_card(card.card, float(physics_dt))
+    return None
+
+
+class ClockSkewMeter:
+    """票 S7：每机里程计时间戳相对仿真钟的偏移。只报数，不进判据。
+
+    每拍记 ``odom_ts - t_sim``。单机的极差是消息龄抖动加漂移；同一拍各机偏移的极差是机间时钟偏差。
+    """
+
+    def __init__(self) -> None:
+        self.offsets: dict[str, list[float]] = {}
+        self.spreads: list[float] = []
+
+    def note(self, t_sim: float | None, odom_ts_s: dict[str, float | None]) -> None:
+        if t_sim is None:
+            return
+        row = []
+        for ns, ts in odom_ts_s.items():
+            if ts is None:
+                continue
+            off = float(ts) - float(t_sim)
+            self.offsets.setdefault(ns, []).append(off)
+            row.append(off)
+        if len(row) >= 2:
+            self.spreads.append(max(row) - min(row))
+
+    def summary(self) -> dict | None:
+        if not self.offsets:
+            return None
+        per = {}
+        for ns, vals in sorted(self.offsets.items()):
+            arr = np.asarray(vals, dtype=float)
+            per[ns or "/"] = {
+                "samples": int(arr.size),
+                "offset_median_s": float(np.median(arr)),
+                "offset_range_s": float(arr.max() - arr.min()),
+                "offset_p95_abs_dev_s": float(np.percentile(np.abs(arr - np.median(arr)), 95)),
+            }
+        spreads = np.asarray(self.spreads, dtype=float)
+        return {
+            "per_vehicle": per,
+            "inter_vehicle_spread_median_s": None if spreads.size == 0 else float(np.median(spreads)),
+            "inter_vehicle_spread_p95_s": None if spreads.size == 0 else float(np.percentile(spreads, 95)),
+            "inter_vehicle_spread_max_s": None if spreads.size == 0 else float(spreads.max()),
+        }
 
 
 def vehicle_identity(drone_index: int, n_drones: int) -> dict:
@@ -1327,7 +1388,36 @@ class _LiveSlot:
         self.formation_sampler = None
         self.takeoff_handover_s: float | None = None
         self.shadow = None
+        self.fleet_frame = None  # 票 S7：crossing 最近一帧场景卡深度
 
+
+
+class _LazyDepthFrame:
+    """票 S7：按相机频率记下位姿和时刻，协议读 ``depth`` 时才渲染。
+
+    crossing 只在出提案时读最新一帧。实飞时三机 30 Hz 全渲染约占 1.6 倍实时的 CPU，
+    和 Gazebo / PX4 抢核。渲染出来的帧与当时立即渲染的位姿、时刻相同；噪声序列按实际渲染次序取。
+    """
+
+    __slots__ = ("_camera", "_position", "_yaw", "stamp", "K", "_frame")
+
+    def __init__(self, camera, position: np.ndarray, yaw: float, stamp: float):
+        self._camera = camera
+        self._position = np.asarray(position, dtype=float).copy()
+        self._yaw = float(yaw)
+        self.stamp = float(stamp)
+        self.K = camera.cfg.intrinsics
+        self._frame = None
+
+    @property
+    def rendered(self) -> bool:
+        return self._frame is not None
+
+    @property
+    def depth(self) -> np.ndarray:
+        if self._frame is None:
+            self._frame = self._camera.capture(self._position, self._yaw, self.stamp)
+        return self._frame.depth
 
 
 def _formation_plan_code(fleet, drone_id: str) -> str | None:
@@ -1364,10 +1454,10 @@ class LiveFleetSession:
             raise ValueError("bridges 和 idents 必须非空且一一对应")
         if policy not in LIVE_POLICIES:
             raise ValueError(f"policy 只要 {' 或 '.join(LIVE_POLICIES)}，收到 {policy!r}")
-        if (fleet is None) != (policy != "formation"):
-            raise ValueError("formation 会话要带 FormationFleet，其他策略不带")
-        if policy == "formation" and bus is None:
-            raise ValueError("formation 会话要带 MessageBus")
+        if (fleet is None) != (policy not in FLEET_POLICIES):
+            raise ValueError("formation / crossing / switch 会话要带同名 fleet，其他策略不带")
+        if policy in FLEET_POLICIES and bus is None:
+            raise ValueError(f"{policy} 会话要带 MessageBus")
         self.card = card
         self.cfg = cfg
         self.policy = policy
@@ -1385,6 +1475,13 @@ class LiveFleetSession:
         self._last_cmds: list[LiveCommand] = []
         self._min_inter: float | None = None
         self._min_clear = math.inf
+        # 票 S7：旧字段 min_surface_clearance_m 仍计全部离地样本（含降落段）。
+        # 下面两个只计飞行段：flight = TAKEOFF / PLAN，plan = 只计 PLAN（与 L0 可比）。
+        self._min_clear_flight = math.inf
+        self._min_clear_plan = math.inf
+        self._min_inter_plan: float | None = None
+        self._decoded: dict[str, dict | None] = {}
+        self._last_capture: dict[str, float] = {}
         self._sim0: float | None = None
         self._sim1: float | None = None
         self._wall0: float | None = None
@@ -1415,6 +1512,7 @@ class LiveFleetSession:
                 decoded[ns] = apply_world_offset(decode_vehicle_odometry(inbox.odometry, now_s=now_s), slot.offset_enu)
             except ValueError:
                 decoded[ns] = None
+        self._decoded = decoded
         self._exchange(decoded)
         self._note_separation(decoded, now_s)
         self._formation_exchange(now_s)
@@ -1454,6 +1552,7 @@ class LiveFleetSession:
         if any(slot.phase != "PLAN" for slot in self.slots):
             return
         now_s = float(now_s)
+        self._fleet_ingest(now_s)
         if self._plan_origin is None:
             self._plan_origin = now_s
             self._formation_t = 0.0
@@ -1473,6 +1572,39 @@ class LiveFleetSession:
             self.fleet.exchange(self.bus, target)
             t = target
         self._formation_t = t
+
+    def _fleet_ingest(self, now_s: float) -> None:
+        """crossing 的提案要本机深度：按场景卡相机频率在里程计位姿上渲染，和 L0 一样每拍喂最新一帧。
+
+        formation / switch 没有 ingest，不进这里。深度来自场景卡几何，不依赖 Gazebo 里有没有模型。
+        """
+        ingest = getattr(self.fleet, "ingest", None)
+        if ingest is None:
+            return
+        cam_hz = float((self.card.card.get("rates_hz") or {}).get("camera", 30.0))
+        period = 1.0 / cam_hz if cam_hz > 0.0 else 0.0
+        for slot in self.slots:
+            state = self._decoded.get(slot.ident["namespace"])
+            if state is None:
+                continue
+            did = slot.bridge.drone_id
+            last = self._last_capture.get(did)
+            frame = slot.fleet_frame
+            if frame is None or last is None or now_s - last >= period - 1e-9:
+                frame = _LazyDepthFrame(
+                    slot.bridge.camera, np.asarray(state["position_enu"], dtype=float), float(state["yaw_enu"]), now_s
+                )
+                slot.fleet_frame = frame
+                self._last_capture[did] = now_s
+            view = State(
+                p=np.asarray(state["position_enu"], dtype=float).copy(),
+                v=np.asarray(state["velocity_enu"], dtype=float).copy(),
+                a=np.zeros(3),
+                yaw=float(state["yaw_enu"]),
+                t=float(now_s),
+            )
+            ingest(did, frame, view)
+            slot.depth_source = "scene-card"
 
     def _formation_stream(self, namespace: str, now_s: float) -> dict | None:
         """心跳只读已经提交的采样器。不调用 sample，也不再 exchange。"""
@@ -1532,6 +1664,10 @@ class LiveFleetSession:
             dist = float(self.card.min_distance(position))
             self._min_clear = min(self._min_clear, dist - self.body)
             judged = slot.phase in ("TAKEOFF", "PLAN")
+            if judged:
+                self._min_clear_flight = min(self._min_clear_flight, dist - self.body)
+            if slot.phase == "PLAN":
+                self._min_clear_plan = min(self._min_clear_plan, dist - self.body)
             if judged and obstacle is None and self.fail_reason == "" and dist <= self.body:
                 obstacle = f"{slot.bridge.drone_id}:OBSTACLE"
             airborne.append((slot, position, judged))
@@ -1542,6 +1678,8 @@ class LiveFleetSession:
             for j in range(i + 1, len(airborne)):
                 dist = float(np.linalg.norm(airborne[i][1] - airborne[j][1]))
                 self._min_inter = dist if self._min_inter is None else min(self._min_inter, dist)
+                if airborne[i][0].phase == "PLAN" and airborne[j][0].phase == "PLAN":
+                    self._min_inter_plan = dist if self._min_inter_plan is None else min(self._min_inter_plan, dist)
                 if inter is None and self.fail_reason == "" and airborne[i][2] and airborne[j][2] and dist <= 2.0 * self.body:
                     left, right = airborne[i][0].bridge.drone_id, airborne[j][0].bridge.drone_id
                     inter = f"{left}-{right}:INTER_DRONE"
@@ -1783,6 +1921,7 @@ class LiveFleetSession:
         sampler = self.fleet.track(did, float(t))
         p, v, a, yaw = sampler.sample(float(t))
         slot.formation_sampler = sampler
+        source = "scene-card" if getattr(self.fleet, "ingest", None) is not None else "formation"
         p = np.asarray(p, dtype=float).copy()
         v = np.asarray(v, dtype=float).copy()
         a = np.asarray(a, dtype=float).copy()
@@ -1795,7 +1934,7 @@ class LiveFleetSession:
             setpoint=setpoint,
             commands=[],
             planned=self.fleet.code(did) == "LOCAL_APPROVED",
-            depth_source="formation",
+            depth_source=source,
             roundtrip=roundtrip_abs(p),
             position=state["position_enu"],
         )
@@ -1956,6 +2095,13 @@ class LiveFleetSession:
             "body_radius_m": float(self.body),
             "min_inter_drone_distance_m": self._min_inter,
             "min_surface_clearance_m": clear_out,
+            "min_surface_clearance_flight_m": None if self._min_clear_flight is math.inf else float(self._min_clear_flight),
+            "min_surface_clearance_plan_m": None if self._min_clear_plan is math.inf else float(self._min_clear_plan),
+            "min_inter_drone_distance_plan_m": self._min_inter_plan,
+            "clearance_note": (
+                "min_surface_clearance_m 计全部离地样本（含降落段，语义不变）；"
+                "_flight_m 只计 TAKEOFF / PLAN；_plan_m 只计 PLAN，和 L0 可比"
+            ),
             "sim_time_s": sim_elapsed,
             "wall_time_s": wall,
             "rtf": realtime_factor(sim_elapsed, wall),
@@ -1966,7 +2112,8 @@ class LiveFleetSession:
         }
         if self.fleet is not None and self.bus is not None:
             block = self.fleet.summary(arrived, n)
-            payload["formation"] = block
+            key = getattr(self.fleet, "result_key", "formation")
+            payload[key] = block
             payload["formation_error_p95_m"] = block["error_p95_m"]
             payload["formation_t0_s"] = self._plan_origin
             payload["formation_time_s"] = self._formation_t
@@ -2014,8 +2161,8 @@ def make_live_session(
     params = dict(card.card.get("policy_params") or {})
     fleet = None
     bus = None
-    if name == "formation":
-        fleet = FormationFleet.from_card(card.card, float(physics_dt))
+    if name in FLEET_POLICIES:
+        fleet = _fleet_for(name, card, float(physics_dt))
         bus = MessageBus(
             BusFaults.from_mapping(card.card.get("bus")),
             rng=np.random.default_rng(np.random.SeedSequence([int(seed), _BUS_SEED_SALT])),
@@ -2066,7 +2213,7 @@ def live_topic_plan(card: SceneCard, *, positioning: str = "default", seed: int 
     drones = list(card.card["drones"])
     n = len(drones)
     idents = [vehicle_identity(i, n) for i in range(n)]
-    fleet = FormationFleet.from_card(card.card, 0.02) if name == "formation" else None
+    fleet = _fleet_for(name, card, 0.02) if name in FLEET_POLICIES else None
     goals = []
     for drone in drones:
         if fleet is not None:
@@ -2085,7 +2232,7 @@ def live_topic_plan(card: SceneCard, *, positioning: str = "default", seed: int 
         "n_drones": n,
         "policy": name,
         "shadow": name == "upstream",
-        "inter_drone_transport": "inprocess" if name == "formation" else None,
+        "inter_drone_transport": "inprocess" if name in FLEET_POLICIES else None,
         "positioning": positioning,
         "px4_parameters_written": [],
         "coordinate_conversion": "yopo_swarm_core.px4",
