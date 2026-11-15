@@ -22,10 +22,11 @@ JSON true 时，椭球项才改到每段的内点上算，梯度按 B 样条基�
 ``YOPO_PEER_SPHERE``（1/true/yes/on）在 ``enabled`` 已经为 JSON true 时打开；
 半径和权重可用 ``YOPO_PEER_SPHERE_RADIUS_M``、``YOPO_PEER_SPHERE_WEIGHT`` 盖过。
 
-``budget`` 是票 L0-DET。缺省 ``"evals"``：``time_budget_s`` 按空闲机器上每次
-代价评估约 2 ms 折成评估次数上限（0.020 s → 10 次），与机器负载无关，同一
-(场景卡, seed, 配置) 结果逐位相同。``"wall"`` 用真墙钟截断，留给实时形态
-（SITL / 真机）；也可经环境变量 ``YOPO_BACKEND_BUDGET=wall`` 打开。
+``budget`` 是票 L0-DET。缺省 ``"evals"``：``time_budget_s`` 折成评估次数上限。
+票 E-B2r 把缺省次数从 10 改成 20，即 ``budget="evals"`` 下 0.020 s 对应 20 次
+（名义每次 1 ms）。与机器负载无关，同一 (场景卡, seed, 配置) 结果逐位相同。
+调用者写上的 ``time_budget_s`` 按同一比例折算，不会被改成 20。``"wall"`` 用真墙钟
+截断，留给实时形态（SITL / 真机）；也可经环境变量 ``YOPO_BACKEND_BUDGET=wall`` 打开。
 """
 
 from __future__ import annotations
