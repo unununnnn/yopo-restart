@@ -1362,6 +1362,9 @@ class LiveFleetConfig:
     # 票 SH2：默认关。打开后 crossing / switch / formation 也记影子盾（只读）。
     # 打开 shadow_env_evidence 时编队类策略也会开影子，否则证据接不上。
     fleet_shadow: bool = False
+    # 票 SH3 / SH4：默认关。打开即偏离上游。
+    shadow_contract_align: bool = False
+    shadow_tracking_align: bool = False
     # 票 B2：默认 0（关）。>0 时编队类策略的设定点取已提交计划上 t + lead 的那一点，
     # 补 PX4 位置环的跟踪滞后。打开即偏离上游。计划、协议和深度都不变。
     setpoint_lead_s: float = 0.0
