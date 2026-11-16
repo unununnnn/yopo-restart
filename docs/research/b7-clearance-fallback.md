@@ -23,4 +23,19 @@ B6 给 crossing 规划加了柱净空门。锁步 SITL 上 (a)+0.3 m 的 seed 7 
 
 ## 锁步 SITL
 
-尚未跑。SH5 占用默认容器 `yopo-restart-sitl-n3`，本票不并跑。计划：先重跑 (a)+0.3 m 的 seed 7（B6 的 PLAN_TIMEOUT），再跑 (a)+0.3 m 和 (a)+0.5 m 的 seeds 0–9，对照 B6 同臂。
+SITL 用缺省的每趟隔离网络。等 SH5 跑完（04:43 UTC-3）才开工。`px4_parameters_written` 都是空列表，`lockstep.engaged=true`。
+
+### (a)+0.3 m seed 7（04:44–04:45）
+
+B6 这一趟是 uav0:PLAN_TIMEOUT（检查 498，拒绝 465，PLAN 段里程计离柱面 0.211 m，没撞）。本票重跑：
+
+| 项 | B6 | B7（有退路） |
+|---|---|---|
+| 结果 | FAIL，uav0:PLAN_TIMEOUT | **SUCCESS**，GOAL_REACHED_AND_HELD |
+| 到达 / 碰撞 | 2/3，0 | 3/3，0 |
+| 到达时间 s | — | 9.82 |
+| 横向跟踪 p95 m | 0.82 | 1.14 |
+| 设定点离柱面最小 m | 0.67 | 0.92 |
+| 门检查 / 拒绝 / 退路 | 498 / 465 / — | 45 / 0 / 0 |
+
+这次成功，没有再报 PLAN_TIMEOUT。但退路没有触发（拒绝 0），飞行路径和 B6 那趟不一样。锁步下同 seed 会翻，B3、B5 都写过。所以还不能把「不再超时」完全记在退路账上；退路本身由单测覆盖「全拒时交最远候选、不会交空」。seeds 0–9 整批仍在跑。
