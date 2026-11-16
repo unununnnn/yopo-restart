@@ -358,6 +358,7 @@ def _read_b3(params: dict | None, a_max: float) -> dict:
     * launch_a_max_mps2 + launch_s：每机第一次规划起 launch_s 秒内，计划加速度上限降到 launch_a_max。
     * replan_lateral_m：外推里程计与计划头的横向偏差（垂直于计划头速度）超过它时，从里程计起规划。
     * center_ramp_mps2（票 B4）：虚拟中心起步按这个加速度从 0 斜坡到 speed_mps，不再一步到巡航速度。
+    * ref_ramp_mps2（票 B5）：只把编队误差的参考中心换成同样的斜坡；规划时刻表、目标点和终点时刻不变。
     """
     raw = dict((params or {}).get("b3") or {})
     out: dict = {}
@@ -380,6 +381,13 @@ def _read_b3(params: dict | None, a_max: float) -> dict:
         if not (math.isfinite(ramp) and 0.0 < ramp <= a_max):
             raise ValueError(f"policy_params.b3.center_ramp_mps2 要在 (0, {a_max:g}]，收到 {ramp!r}")
         out["center_ramp_mps2"] = ramp
+    if raw.get("ref_ramp_mps2") is not None:
+        ref = float(raw["ref_ramp_mps2"])
+        if not (math.isfinite(ref) and 0.0 < ref <= a_max):
+            raise ValueError(f"policy_params.b3.ref_ramp_mps2 要在 (0, {a_max:g}]，收到 {ref!r}")
+        if "center_ramp_mps2" in out:
+            raise ValueError("policy_params.b3.ref_ramp_mps2 与 center_ramp_mps2 只能开一个")
+        out["ref_ramp_mps2"] = ref
     return out
 
 
@@ -404,6 +412,10 @@ class CrossingFleet:
         # 票 B3/B4 开关先读：B4 的中心斜坡要在建中心线时就定下来。
         self.b3 = _read_b3(card.get("policy_params"), dynamics_a_max(card.get("dynamics")))
         self.rail = _Rail(task["virtual_center"], self.b3.get("center_ramp_mps2"))
+        # 票 B5（默认关）：编队误差参考单独一条斜坡中心线。关时就是 self.rail。
+        self.ref_rail = (
+            _Rail(task["virtual_center"], self.b3["ref_ramp_mps2"]) if "ref_ramp_mps2" in self.b3 else self.rail
+        )
         self.dt = float(physics_dt)
         self.record_inputs = record_inputs
         self.input_digests: list[str] = []
@@ -1363,7 +1375,7 @@ class CrossingFleet:
         if self.progress_gate:
             ref = self.rail.at(self.gate_s(), slot)
         else:
-            ref = self.rail.position(t, self.t_go, slot)
+            ref = self.ref_rail.position(t, self.t_go, slot)
         err = float(np.linalg.norm(pos - ref))
         self.errors.append(err)
         return err
@@ -1433,6 +1445,10 @@ class CrossingFleet:
             out["center_ramp_mps2"] = self.rail.ramp_mps2
             out["center_ramp_s"] = self.rail.t_ramp
             out["deviation"] = "偏离上游：虚拟中心起步匀加速斜坡"
+        if self.ref_rail is not self.rail:
+            out["ref_ramp_mps2"] = self.ref_rail.ramp_mps2
+            out["ref_ramp_s"] = self.ref_rail.t_ramp
+            out["deviation"] = "偏离上游：编队误差参考起步匀加速斜坡（规划时刻表不变）"
         return out
 
 
