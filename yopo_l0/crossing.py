@@ -296,7 +296,7 @@ class _Track:
 class _Rail:
     """直线虚拟中心。航向固定朝 +x，槽位 y 就是世界系左侧。票 08 才转弯、变阵。"""
 
-    def __init__(self, spec: dict):
+    def __init__(self, spec: dict, ramp_mps2: float | None = None):
         origin = np.asarray(spec["origin_enu"], dtype=float)
         if origin.shape != (3,):
             raise ValueError("virtual_center.origin_enu 必须是长度 3")
@@ -305,16 +305,25 @@ class _Rail:
         self.speed = float(spec["speed_mps"])
         if self.length <= 0.0 or self.speed <= 0.0:
             raise ValueError("length_m 和 speed_mps 必须为正")
-        self.T = self.length / self.speed
+        # 票 B4（默认关）：起步匀加速到 speed，之后匀速。None 时与改前相同（一步到 speed）。
+        self.ramp_mps2 = None if ramp_mps2 is None else float(ramp_mps2)
+        self.t_ramp = 0.0 if self.ramp_mps2 is None else self.speed / self.ramp_mps2
+        if 0.5 * self.speed * self.t_ramp > self.length:
+            raise ValueError("中心斜坡加速段比 length_m 还长")
+        self.T = self.length / self.speed + 0.5 * self.t_ramp
 
     def arc(self, t: float, t_go: float) -> float:
-        """开环弧长：墙钟 × speed，夹在 [0, length]。"""
+        """开环弧长：墙钟 × speed，夹在 [0, length]。B4 斜坡开时前 t_ramp 秒是 ½·a·τ²。"""
         tau = float(t) - float(t_go)
         if tau <= 0.0:
             return 0.0
         if tau >= self.T:
             return self.length
-        return self.speed * tau
+        if self.ramp_mps2 is None:
+            return self.speed * tau
+        if tau < self.t_ramp:
+            return 0.5 * self.ramp_mps2 * tau * tau
+        return self.speed * (tau - 0.5 * self.t_ramp)
 
     def at(self, s: float, slot: np.ndarray) -> np.ndarray:
         s = float(min(self.length, max(0.0, float(s))))
@@ -348,6 +357,7 @@ def _read_b3(params: dict | None, a_max: float) -> dict:
 
     * launch_a_max_mps2 + launch_s：每机第一次规划起 launch_s 秒内，计划加速度上限降到 launch_a_max。
     * replan_lateral_m：外推里程计与计划头的横向偏差（垂直于计划头速度）超过它时，从里程计起规划。
+    * center_ramp_mps2（票 B4）：虚拟中心起步按这个加速度从 0 斜坡到 speed_mps，不再一步到巡航速度。
     """
     raw = dict((params or {}).get("b3") or {})
     out: dict = {}
@@ -365,6 +375,11 @@ def _read_b3(params: dict | None, a_max: float) -> dict:
         if not (math.isfinite(thr) and thr > 0.0):
             raise ValueError(f"policy_params.b3.replan_lateral_m 要为正，收到 {thr!r}")
         out["replan_lateral_m"] = thr
+    if raw.get("center_ramp_mps2") is not None:
+        ramp = float(raw["center_ramp_mps2"])
+        if not (math.isfinite(ramp) and 0.0 < ramp <= a_max):
+            raise ValueError(f"policy_params.b3.center_ramp_mps2 要在 (0, {a_max:g}]，收到 {ramp!r}")
+        out["center_ramp_mps2"] = ramp
     return out
 
 
@@ -386,7 +401,9 @@ class CrossingFleet:
         if len(set(self.members)) != len(self.members):
             raise ValueError("无人机 id 重复")
         self.slots = {str(d["id"]): _unit_slot(d["slot_body"]) for d in drones}
-        self.rail = _Rail(task["virtual_center"])
+        # 票 B3/B4 开关先读：B4 的中心斜坡要在建中心线时就定下来。
+        self.b3 = _read_b3(card.get("policy_params"), dynamics_a_max(card.get("dynamics")))
+        self.rail = _Rail(task["virtual_center"], self.b3.get("center_ramp_mps2"))
         self.dt = float(physics_dt)
         self.record_inputs = record_inputs
         self.input_digests: list[str] = []
@@ -471,7 +488,6 @@ class CrossingFleet:
         if self.head_from_odom_m is not None:
             task_id["b2_head_from_odom_m"] = self.head_from_odom_m
         # 票 B3：默认关。policy_params.b3 给了才开，开时才进 task_hash。
-        self.b3 = _read_b3(card.get("policy_params"), dynamics_a_max(card.get("dynamics")))
         self._t_first: dict[str, float] = {}
         self._launch_limits: KinematicLimits | None = None
         self.b3_counts = {"launch_plans": 0, "launch_scaled": 0, "launch_uncapped": 0, "replan_lateral": 0}
@@ -1413,6 +1429,10 @@ class CrossingFleet:
         if self.leader_prefix_enabled:
             out["leader_prefix"] = True
             out["leader_prefix_s"] = self.leader_prefix_s
+        if self.rail.ramp_mps2 is not None:
+            out["center_ramp_mps2"] = self.rail.ramp_mps2
+            out["center_ramp_s"] = self.rail.t_ramp
+            out["deviation"] = "偏离上游：虚拟中心起步匀加速斜坡"
         return out
 
 

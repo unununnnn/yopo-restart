@@ -10,6 +10,8 @@
 | b2-sitl-plan-clearance.md | b2 | 票 B2：锁步交叉卡规划净空归因（只报数） | report-only |
 | b3-sitl-launch-tracking-runs.json | b3 | 票 B3：锁步交叉卡起步跟踪修复候选（只报数） | report-only |
 | b3-sitl-launch-tracking.md | b3 | 票 B3：锁步交叉卡起步跟踪修复候选（只报数） | report-only、冻结 |
+| b4-center-launch-ramp-runs.json | b4 | 票 B4：交叉卡虚拟中心起步斜坡（只报数） | report-only |
+| b4-center-launch-ramp.md | b4 | 票 B4：交叉卡虚拟中心起步斜坡（只报数） | report-only、冻结 |
 | d1-geometric-fallback.md | d1 | 票 D1：提交前的一次性几何回退 | report-only、冻结 |
 | d2-teacher-batch.json | d2 | （无说明字段） | 无 |
 | d2-teacher-data.md | d2 | D2：EGO-Swarm 教师数据 | 冻结 |
@@ -139,7 +141,7 @@
 | s7-sitl-crossing-switch.md | s7 | 票 S7：三机交叉与变阵 SITL 对照（M3 L1 抽检，只报数） | report-only、冻结 |
 | sh1-shadow-env-evidence-runs.json |  | 票 SH1：影子盾环境证据接入与拒绝率归因（只报数） | report-only、冻结 |
 | sh1-shadow-env-evidence.md |  | 票 SH1：影子盾环境证据接入与拒绝率归因（只报数） | report-only、冻结 |
-| sh2-sitl-shadow-evidence-runs.json |  | 票 SH2：影子盾 ENV 证据接 SITL 与拒绝码归因。只报数。打开即偏离上游。 | report-only |
+| sh2-sitl-shadow-evidence-runs.json |  | 票 SH2：影子盾 ENV 证据接 SITL 与拒绝码归因。只报数。打开即偏离上游。 票 SH2b：种子 3、4 的 4 趟已用隔离网络重跑结果替换；原趟因默认网桥串话作废。 | report-only |
 | sh2-sitl-shadow-evidence.md |  | 票 SH2：影子盾 ENV 证据接 SITL 与拒绝码归因（只报数） | report-only、冻结 |
 | sh3-contract-codes-runs.json |  | 票 SH3：影子盾契约码误报判定（只报数）。打开 shadow_contract_align 偏离上游。 | report-only |
 | sh3-contract-codes.md |  | 票 SH3：影子盾契约码误报判定（只报数） | report-only、冻结 |
