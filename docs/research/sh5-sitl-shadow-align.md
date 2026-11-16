@@ -123,4 +123,4 @@ scripts/sitl/run_yopo_l0_sitl.sh --n 3 --scene scenes/crossing-pillars-sitl80.js
 
 ## pytest
 
-（全量回归数字待填。）新增 `tests/test_sitl_sh5_shadow_align.py`：三个研究开关默认关、0.15 m 阈值不变、官方启动脚本四臂 dry-run 与本票命令行一致、汇总行会算 `would_reject` / 环境拒绝率 / `TRACKING_BOUND` 次数；归因在跟踪对齐下尊重 `tick.would_reject`。
+`PYTHONPATH=$PWD scripts/regress.sh`：L0 **994 passed，27 skipped**；core **453 passed，3 skipped，4 deselected**；批跑通过（`out/regress/20261116T051446`）。新增 `tests/test_sitl_sh5_shadow_align.py`：三个研究开关默认关、0.15 m 阈值不变、官方启动脚本四臂 dry-run 与本票命令行一致、汇总行会算 `would_reject` / 环境拒绝率 / `TRACKING_BOUND` 次数；归因在跟踪对齐下尊重 `tick.would_reject`。
