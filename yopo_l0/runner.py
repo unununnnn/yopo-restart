@@ -550,6 +550,9 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         radius_m = read_safe_radius(tuned.get("policy_params"))
         result["safe_radius_m"] = radius_m
         result["upstream_deviation"] = deviates_from_upstream(radius_m)
+        if fleet_block is not None and fleet_block.get("pillar_clearance"):
+            result["upstream_deviation"] = True
+            result["pillar_clearance_deviation"] = fleet_block["pillar_clearance"]["deviation"]
         if fleet_block is not None and (
             fleet_block.get("center_ramp_mps2") is not None or fleet_block.get("ref_ramp_mps2") is not None
         ):

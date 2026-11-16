@@ -301,6 +301,11 @@ def parse_fix(raw: str | None) -> dict:
             if not (math.isfinite(ramp) and ramp > 0.0):
                 raise ValueError(f"YOPO_B2_FIX ramp 要为正，收到 {value!r}")
             out["center_ramp_mps2"] = ramp
+        elif key == "pillar":
+            gap = float(value)
+            if not (math.isfinite(gap) and gap > 0.0):
+                raise ValueError("YOPO_B2_FIX pillar 要有限且为正")
+            out["pillar_clearance_m"] = gap
         elif key == "reframp":
             ref = float(value)
             if not (math.isfinite(ref) and ref > 0.0):
@@ -313,6 +318,8 @@ def parse_fix(raw: str | None) -> dict:
 
 def fix_deviations(fix: dict) -> list[str]:
     out = []
+    if "pillar_clearance_m" in fix:
+        out.append(f"偏离上游：场景柱几何辅助的规划净空过滤 {fix['pillar_clearance_m']:g} m")
     if "setpoint_lead_s" in fix:
         out.append(f"偏离上游：设定点提前 {fix['setpoint_lead_s']:g} s")
     if "setpoint_gain_p" in fix:
@@ -330,7 +337,7 @@ def fix_deviations(fix: dict) -> list[str]:
     return out
 
 
-B3_KEYS = ("launch_a_max_mps2", "launch_s", "replan_lateral_m", "center_ramp_mps2", "ref_ramp_mps2")
+B3_KEYS = ("launch_a_max_mps2", "launch_s", "replan_lateral_m", "center_ramp_mps2", "ref_ramp_mps2", "pillar_clearance_m")
 
 
 def b3_from_fix(fix: dict) -> dict | None:
