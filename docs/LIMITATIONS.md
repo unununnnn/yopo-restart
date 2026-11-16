@@ -18,7 +18,7 @@ L0 已经落地的构造是：
 - **动力学**：点质量加一阶加速度滞后（`PointMassLag`）。场景卡和跟踪器的 `a_max` 都是 6。急刹不得再写死计划 `a_max=80`，见 [ADR 0011](adr/0011-brake-gap-horizon-and-amax.md)。这不是 PX4 位置环。SPEC 里后加的一阶 SO3 已由 [E-SO3b](research/e-so3b-suite.md)（[#130](https://github.com/unununnnn/yopo-restart/pull/130)）在冻结套件上测过，默认仍关；打开后六机稀疏到达 59/60（点质量 60/60），碰撞 0。
 - **传感器**：按相机内外参做光线投射，输出深度图；量程、视场、分辨率、噪声、帧率可配，时间戳由仿真时钟给。规划器只拿 `Observation`（深度帧、里程计、目标、时间），拿不到场景几何真值。这不是渲染级相机：纹理和光照在 SPEC 的 Out of Scope 里。
 - **多机总线**：每机一个独立规划实例和独立传感器。机间消息只走进程内消息总线，没有共享内存捷径；总线可以注入延迟、丢失、重复、乱序。
-- **锁步时钟**：每 tick 依次是传感器 → 规划 → 进程内总线投递 → 动力学。规划消耗的墙钟不计入仿真时间。规划预算、帧龄、有效期一律按仿真时间判定。同 commit、同场景卡、同 seed，两次运行的结果记录逐字段一致（墙钟字段除外）。
+- **锁步时钟**：每 tick 依次是传感器 → 规划 → 进程内总线投递 → 动力学。规划消耗的墙钟不计入仿真时间。规划预算、帧龄、有效期一律按仿真时间判定。同一份代码、同场景卡、同 seed，两次运行的结果记录逐字段一致（整回路墙钟、规划墙钟、以及仓库 `commit` 脏标记除外，见 [T2](research/t2-six-drone-det.md)）。
 
 L0 **不等价于** L1，也不是实飞：
 
@@ -128,6 +128,7 @@ L0 **不等价于** L1，也不是实飞：
    - [D7](research/d7-dagger.md)（[#138](https://github.com/unununnnn/yopo-restart/pull/138)）：开阔三机从 r0 的 0/30 到 r2 的 20/30，再回落到 r3 的 10/30（1.0 m）和 0/30（1.5 m），不单调；g2 从 r0 的 8/10 降到 r1–r3 的 0/10。
    - [D8](research/d8-dagger-variance.md)（[#141](https://github.com/unununnnn/yopo-restart/pull/141)）：同一份数据只换训练种子，同一格就能从 0/30 跳到 20/30；r0 的 g2 8/10 是幸运种子（换种子 1、2 都是 0/10）。限速 2.0 m/s 的配对对照里，g2 从 5/30 升到 15/30，开阔从 40/180 升到 70/180。
    - [D9](research/d9-cap-weight.md)（[#143](https://github.com/unununnnn/yopo-restart/pull/143)）：5 个训练种子下，D8 的两个正向信号都没有确认。限速 2.5 m/s 是唯一在开阔（150/300 → 170/300）、g2（15/50 → 30/50）、撞障（35 → 20 场）三项上都没有负配对差的设置，但不改库默认。
+8. **高负载下 6 机同 seed「不一致」已定位到一次确定性比较误报。** [T2](research/t2-six-drone-det.md) 复现：两次 `run()` 之间只要有进程改了本工作区的已跟踪文件，结果里的 `commit` 就会从 `sha` 变成 `sha-dirty`，批跑报「不一致」，但 ticks 仍然相同。比较已不再看 `commit`；真的不一致时会把剩余差分写到 `det_diff.json`。硬断言保留。本票没有复现轨迹分叉，也没有去钉 BLAS 线程。
 
 ### 下一步
 
@@ -136,5 +137,4 @@ L0 **不等价于** L1，也不是实飞：
 3. **`TRACKING_BOUND` 0.15 m 仍把 SITL 的 `would_reject` 打满。** SH2 开证据后环境拒绝率降到 0.013，`would_reject` 仍是 0.997，开臂 9759 个 tick 里有 6445 次 `TRACKING_BOUND`。这是 PX4 跟踪，不是环境。SH3 在 L0 上不再把该码算进 `would_reject`，但 0.15 m 阈值本身不改，也还没有在 SITL 上重测对齐开关。
 4. **锁步下电池模拟报 unhealthy（不改 `BAT_` 参数）。** [BAT1](research/bat1-lockstep-battery.md) 已诊断：B1 第二版 10 趟三机交叉仍是 5/10 出现 `Battery unhealthy`、0 趟 failsafe。根因是部分 PX4 实例解锁后停止发布 `battery_status`，指挥官按仿真钟 5 s 超时；电压始终 16.2 V，自由跑也会出现。要修仍需改 PX4 或镜像。
 5. **学生网络线暂停。** D6e 到 D9 的收益都在训练噪声范围内，人手先放到方向 B。限速 2.5 m/s 仍只是 D9 的候选对照臂，不改库默认。
-6. **高负载下，计时测试和 6 机林带同 seed 会偶发不一致。** B3 合入前回归里，`tests/test_l0_six_batch.py::test_repeated_seed_stays_deterministic_with_tier_metadata`（`formation-6-open` 0.3 s）在负载下报过一次不一致，单独重跑和整套 L0 pytest 重跑都通过。B5 第一次回归的批跑失败，唯一原因是 `crossing-6-forest` seed 0 同 seed 重跑不一致（当时同机在跑 SITL，该卡单趟墙钟 234.9 s）；低负载下单独重跑这张卡一致，第二次整套回归以它为准并通过。原因还没有查。
-7. **实飞仍不在范围内。** 不要把 L0 或 SITL 的到达率读成实飞。
+6. **实飞仍不在范围内。** 不要把 L0 或 SITL 的到达率读成实飞。
