@@ -1,0 +1,1244 @@
+{
+  "ticket": "t2",
+  "title": "票 T2：6 机同 seed 高负载不确定性",
+  "recorded_at": "2026-11-16 03:15 UTC-3",
+  "note": "pair 比较使用调查当时已加载的 _strip。crossing 第 3 对只在 commit 上不同，ticks 相同。",
+  "git_dirty_repro": {
+    "card": "scenes/formation-6-open.json",
+    "seed": 0,
+    "duration_s": 0.3,
+    "shadow": false,
+    "method": "两次 run() 之间给 docs/research/INDEX.md 追加一个换行并恢复",
+    "ticks_equal": true,
+    "strip_before_fix_diff_keys": [
+      "commit"
+    ],
+    "commit": [
+      "47da396b00e5190c8de1585fc392b39122a32108",
+      "47da396b00e5190c8de1585fc392b39122a32108-dirty"
+    ]
+  },
+  "pairs": [
+    {
+      "source": "form-idle.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 0,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        1.04083258099854,
+        0.7196615620050579
+      ],
+      "loadavg": [
+        6.533203125,
+        4.21728515625,
+        3.20458984375
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-idle.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 1,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7125912180054002,
+        0.6915692260081414
+      ],
+      "loadavg": [
+        6.533203125,
+        4.21728515625,
+        3.20458984375
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-idle.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 2,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.6869426199991722,
+        0.6823738450038945
+      ],
+      "loadavg": [
+        6.330078125,
+        4.21337890625,
+        3.208984375
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-idle.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 3,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.705398129997775,
+        0.6910227280022809
+      ],
+      "loadavg": [
+        6.330078125,
+        4.21337890625,
+        3.208984375
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-idle.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 4,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7458789210068062,
+        0.6997818859963445
+      ],
+      "loadavg": [
+        6.330078125,
+        4.21337890625,
+        3.208984375
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-idle.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 5,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.6865143450122559,
+        0.7527900460117962
+      ],
+      "loadavg": [
+        6.330078125,
+        4.21337890625,
+        3.208984375
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-idle.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 6,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.6885602929978631,
+        0.6917811519961106
+      ],
+      "loadavg": [
+        6.3837890625,
+        4.259765625,
+        3.2294921875
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-idle.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 7,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.6818769429955864,
+        0.6923386679991381
+      ],
+      "loadavg": [
+        6.3837890625,
+        4.259765625,
+        3.2294921875
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 0,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        1.0800607620039955,
+        0.7397032099979697
+      ],
+      "loadavg": [
+        4.875,
+        4.11767578125,
+        3.21630859375
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 1,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.8085219500062522,
+        0.747365921997698
+      ],
+      "loadavg": [
+        4.88525390625,
+        4.13232421875,
+        3.22607421875
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 2,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7748246889968868,
+        0.7612508699967293
+      ],
+      "loadavg": [
+        4.88525390625,
+        4.13232421875,
+        3.22607421875
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 3,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7118563010008074,
+        0.7098562430037418
+      ],
+      "loadavg": [
+        4.88525390625,
+        4.13232421875,
+        3.22607421875
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 4,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7352011600014521,
+        0.7345002809888683
+      ],
+      "loadavg": [
+        4.81396484375,
+        4.1298828125,
+        3.23046875
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 5,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7424290519993519,
+        0.7706652240012772
+      ],
+      "loadavg": [
+        4.81396484375,
+        4.1298828125,
+        3.23046875
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 6,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7386730360012734,
+        0.8296342530084075
+      ],
+      "loadavg": [
+        4.81396484375,
+        4.1298828125,
+        3.23046875
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 7,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7392276750033488,
+        0.7661338379984954
+      ],
+      "loadavg": [
+        5.7099609375,
+        4.3271484375,
+        3.29931640625
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 8,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7934155949915294,
+        0.7200841110025067
+      ],
+      "loadavg": [
+        5.7099609375,
+        4.3271484375,
+        3.29931640625
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 9,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7288269449927611,
+        0.6878884789912263
+      ],
+      "loadavg": [
+        5.7099609375,
+        4.3271484375,
+        3.29931640625
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 10,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.6750468190002721,
+        0.6977026620006654
+      ],
+      "loadavg": [
+        5.7099609375,
+        4.3271484375,
+        3.29931640625
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 11,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.6781205930019496,
+        0.6760953820048599
+      ],
+      "loadavg": [
+        5.65283203125,
+        4.33837890625,
+        3.30859375
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 12,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7173786119965371,
+        0.7387704410066362
+      ],
+      "loadavg": [
+        5.65283203125,
+        4.33837890625,
+        3.30859375
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 13,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.718144670012407,
+        0.736229453003034
+      ],
+      "loadavg": [
+        5.65283203125,
+        4.33837890625,
+        3.30859375
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 14,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.760152057002415,
+        0.6879144570120843
+      ],
+      "loadavg": [
+        5.9208984375,
+        4.416015625,
+        3.33935546875
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 15,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7230826610029908,
+        0.7094994139915798
+      ],
+      "loadavg": [
+        5.9208984375,
+        4.416015625,
+        3.33935546875
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 16,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.6997554060071707,
+        0.698354576001293
+      ],
+      "loadavg": [
+        5.9208984375,
+        4.416015625,
+        3.33935546875
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 17,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7279023159935605,
+        0.6763199670094764
+      ],
+      "loadavg": [
+        5.9208984375,
+        4.416015625,
+        3.33935546875
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 18,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7129370720067527,
+        0.722064486995805
+      ],
+      "loadavg": [
+        5.5263671875,
+        4.35888671875,
+        3.32666015625
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 19,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7818893960065907,
+        0.7845328969997354
+      ],
+      "loadavg": [
+        5.5263671875,
+        4.35888671875,
+        3.32666015625
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 20,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7212880520091858,
+        0.7061081589927198
+      ],
+      "loadavg": [
+        5.5263671875,
+        4.35888671875,
+        3.32666015625
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 21,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7244714749976993,
+        0.7486765029898379
+      ],
+      "loadavg": [
+        5.884765625,
+        4.45263671875,
+        3.36279296875
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 22,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7724028420052491,
+        0.7095873419893906
+      ],
+      "loadavg": [
+        5.884765625,
+        4.45263671875,
+        3.36279296875
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 23,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.6979822930006776,
+        0.7300605280033778
+      ],
+      "loadavg": [
+        5.884765625,
+        4.45263671875,
+        3.36279296875
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 24,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.6748689050000394,
+        0.702226014007465
+      ],
+      "loadavg": [
+        5.884765625,
+        4.45263671875,
+        3.36279296875
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 25,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.686514952001744,
+        0.698751132003963
+      ],
+      "loadavg": [
+        5.5732421875,
+        4.41162109375,
+        3.35546875
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 26,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7486219330021413,
+        0.7114009439974325
+      ],
+      "loadavg": [
+        5.5732421875,
+        4.41162109375,
+        3.35546875
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 27,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.8219804169930285,
+        0.7273090119997505
+      ],
+      "loadavg": [
+        5.5732421875,
+        4.41162109375,
+        3.35546875
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 28,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7160275039932458,
+        0.6969597809948027
+      ],
+      "loadavg": [
+        5.44677734375,
+        4.40478515625,
+        3.359375
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 0.3,
+      "shadow": false,
+      "i": 29,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        0.7086605560034513,
+        0.704535370998201
+      ],
+      "loadavg": [
+        5.44677734375,
+        4.40478515625,
+        3.359375
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-2s-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 2.0,
+      "shadow": false,
+      "i": 0,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        3.870644024005742,
+        2.389682712004287
+      ],
+      "loadavg": [
+        5.17041015625,
+        4.36474609375,
+        3.35205078125
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-2s-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 2.0,
+      "shadow": false,
+      "i": 1,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        2.273993280992727,
+        2.3676024549931753
+      ],
+      "loadavg": [
+        4.91650390625,
+        4.3251953125,
+        3.3447265625
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-2s-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 2.0,
+      "shadow": false,
+      "i": 2,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        2.3189817660022527,
+        2.311636646001716
+      ],
+      "loadavg": [
+        5.32373046875,
+        4.41943359375,
+        3.380859375
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "form-2s-sitl-load.jsonl",
+      "card": "scenes/formation-6-open.json",
+      "seed": 0,
+      "duration_s": 2.0,
+      "shadow": false,
+      "i": 3,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        2.280202393012587,
+        2.322994155998458
+      ],
+      "loadavg": [
+        5.05712890625,
+        4.37890625,
+        3.373046875
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "cross-2s-sitl-load.jsonl",
+      "card": "scenes/crossing-6-forest.json",
+      "seed": 0,
+      "duration_s": 2.0,
+      "shadow": true,
+      "i": 0,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        18.93638043399551,
+        17.235777694993885
+      ],
+      "loadavg": [
+        4.7685546875,
+        4.3759765625,
+        3.4619140625
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "cross-2s-sitl-load.jsonl",
+      "card": "scenes/crossing-6-forest.json",
+      "seed": 0,
+      "duration_s": 2.0,
+      "shadow": true,
+      "i": 1,
+      "same": true,
+      "result_same": true,
+      "ticks_same": true,
+      "wall_s": [
+        17.010479154996574,
+        17.585791966994293
+      ],
+      "loadavg": [
+        4.5087890625,
+        4.36376953125,
+        3.4912109375
+      ],
+      "result_diff_n": 0,
+      "tick_diff_n": 0,
+      "result_diffs": [],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108"
+      ]
+    },
+    {
+      "source": "cross-2s-sitl-load.jsonl",
+      "card": "scenes/crossing-6-forest.json",
+      "seed": 0,
+      "duration_s": 2.0,
+      "shadow": true,
+      "i": 2,
+      "same": false,
+      "result_same": false,
+      "ticks_same": true,
+      "wall_s": [
+        17.18412785200053,
+        17.673349259013776
+      ],
+      "loadavg": [
+        5.34423828125,
+        4.57958984375,
+        3.59521484375
+      ],
+      "result_diff_n": 1,
+      "tick_diff_n": 0,
+      "result_diffs": [
+        {
+          "path": "commit",
+          "a": "'47da396b00e5190c8de1585fc392b39122a32108'",
+          "b": "'47da396b00e5190c8de1585fc392b39122a32108-dirty'"
+        }
+      ],
+      "commit": [
+        "47da396b00e5190c8de1585fc392b39122a32108",
+        "47da396b00e5190c8de1585fc392b39122a32108-dirty"
+      ]
+    }
+  ]
+}

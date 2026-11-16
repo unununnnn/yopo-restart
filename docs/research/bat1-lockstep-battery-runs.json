@@ -1,0 +1,344 @@
+{
+  "ticket": "BAT1",
+  "title": "票 BAT1：锁步电池 unhealthy（不改 BAT_ 参数，只诊断）",
+  "disclaimer": "只报数，判据未冻结。不改镜像，不写 COM_/NAV_/BAT_ 参数。本票没有重跑 SITL，数字全部来自已有运行目录。",
+  "schema": "yopo-restart/bat1-lockstep-battery-runs/1",
+  "timezone": "UTC-3",
+  "date": "2026-11-16",
+  "diagnosis": {
+    "root_cause": "部分 PX4 实例在解锁后停止发布 battery_status；指挥官 hrt 超时 5 s 后置 battery_unhealthy，打印 Preflight Fail: Battery unhealthy。电压始终满电，不是墙钟放电或起步电压问题。锁步与自由跑都会出现。要修需改 PX4 或镜像。",
+    "code_changed": false,
+    "px4_parameters_written": [],
+    "stale_battery_s": 5.0,
+    "example_run": "20261115T132622-yopo-n3"
+  },
+  "official_b1_v2_crossing": {
+    "source": "docs/research/b1-sitl-lockstep-runs.json tags v2-cross-lock + v2-cross-lock-delay50, recounted from px4-*.log",
+    "runs": 10,
+    "runs_unhealthy": 5,
+    "vehicles": 30,
+    "vehicles_unhealthy": 8,
+    "runs_failsafe": 0,
+    "note": "与 B1 / LIMITATIONS 所写 5/10、无 failsafe 一致。"
+  },
+  "official_b1_v2_other": {
+    "v2-switch-lock": {
+      "runs": 5,
+      "runs_unhealthy": 5,
+      "vehicles": 15,
+      "vehicles_unhealthy": 7,
+      "runs_failsafe": 0
+    },
+    "v2-g2-lock_and_delay50": {
+      "runs": 3,
+      "runs_unhealthy": 0,
+      "vehicles": 3,
+      "vehicles_unhealthy": 0,
+      "runs_failsafe": 0
+    }
+  },
+  "ulog_corpus": {
+    "root": "/workspace/yopo-ops",
+    "vehicles": 775,
+    "runs": 273,
+    "unhealthy_minus_arm_s": {
+      "n": 120,
+      "median": 5.076,
+      "min": 5.016,
+      "max": 5.1,
+      "p10": 5.068,
+      "p90": 5.076
+    },
+    "correspondence": "unh 且 stopped_at_arm 一一对应，没有反例。",
+    "sets": {
+      "ls_v2_pause_multi_step": {
+        "runs_unhealthy": "72/207",
+        "vehicles_unhealthy": "91/615",
+        "stopped_at_arm": 91,
+        "failsafe_uorb": 0,
+        "scenes": {
+          "crossing-pillars-sitl80": "66/196 趟、83/588 机",
+          "formation-switch-sitl80": "6/8 趟、8/24 机",
+          "g2-pillar": "0/3 趟、0/3 机"
+        }
+      },
+      "ls_v1_run_to_sim_time_superseded": {
+        "runs_unhealthy": "14/27",
+        "vehicles_unhealthy": "19/67",
+        "stopped_at_arm": 19,
+        "failsafe_uorb": 21,
+        "note": "failsafe 来自第一版世界失控，与本票的 5 s 停发不是同一件事。"
+      },
+      "free_or_early_no_lockstep_field": {
+        "runs_unhealthy": "9/37",
+        "vehicles_unhealthy": "10/91",
+        "stopped_at_arm": 10,
+        "failsafe_uorb": 3,
+        "scenes": {
+          "crossing-pillars-sitl80": "2/10 趟、2/30 机",
+          "formation-switch-sitl80": "6/10 趟、7/30 机",
+          "formation-hold-sitl80": "1/5 趟、1/15 机",
+          "g2-pillar-sitl80": "0/10 趟、0/10 机"
+        }
+      }
+    }
+  },
+  "example_ulog": {
+    "run_dir": "20261115T132622-yopo-n3",
+    "tag": "v2-cross-lock-delay50",
+    "seed": 0,
+    "scene": "crossing-pillars-sitl80",
+    "outcome": "SUCCESS",
+    "t_engage_s": 15.408,
+    "arm_abs_s": 21.408,
+    "vehicles": [
+      {
+        "inst": "1",
+        "battery_last_abs_s": 54.572,
+        "unhealthy": false,
+        "voltage_v": 16.2,
+        "failsafe": 0
+      },
+      {
+        "inst": "2",
+        "battery_last_abs_s": 21.416,
+        "unhealthy_abs_s": 26.484,
+        "unhealthy_minus_arm_s": 5.076,
+        "voltage_v": 16.2,
+        "failsafe": 0
+      },
+      {
+        "inst": "3",
+        "battery_last_abs_s": 21.412,
+        "unhealthy_abs_s": 26.476,
+        "unhealthy_minus_arm_s": 5.068,
+        "voltage_v": 16.2,
+        "failsafe": 0
+      }
+    ]
+  },
+  "arms": {
+    "v2-cross-lock": {
+      "runs": 5,
+      "runs_unhealthy": 2,
+      "vehicles": 15,
+      "vehicles_unhealthy": 3,
+      "runs_failsafe": 0,
+      "rows": [
+        {
+          "tag": "v2-cross-lock",
+          "seed": 0,
+          "run_dir": "20261116T000912-yopo-n3",
+          "outcome": "SUCCESS",
+          "unhealthy_vehicles": 0,
+          "failsafe_vehicles": 0,
+          "console": {
+            "px4-1": 0,
+            "px4-2": 0,
+            "px4-3": 0
+          }
+        },
+        {
+          "tag": "v2-cross-lock",
+          "seed": 1,
+          "run_dir": "20261116T001046-yopo-n3",
+          "outcome": "SUCCESS",
+          "unhealthy_vehicles": 1,
+          "failsafe_vehicles": 0,
+          "console": {
+            "px4-1": 2,
+            "px4-2": 0,
+            "px4-3": 0
+          }
+        },
+        {
+          "tag": "v2-cross-lock",
+          "seed": 2,
+          "run_dir": "20261116T001222-yopo-n3",
+          "outcome": "SUCCESS",
+          "unhealthy_vehicles": 2,
+          "failsafe_vehicles": 0,
+          "console": {
+            "px4-1": 2,
+            "px4-2": 2,
+            "px4-3": 0
+          }
+        },
+        {
+          "tag": "v2-cross-lock",
+          "seed": 3,
+          "run_dir": "20261116T001355-yopo-n3",
+          "outcome": "FAIL",
+          "unhealthy_vehicles": 0,
+          "failsafe_vehicles": 0,
+          "console": {
+            "px4-1": 0,
+            "px4-2": 0,
+            "px4-3": 0
+          }
+        },
+        {
+          "tag": "v2-cross-lock",
+          "seed": 4,
+          "run_dir": "20261116T001510-yopo-n3",
+          "outcome": "SUCCESS",
+          "unhealthy_vehicles": 0,
+          "failsafe_vehicles": 0,
+          "console": {
+            "px4-1": 0,
+            "px4-2": 0,
+            "px4-3": 0
+          }
+        }
+      ]
+    },
+    "v2-cross-lock-delay50": {
+      "runs": 5,
+      "runs_unhealthy": 3,
+      "vehicles": 15,
+      "vehicles_unhealthy": 5,
+      "runs_failsafe": 0,
+      "rows": [
+        {
+          "tag": "v2-cross-lock-delay50",
+          "seed": 0,
+          "run_dir": "20261115T132622-yopo-n3",
+          "outcome": "SUCCESS",
+          "unhealthy_vehicles": 2,
+          "failsafe_vehicles": 0,
+          "console": {
+            "px4-1": 0,
+            "px4-2": 2,
+            "px4-3": 2
+          }
+        },
+        {
+          "tag": "v2-cross-lock-delay50",
+          "seed": 1,
+          "run_dir": "20261115T132947-yopo-n3",
+          "outcome": "SUCCESS",
+          "unhealthy_vehicles": 2,
+          "failsafe_vehicles": 0,
+          "console": {
+            "px4-1": 0,
+            "px4-2": 2,
+            "px4-3": 2
+          }
+        },
+        {
+          "tag": "v2-cross-lock-delay50",
+          "seed": 2,
+          "run_dir": "20261115T133227-yopo-n3",
+          "outcome": "FAIL",
+          "unhealthy_vehicles": 0,
+          "failsafe_vehicles": 0,
+          "console": {
+            "px4-1": 0,
+            "px4-2": 0,
+            "px4-3": 0
+          }
+        },
+        {
+          "tag": "v2-cross-lock-delay50",
+          "seed": 3,
+          "run_dir": "20261115T133432-yopo-n3",
+          "outcome": "SUCCESS",
+          "unhealthy_vehicles": 0,
+          "failsafe_vehicles": 0,
+          "console": {
+            "px4-1": 0,
+            "px4-2": 0,
+            "px4-3": 0
+          }
+        },
+        {
+          "tag": "v2-cross-lock-delay50",
+          "seed": 4,
+          "run_dir": "20261115T133719-yopo-n3",
+          "outcome": "FAIL",
+          "unhealthy_vehicles": 1,
+          "failsafe_vehicles": 0,
+          "console": {
+            "px4-1": 2,
+            "px4-2": 0,
+            "px4-3": 0
+          }
+        }
+      ]
+    },
+    "v2-switch-lock": {
+      "runs": 5,
+      "runs_unhealthy": 5,
+      "vehicles": 15,
+      "vehicles_unhealthy": 7,
+      "runs_failsafe": 0,
+      "rows": [
+        {
+          "tag": "v2-switch-lock",
+          "seed": 0,
+          "run_dir": "20261116T001651-yopo-n3",
+          "outcome": "SUCCESS",
+          "unhealthy_vehicles": 1,
+          "failsafe_vehicles": 0,
+          "console": {
+            "px4-1": 2,
+            "px4-2": 0,
+            "px4-3": 0
+          }
+        },
+        {
+          "tag": "v2-switch-lock",
+          "seed": 1,
+          "run_dir": "20261116T001848-yopo-n3",
+          "outcome": "SUCCESS",
+          "unhealthy_vehicles": 1,
+          "failsafe_vehicles": 0,
+          "console": {
+            "px4-1": 2,
+            "px4-2": 0,
+            "px4-3": 0
+          }
+        },
+        {
+          "tag": "v2-switch-lock",
+          "seed": 2,
+          "run_dir": "20261115T132042-yopo-n3",
+          "outcome": "SUCCESS",
+          "unhealthy_vehicles": 2,
+          "failsafe_vehicles": 0,
+          "console": {
+            "px4-1": 2,
+            "px4-2": 2,
+            "px4-3": 0
+          }
+        },
+        {
+          "tag": "v2-switch-lock",
+          "seed": 3,
+          "run_dir": "20261115T132236-yopo-n3",
+          "outcome": "SUCCESS",
+          "unhealthy_vehicles": 1,
+          "failsafe_vehicles": 0,
+          "console": {
+            "px4-1": 0,
+            "px4-2": 0,
+            "px4-3": 2
+          }
+        },
+        {
+          "tag": "v2-switch-lock",
+          "seed": 4,
+          "run_dir": "20261115T132430-yopo-n3",
+          "outcome": "SUCCESS",
+          "unhealthy_vehicles": 2,
+          "failsafe_vehicles": 0,
+          "console": {
+            "px4-1": 2,
+            "px4-2": 2,
+            "px4-3": 0
+          }
+        }
+      ]
+    }
+  }
+}

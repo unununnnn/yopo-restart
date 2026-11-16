@@ -16,6 +16,8 @@
 | b5-a-rerun-ramp-ref.md | b5 | 票 B5：(a) 复跑与斜坡只改编队误差参考（只报数） | report-only、冻结 |
 | b6-plan-pillar-clearance-runs.json | b6 | 规划阶段贴柱余量（柱几何净空过滤，默认关） | report-only |
 | b6-plan-pillar-clearance.md | b6 | 票 B6：规划阶段贴柱余量（柱几何净空过滤，只报数） | report-only、冻结 |
+| bat1-lockstep-battery-runs.json |  | 票 BAT1：锁步电池 unhealthy（不改 BAT_ 参数，只诊断） | report-only |
+| bat1-lockstep-battery.md |  | 票 BAT1：锁步电池 unhealthy（不改 `BAT_` 参数，只诊断） | report-only |
 | d1-geometric-fallback.md | d1 | 票 D1：提交前的一次性几何回退 | report-only、冻结 |
 | d2-teacher-batch.json | d2 | （无说明字段） | 无 |
 | d2-teacher-data.md | d2 | D2：EGO-Swarm 教师数据 | 冻结 |
@@ -152,5 +154,7 @@
 | sh4-tracking-bound-runs.json |  | 票 SH4：TRACKING_BOUND 误报判定。只报数。打开 shadow_tracking_align 偏离上游。不放宽 0.15 m。 | report-only |
 | sh4-tracking-bound.md |  | 票 SH4：TRACKING_BOUND 误报判定（只报数） | report-only、冻结 |
 | t1-load-tolerant-timing.md | t1 | 票 T1：计时测试在高负载下可过 | 无 |
+| t2-six-drone-det-runs.json | t2 | 票 T2：6 机同 seed 高负载不确定性 | 无 |
+| t2-six-drone-det.md | t2 | 票 T2：6 机同 seed 高负载不确定性 | 无 |
 | v2-clearance-replay.md | v2 | 票 V2：穿林跟踪净空门前后对比回放，只出图 | 冻结 |
 | v3-sphere-replay.md | v3 | 票 V3：E-B4c 欧氏碰撞球开关对比回放，只出图 | 无 |
