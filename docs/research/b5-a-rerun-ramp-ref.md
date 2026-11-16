@@ -99,9 +99,13 @@ B4 的中心斜坡（`center_ramp_mps2`）仍然建议默认关。它在 SITL �
 
 ## 回归
 
-REGRESS
+`PYTHONPATH=$PWD scripts/regress.sh`，提交 3af21ca，2026-11-15 UTC-3：
+
+- 第二次（21:53–22:16，`out/regress/20261115T215344`，同机没有 SITL 在跑）：**L0 pytest -n 4 963 passed / 27 skipped**，core 453 passed / 3 skipped / 4 deselected，**批跑通过**（17 张卡同 seed 重跑全部一致），certified 冒烟 g2-pillar TIMEOUT（report-only，和 B3、B4 时一样）。
+- 第一次（21:18–21:38，`out/regress/20261115T211832`）：pytest 同样 963 / 27、core 453 / 3，但批跑失败，唯一原因是 crossing-6-forest seed 0 同 seed 重跑「不一致」。那段时间同机在跑 (a)+参考斜坡的 SITL，这张卡单趟墙钟 234.9 s。这张卡走进度门控，不经过 `ref_rail`，开关关时 `ref_rail is rail`，代码路径与 main 相同。21:42 在低负载下单独重跑这张卡的确定性检查：一致。所以重跑了整套回归，以第二次为准。负载下 6 机林带同 seed 会不一致，说明还有和负载有关的不确定因素，本票没有查。
 
 ## 没做完的
 
 - 「计划贴柱」失败和 PLAN_TIMEOUT 没有处理。
 - 到达时间分成两簇的原因没有查。
+- crossing-6-forest 在同机重负载下同 seed 重跑不一致（见回归），原因没有查。

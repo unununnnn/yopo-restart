@@ -13,7 +13,7 @@
 | b4-center-launch-ramp-runs.json | b4 | 票 B4：交叉卡虚拟中心起步斜坡（只报数） | report-only |
 | b4-center-launch-ramp.md | b4 | 票 B4：交叉卡虚拟中心起步斜坡（只报数） | report-only、冻结 |
 | b5-a-rerun-ramp-ref-runs.json | b5 | 票 B5：(a) 复跑与斜坡只改编队误差参考（只报数） | report-only |
-| b5-a-rerun-ramp-ref.md | b5 | 票 B5：(a) 复跑与斜坡只改编队误差参考（只报数） | report-only |
+| b5-a-rerun-ramp-ref.md | b5 | 票 B5：(a) 复跑与斜坡只改编队误差参考（只报数） | report-only、冻结 |
 | d1-geometric-fallback.md | d1 | 票 D1：提交前的一次性几何回退 | report-only、冻结 |
 | d2-teacher-batch.json | d2 | （无说明字段） | 无 |
 | d2-teacher-data.md | d2 | D2：EGO-Swarm 教师数据 | 冻结 |
