@@ -18,6 +18,8 @@
 | b6-plan-pillar-clearance.md | b6 | 票 B6：规划阶段贴柱余量（柱几何净空过滤，只报数） | report-only、冻结 |
 | b7-clearance-fallback-runs.json | b7 | 柱净空门全拒时退回离柱最远候选（默认关） | report-only |
 | b7-clearance-fallback.md | b7 | 票 B7：柱净空门全拒时退回离柱最远候选（只报数） | report-only、冻结 |
+| bat1-lockstep-battery-runs.json |  | 票 BAT1：锁步电池 unhealthy（不改 BAT_ 参数，只诊断） | report-only |
+| bat1-lockstep-battery.md |  | 票 BAT1：锁步电池 unhealthy（不改 `BAT_` 参数，只诊断） | report-only |
 | d1-geometric-fallback.md | d1 | 票 D1：提交前的一次性几何回退 | report-only、冻结 |
 | d2-teacher-batch.json | d2 | （无说明字段） | 无 |
 | d2-teacher-data.md | d2 | D2：EGO-Swarm 教师数据 | 冻结 |
