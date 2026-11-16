@@ -388,6 +388,11 @@ def _read_b3(params: dict | None, a_max: float) -> dict:
         if "center_ramp_mps2" in out:
             raise ValueError("policy_params.b3.ref_ramp_mps2 与 center_ramp_mps2 只能开一个")
         out["ref_ramp_mps2"] = ref
+    if raw.get("pillar_clearance_m") is not None:
+        gap = float(raw["pillar_clearance_m"])
+        if not (math.isfinite(gap) and gap > 0.0):
+            raise ValueError("policy_params.b3.pillar_clearance_m 要有限且为正")
+        out["pillar_clearance_m"] = gap
     return out
 
 
@@ -459,6 +464,13 @@ class CrossingFleet:
         # 只有带森林的六机才松槽位、才上净空门。三机穿林和柱林保持原来的槽位前瞻。
         self.in_forest = isinstance(card.get("forest"), dict)
         self._trees = _forest_obstacles(card) if self.in_forest else ()
+        self.pillar_clearance = None
+        if "pillar_clearance_m" in self.b3:
+            from .pillar_clearance import PillarClearance
+
+            self.pillar_clearance = PillarClearance(
+                card.get("geometry") or {}, self.b3["pillar_clearance_m"], self.radius
+            )
         # 林带默认门控。柱林没有 forest，默认开环。卡上的布尔盖过默认。
         self.progress_gate, self.progress_percentile = read_progress_settings(
             task, default_gate=self.in_forest
@@ -736,6 +748,9 @@ class CrossingFleet:
 
     def _clearance_ok(self, motion: PiecewisePolynomial) -> bool:
         """COMMIT 前的硬净空门。三机和柱林不开这扇门。"""
+        if self.pillar_clearance is not None:
+            if not self.pillar_clearance.allows(motion, self.pcfg.limits.v_max):
+                return False
         if not self._forest_six():
             return True
         return self._trajectory_min_clearance(motion) + 1e-9 >= self._required_clearance()
@@ -1449,6 +1464,8 @@ class CrossingFleet:
             out["ref_ramp_mps2"] = self.ref_rail.ramp_mps2
             out["ref_ramp_s"] = self.ref_rail.t_ramp
             out["deviation"] = "偏离上游：编队误差参考起步匀加速斜坡（规划时刻表不变）"
+        if self.pillar_clearance is not None:
+            out["pillar_clearance"] = self.pillar_clearance.summary()
         return out
 
 
