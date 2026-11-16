@@ -119,6 +119,8 @@ L0 **不等价于** L1，也不是实飞：
    - [SH2](research/sh2-sitl-shadow-evidence.md) 随 [#147](https://github.com/unununnnn/yopo-restart/pull/147)（`c37ce78`）合入，[#146](https://github.com/unununnnn/yopo-restart/pull/146) 已关：开关接到 `sitl_bridge`。L0 上结论与 SH1 一致。
    - [SH2b](research/sh2-sitl-shadow-evidence.md)（[#149](https://github.com/unununnnn/yopo-restart/pull/149)，`c929491`）：被串话污染的 4 趟在隔离网络上重跑，4/4 成功到达、碰撞 0，结论不变。锁步交叉 seeds 0–4 合计：开证据后环境拒绝率 0.931→0.013，`would_reject` 仍是 0.997，主要靠契约码和 `TRACKING_BOUND`（0.15 m）打满。
    - [SH3](research/sh3-contract-codes.md)（[#147](https://github.com/unununnnn/yopo-restart/pull/147)）：契约码多数是误报（把已经在飞的上游多项式按认证 `Plan` 语义再包一层）。修正开关 `shadow_contract_align` 默认关；打开后 L0 上 g2-pillar 的 `would_reject` 从 1.000 降到 0.0114，crossing-pillars 从 1.000 降到 0.0176。对齐后不再把 `TRACKING_BOUND` 算进 `would_reject`，阈值 0.15 m 本身不改。
+   - [SH4](research/sh4-tracking-bound.md)（[#155](https://github.com/unununnnn/yopo-restart/pull/155)，`9cb9eab`）：把 `TRACKING_BOUND` 当成计划危险是误报。开关 `shadow_tracking_align` 默认关；打开后 0.15 m 超界仍记在直方图，但不单独打满 `would_reject`。阈值不改。当时没有新跑 SITL。
+   - [SH5](research/sh5-sitl-shadow-align.md)：在隔离网络的锁步 SITL 上重测四个影子臂，开关默认仍关，0.15 m 不改。`crossing-pillars-sitl80` seeds 0–4：缺省 `would_reject` 1.000、环境拒绝率 0.9046；开证据后环境拒绝率 0.0144，`would_reject` 仍是 0.9931；再开契约对齐，`would_reject` 降到 0.0519，`TRACKING_BOUND` 从码表拿掉；三个开关一起开，`would_reject` 0.0203，0.15 m 超界 7861 次仍在直方图，留下的是 `TRANSITION:MOTION_KINEMATICS` 和少量 `ENV:OCCUPIED`。到达在 2/5 到 3/5 之间起伏，不能写成开关效果。`g2-pillar-sitl80` seeds 0–4 四臂都是 5/5 到达、碰撞 0；开证据后环境拒绝率 1.000→0，契约对齐后 `would_reject` 0.0125，再开跟踪对齐是 0.0655（全部是 `LAG_VIOLATION`），跟踪超界未计入会拒。
 
 6. **打开后段之后的评估次数缺省已改为 20。** 研究开关仍默认关。
    - [E-B2q](research/e-b2q-evals-diag.md)（[#136](https://github.com/unununnnn/yopo-restart/pull/136)）：密林 10 次是 12/30、截断 130/362，20 次是 21/30、截断 0/418；014 对向 10 次是 8/30、截断 470/1293，20 次是 20/30、截断 0。
@@ -134,7 +136,6 @@ L0 **不等价于** L1，也不是实飞：
 
 1. **(a) 是目前真正改善 SITL 交叉的手段（7/10 → 两批合计 16/20，即约 70%→80%），但不能默认开；两种斜坡也保持默认关。** (a) 把失败从「起步横移跟不上」变成「计划贴柱」。但它在 L0 `crossing-pillars` 的 seed 1、6、9 上编队误差 p95 越过冻结线 6.0 m，不能默认开。中心斜坡改规划时刻表，参考斜坡只改编队误差的量尺、不改飞行，两个都默认关。
 2. **(a) 之后剩下的 SITL 失败主要是计划贴柱太近。** B3 里这些失败在 PLAN 后 2.6–3.1 s，设定点离柱面 0.15–0.19 m，有一趟 −0.17 m；B4 是 0.10–0.25 m。
-3. **`TRACKING_BOUND` 0.15 m 仍把 SITL 的 `would_reject` 打满。** SH2 开证据后环境拒绝率降到 0.013，`would_reject` 仍是 0.997，开臂 9759 个 tick 里有 6445 次 `TRACKING_BOUND`。这是 PX4 跟踪，不是环境。SH3 在 L0 上不再把该码算进 `would_reject`，但 0.15 m 阈值本身不改，也还没有在 SITL 上重测对齐开关。
-4. **锁步下电池模拟报 unhealthy（不改 `BAT_` 参数）。** [BAT1](research/bat1-lockstep-battery.md) 已诊断：B1 第二版 10 趟三机交叉仍是 5/10 出现 `Battery unhealthy`、0 趟 failsafe。根因是部分 PX4 实例解锁后停止发布 `battery_status`，指挥官按仿真钟 5 s 超时；电压始终 16.2 V，自由跑也会出现。要修仍需改 PX4 或镜像。
-5. **学生网络线暂停。** D6e 到 D9 的收益都在训练噪声范围内，人手先放到方向 B。限速 2.5 m/s 仍只是 D9 的候选对照臂，不改库默认。
-6. **实飞仍不在范围内。** 不要把 L0 或 SITL 的到达率读成实飞。
+3. **锁步下电池模拟报 unhealthy（不改 `BAT_` 参数）。** [BAT1](research/bat1-lockstep-battery.md) 已诊断：B1 第二版 10 趟三机交叉仍是 5/10 出现 `Battery unhealthy`、0 趟 failsafe。根因是部分 PX4 实例解锁后停止发布 `battery_status`，指挥官按仿真钟 5 s 超时；电压始终 16.2 V，自由跑也会出现。要修仍需改 PX4 或镜像。
+4. **学生网络线暂停。** D6e 到 D9 的收益都在训练噪声范围内，人手先放到方向 B。限速 2.5 m/s 仍只是 D9 的候选对照臂，不改库默认。
+5. **实飞仍不在范围内。** 不要把 L0 或 SITL 的到达率读成实飞。

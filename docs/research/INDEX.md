@@ -153,6 +153,8 @@
 | sh3-contract-codes.md |  | 票 SH3：影子盾契约码误报判定（只报数） | report-only、冻结 |
 | sh4-tracking-bound-runs.json |  | 票 SH4：TRACKING_BOUND 误报判定。只报数。打开 shadow_tracking_align 偏离上游。不放宽 0.15 m。 | report-only |
 | sh4-tracking-bound.md |  | 票 SH4：TRACKING_BOUND 误报判定（只报数） | report-only、冻结 |
+| sh5-sitl-shadow-align-runs.json |  | 票 SH5：锁步 SITL 上重测 SH3/SH4 影子对齐开关。只报数。打开研究开关偏离上游。不放宽 0.15 m。 | report-only |
+| sh5-sitl-shadow-align.md |  | 票 SH5：SITL 重测影子对齐开关（只报数） | report-only、冻结 |
 | t1-load-tolerant-timing.md | t1 | 票 T1：计时测试在高负载下可过 | 无 |
 | t2-six-drone-det-runs.json | t2 | 票 T2：6 机同 seed 高负载不确定性 | 无 |
 | t2-six-drone-det.md | t2 | 票 T2：6 机同 seed 高负载不确定性 | 无 |
