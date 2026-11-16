@@ -145,5 +145,6 @@
 | sh2-sitl-shadow-evidence.md |  | 票 SH2：影子盾 ENV 证据接 SITL 与拒绝码归因（只报数） | report-only、冻结 |
 | sh3-contract-codes-runs.json |  | 票 SH3：影子盾契约码误报判定（只报数）。打开 shadow_contract_align 偏离上游。 | report-only |
 | sh3-contract-codes.md |  | 票 SH3：影子盾契约码误报判定（只报数） | report-only、冻结 |
+| t1-load-tolerant-timing.md | t1 | 票 T1：计时测试在高负载下可过 | 无 |
 | v2-clearance-replay.md | v2 | 票 V2：穿林跟踪净空门前后对比回放，只出图 | 冻结 |
 | v3-sphere-replay.md | v3 | 票 V3：E-B4c 欧氏碰撞球开关对比回放，只出图 | 无 |
