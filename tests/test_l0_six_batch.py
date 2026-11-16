@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from yopo_l0.batch import _strip, main as batch_main, resolve_tiers
+from yopo_l0.batch import _strip, det_mismatch, main as batch_main, resolve_tiers
 from yopo_l0.scene import load_card
 
 from conftest import ROOT
@@ -33,6 +33,65 @@ def test_strip_drops_wall_clock_inside_the_batching_plan():
     }
     assert _strip(a) == _strip(b)
     assert "plan_wall_ms" not in _strip(a)
+
+
+def test_strip_ignores_repo_commit_dirty_flag():
+    """同机改已跟踪文件时，两次重跑的 commit 会从 sha 变成 sha-dirty，轨迹仍一致。"""
+    a = {
+        "seed": 0,
+        "commit": "47da396b00e5190c8de1585fc392b39122a32108",
+        "arrived": 6,
+        "wall_time_s": 1.0,
+    }
+    b = {
+        "seed": 0,
+        "commit": "47da396b00e5190c8de1585fc392b39122a32108-dirty",
+        "arrived": 6,
+        "wall_time_s": 50.0,
+    }
+    assert _strip(a) == _strip(b)
+    assert "commit" not in _strip(a)
+
+
+def test_det_mismatch_records_trajectory_fields_not_commit(tmp_path):
+    left = {
+        "commit": "abc123",
+        "arrived": 6,
+        "wall_time_s": 1.0,
+        "plan_wall_ms": {"count": 1, "mean": 1.0, "p50": 1.0, "p95": 1.0, "max": 1.0},
+    }
+    right = {
+        "commit": "abc123-dirty",
+        "arrived": 5,
+        "wall_time_s": 9.0,
+        "plan_wall_ms": {"count": 1, "mean": 8.0, "p50": 8.0, "p95": 8.0, "max": 8.0},
+    }
+    assert det_mismatch(left, [{"p": [0.0]}], right, [{"p": [0.0]}]) is not None
+    mismatch = det_mismatch(left, [{"p": [0.0]}], right, [{"p": [1.0]}])
+    assert mismatch is not None
+    paths = [row["path"] for row in mismatch["result_diffs"]]
+    assert "commit" not in paths
+    assert "arrived" in paths
+    assert mismatch["result_equal"] is False
+    assert mismatch["ticks_equal"] is False
+    assert mismatch["tick_diffs"]
+    # 只有 commit / 墙钟不同时，比较仍算一致，不写差分。
+    assert det_mismatch(left, [{"p": [0.0]}], {**right, "arrived": 6}, [{"p": [0.0]}]) is None
+
+
+def test_repeated_seed_stays_deterministic_when_git_commit_flips(tmp_path, monkeypatch):
+    values = iter(["abc123def4567890", "abc123def4567890-dirty"])
+    monkeypatch.setattr("yopo_l0.runner.git_commit", lambda: next(values, "abc123def4567890-dirty"))
+    out = tmp_path / "det-dirty"
+    rc = batch_main([
+        CARD, "--form", "inprocess", "--tiers", "none",
+        "--seeds", "0", "--duration", "0.3", "--no-shadow", "--out", str(out),
+    ])
+    assert rc == 0
+    md = (out / "summary.md").read_text()
+    assert "formation-6-open@formation/none seed0 一致" in md
+    seed_dir = out / "formation-6-open@formation" / "none" / "seed0"
+    assert not (seed_dir / "det_diff.json").exists()
 
 
 def _fake_result(job):
@@ -131,8 +190,8 @@ def test_six_drone_det_cards_do_not_use_wall_budget():
     ``formation-6-open``（本文件的短时确定性测试）和 ``crossing-6-forest``
     （B5 批跑 seed 0）都没有打开后段，也没有打开几何回退。缺省预算是按评估
     次数，不读墙钟。比较时已经去掉 ``wall_time_s``、``plan_wall_ms``、
-    ``batching_plan`` 和几何回退的 ``check_time_ms``。因此不要为了让测试常绿
-    把硬断言拿掉。调查记录见 ``docs/research/t1-load-tolerant-timing.md``。
+    ``batching_plan``、``commit`` 和几何回退的 ``check_time_ms``。因此不要为了
+    让测试常绿把硬断言拿掉。仓库脏标记见 ``docs/research/t2-six-drone-det.md``。
     """
     from yopo_l0.backend.config import config_from_params
 
