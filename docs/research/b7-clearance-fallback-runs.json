@@ -1,0 +1,63 @@
+{
+ "ticket": "B7",
+ "title": "柱净空门全拒时退回离柱最远候选（默认关）",
+ "timezone": "UTC-3",
+ "disclaimer": "只报数。开关默认关。打开即偏离上游（读场景柱几何）。L0 已跑；SITL 待 SH5 让出默认容器后再跑。",
+ "switch": {
+  "key": "policy_params.b3.pillar_clearance_m",
+  "sitl_fix": "pillar=<m>",
+  "default": "off",
+  "fallback": "一批候选全被柱门拒绝时，退回离柱面最远的那个（不是新开关）"
+ },
+ "l0": {
+  "d": {
+   "n": 10,
+   "success": 10,
+   "t_mean": 7.27,
+   "form_p95_max": 4.609515916214519,
+   "min_obs_dist": 0.878,
+   "dev": false,
+   "rej": 0,
+   "checks": 0,
+   "fallbacks": 0,
+   "fails": []
+  },
+  "a": {
+   "n": 10,
+   "success": 10,
+   "t_mean": 7.76,
+   "form_p95_max": 6.288843048448468,
+   "min_obs_dist": 1.209,
+   "dev": false,
+   "rej": 0,
+   "checks": 0,
+   "fallbacks": 0,
+   "fails": []
+  },
+  "ap3": {
+   "n": 10,
+   "success": 10,
+   "t_mean": 7.76,
+   "form_p95_max": 6.288843048448468,
+   "min_obs_dist": 1.209,
+   "dev": true,
+   "rej": 0,
+   "checks": 392,
+   "fallbacks": 0,
+   "fails": []
+  },
+  "ap5": {
+   "n": 10,
+   "success": 10,
+   "t_mean": 7.76,
+   "form_p95_max": 6.288843048448468,
+   "min_obs_dist": 1.209,
+   "dev": true,
+   "rej": 0,
+   "checks": 392,
+   "fallbacks": 0,
+   "fails": []
+  }
+ },
+ "sitl": {}
+}
