@@ -1,4 +1,7 @@
-"""B6（默认关）：用场景柱几何过滤拟合后的候选，属于几何真值辅助实验。"""
+"""B6/B7（默认关）：用场景柱几何过滤拟合后的候选，属于几何真值辅助实验。
+
+B7：一批候选全被柱门拒绝时，退回离柱面最远的那个，不再把空计划交出去。
+"""
 
 import math
 
@@ -16,8 +19,9 @@ class PillarClearance:
         self.body_radius_m = body_radius_m
         self.checks = 0
         self.rejected = 0
+        self.fallbacks = 0
 
-    def allows(self, motion, speed_limit: float) -> bool:
+    def gap(self, motion, speed_limit: float) -> float:
         # 距离函数是 1-Lipschitz；用轨迹限速 × 半个采样间隔覆盖采样点之间的运动。
         # 检查整条拟合计划（含停止尾），不把未拟合 raw 的远端混进来。
         span = float(motion.t_end - motion.t_start)
@@ -25,18 +29,28 @@ class PillarClearance:
         times = np.linspace(float(motion.t_start), float(motion.t_end), n)
         points = np.asarray([motion.evaluate(float(t)) for t in times])
         delta = np.maximum(np.maximum(self.lo[None] - points[:, None], 0.0), points[:, None] - self.hi[None])
-        gap = float(np.linalg.norm(delta, axis=-1).min()) - self.body_radius_m
-        lower = gap - float(speed_limit) * span / (2 * (n - 1))
+        raw = float(np.linalg.norm(delta, axis=-1).min()) - self.body_radius_m
+        return raw - float(speed_limit) * span / (2 * (n - 1))
+
+    def allows(self, motion, speed_limit: float) -> bool:
+        lower = self.gap(motion, speed_limit)
         ok = math.isfinite(lower) and lower + 1e-9 >= self.margin_m
         self.checks += 1
         self.rejected += int(not ok)
         return ok
+
+    def farthest(self, motions, speed_limit: float):
+        """离柱面最远的候选。并列时取原排序更靠前的。"""
+        if not motions:
+            raise ValueError("没有候选可退回")
+        return max(motions, key=lambda m: self.gap(m, speed_limit))
 
     def summary(self) -> dict:
         return {
             "margin_m": self.margin_m,
             "checks": self.checks,
             "rejected": self.rejected,
+            "fallbacks": self.fallbacks,
             "source": "scene p_ boxes (oracle)",
-            "deviation": "偏离上游：场景柱几何辅助的规划净空过滤",
+            "deviation": "偏离上游：场景柱几何辅助的规划净空过滤；全拒时退回离柱最远候选",
         }

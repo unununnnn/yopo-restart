@@ -1268,9 +1268,10 @@ class CrossingFleet:
         occ = None
         reject = None
         used_alt = False
+        used_fallback = False
         shifted = False
         if arriving:
-            occ, reject, used_alt = self._take_motions(node, t_start, head, motions)
+            occ, reject, used_alt, used_fallback = self._take_motions(node, t_start, head, motions)
         else:
             for gi, g in enumerate(goal_list):
                 try:
@@ -1283,7 +1284,7 @@ class CrossingFleet:
                         self.empty_solution += 1
                     reject = code
                     continue
-                occ, reject, used_alt = self._take_motions(node, t_start, head, motions)
+                occ, reject, used_alt, used_fallback = self._take_motions(node, t_start, head, motions)
                 if occ is not None:
                     shifted = gi > 0
                     break
@@ -1302,26 +1303,40 @@ class CrossingFleet:
                 reject = reject2 or reject
             self._count(node.id, "CONFLICT_SKIP" if reject == "CONFLICT_SKIP" else (reject or code))
             return None
-        if shifted:
+        if used_fallback:
+            self._count(node.id, "PILLAR_FALLBACK")
+        elif shifted:
             self._count(node.id, "SLOT_SHIFT")
         else:
             self._count(node.id, "YOPO_ALT" if used_alt else code)
         return occ
 
     def _take_motions(self, node: ProtocolNode, t_start: float, head: np.ndarray, motions: list[PiecewisePolynomial]):
-        """净空不够的多项式不进 _as_plan，也就不会被提案、不会 COMMIT。"""
+        """净空不够的多项式不进 _as_plan，也就不会被提案、不会 COMMIT。
+
+        柱门把这一批候选全拒时（B7）：退回离柱面最远的那个。否则会一直沿用旧计划，直到 PLAN_TIMEOUT。
+        """
         occ = None
         reject = None
         used_alt = False
+        used_fallback = False
+        skipped: list[PiecewisePolynomial] = []
         for i, motion in enumerate(motions):
             if not self._clearance_ok(motion):
                 reject = "CLEARANCE_SKIP"
+                skipped.append(motion)
                 continue
             occ, reject = self._as_plan(node, t_start, head, motion)
             if occ is not None:
                 used_alt = i > 0
                 break
-        return occ, reject, used_alt
+        if occ is None and self.pillar_clearance is not None and skipped and len(skipped) == len(motions):
+            best = self.pillar_clearance.farthest(skipped, self.pcfg.limits.v_max)
+            occ, reject = self._as_plan(node, t_start, head, best)
+            if occ is not None:
+                used_fallback = True
+                self.pillar_clearance.fallbacks += 1
+        return occ, reject, used_alt, used_fallback
 
     def _emit(self, bus, now: float, src: str, msg) -> None:
         dests = [msg.dest] if getattr(msg, "dest", None) else [m for m in self.members if m != src]
