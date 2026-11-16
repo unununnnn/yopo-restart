@@ -33,14 +33,17 @@ from .scene import load_card
 from .criteria import evaluate_card_rows, frozen_for_card
 
 # 分批方案里带有当次墙钟，不能拿去比确定性。
-_STRIP = WALL_FIELDS | {"batching_plan"}
+# commit 是仓库快照（sha 或 sha-dirty），不是仿真状态，见 _strip。
+_STRIP = WALL_FIELDS | {"batching_plan", "commit"}
 _TIER_FILE = Path(__file__).resolve().parents[1] / "scenes" / "formation-6-tiers.json"
 
 
 def _strip(r):
-    """确定性比较去掉墙钟。几何回退的检查耗时是墙钟，轨迹字段仍要比较。
+    """确定性比较去掉墙钟和仓库 commit。几何回退的检查耗时是墙钟，轨迹字段仍要比较。
 
     不把 ``geometric_fallback`` 放进 runner.WALL_FIELDS，免得和 E-C3 的 plan_wall_ms 抢同一行。
+    ``commit`` 来自 ``git rev-parse`` 和 ``git status --porcelain``，记录的是仓库脏与否，
+    不是仿真轨迹。同机有人改已跟踪文件时，两次重跑会变成 sha 对 sha-dirty，ticks 仍一致。
     """
     out = {k: v for k, v in r.items() if k not in _STRIP}
     block = out.get("geometric_fallback")
@@ -49,6 +52,82 @@ def _strip(r):
         kept.pop("check_time_ms", None)
         out["geometric_fallback"] = kept
     return out
+
+
+def _preview(value, limit: int = 180) -> str:
+    text = repr(value)
+    return text if len(text) <= limit else text[: limit - 3] + "..."
+
+
+def _walk_diff(a, b, prefix: str = "", *, cap: int = 40):
+    """生成 (path, left, right)。列表在前若干处差异之后停止，避免把整段 ticks 展开。"""
+    found = 0
+
+    def emit(path, left, right):
+        nonlocal found
+        if found >= cap:
+            return
+        found += 1
+        yield path, left, right
+
+    def walk(x, y, path: str):
+        nonlocal found
+        if found >= cap:
+            return
+        if type(x) is not type(y) and not (
+            isinstance(x, (int, float)) and isinstance(y, (int, float))
+        ):
+            yield from emit(path, x, y)
+            return
+        if isinstance(x, dict):
+            keys = set(x) | set(y)
+            for key in sorted(keys, key=str):
+                child = f"{path}.{key}" if path else str(key)
+                if key not in x:
+                    yield from emit(child, "<missing>", y[key])
+                elif key not in y:
+                    yield from emit(child, x[key], "<missing>")
+                else:
+                    yield from walk(x[key], y[key], child)
+                if found >= cap:
+                    return
+            return
+        if isinstance(x, (list, tuple)):
+            if len(x) != len(y):
+                yield from emit(f"{path}.len" if path else "len", len(x), len(y))
+            for i, (u, v) in enumerate(zip(x, y)):
+                if u != v:
+                    yield from walk(u, v, f"{path}[{i}]")
+                    if found >= cap:
+                        return
+            return
+        if x != y:
+            yield from emit(path, x, y)
+
+    yield from walk(a, b, prefix)
+
+
+def det_mismatch(result_a, ticks_a, result_b, ticks_b, *, cap: int = 40) -> dict | None:
+    """两次重跑的差分。只比较 ``_strip`` 之后的结果和 ticks。一致则返回 None。"""
+    left, right = _strip(result_a), _strip(result_b)
+    result_equal = left == right
+    ticks_equal = ticks_a == ticks_b
+    if result_equal and ticks_equal:
+        return None
+    result_diffs = [
+        {"path": path, "a": _preview(a), "b": _preview(b)}
+        for path, a, b in _walk_diff(left, right, cap=cap)
+    ]
+    tick_diffs = [
+        {"path": path, "a": _preview(a), "b": _preview(b)}
+        for path, a, b in _walk_diff(ticks_a, ticks_b, cap=cap)
+    ]
+    return {
+        "result_equal": result_equal,
+        "ticks_equal": ticks_equal,
+        "result_diffs": result_diffs,
+        "tick_diffs": tick_diffs,
+    }
 
 
 def _radius_cells(r) -> str:
@@ -200,7 +279,10 @@ def _one(job):
             again = execute(card, cfg)
         else:
             again = run(card, cfg)
-        same = _strip(again.result) == _strip(out.result) and again.ticks == out.ticks
+        mismatch = det_mismatch(out.result, out.ticks, again.result, again.ticks)
+        same = mismatch is None
+    else:
+        mismatch = None
     if tier_id is not None:
         out.result["form"] = "ros2" if form == "ros2" else "inprocess"
         out.result["fault_tier"] = tier_id
@@ -212,6 +294,8 @@ def _one(job):
         tag = "" if form == "inprocess" else "@ros2"
         dest = Path(out_dir) / f"{card.name}@{policy}{tag}" / tier_id / f"seed{seed}"
     write(out, dest)
+    if mismatch is not None:
+        (dest / "det_diff.json").write_text(json.dumps(mismatch, ensure_ascii=False, indent=2) + "\n")
     return out.result, same
 
 
