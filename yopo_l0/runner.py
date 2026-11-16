@@ -544,7 +544,9 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
         radius_m = read_safe_radius(tuned.get("policy_params"))
         result["safe_radius_m"] = radius_m
         result["upstream_deviation"] = deviates_from_upstream(radius_m)
-        if fleet_block is not None and fleet_block.get("center_ramp_mps2") is not None:
+        if fleet_block is not None and (
+            fleet_block.get("center_ramp_mps2") is not None or fleet_block.get("ref_ramp_mps2") is not None
+        ):
             result["upstream_deviation"] = True
             result["center_ramp_deviation"] = fleet_block["deviation"]
         # E-B4b：只有 goto / hover 的 upstream 策略读这个开关。关时不加字段。
