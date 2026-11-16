@@ -67,6 +67,15 @@ ALIGN_DROP_TICK = frozenset({TRACKING_BOUND})
 ALIGN_CONTINUITY_TOL = 1e-6
 
 
+def codes_would_reject(codes, *, tracking_align: bool = False) -> bool:
+    """会拒 = 有拒绝码。跟踪对齐时，0.15 m 的 TRACKING_BOUND 仍写入码表，但不单独把 would_reject 打满。"""
+    if not codes:
+        return False
+    if tracking_align:
+        return any(c != TRACKING_BOUND for c in codes)
+    return True
+
+
 def upstream_plan_config(base: PlanConfig, v_max: float | None = None, a_max: float | None = None) -> PlanConfig:
     """用上游 / L0 的 v_max、a_max 替换认证默认 (4, 8)，j_max 保持不变。不改传入对象。"""
     from .backend.config import BackendConfig
@@ -205,6 +214,7 @@ class DroneShadow:
         params: dict,
         scene_obstacles=None,
         contract_align: bool = False,
+        tracking_align: bool = False,
         v_max: float | None = None,
         a_max: float | None = None,
     ):
@@ -213,6 +223,7 @@ class DroneShadow:
             owner, cert["body_radius"], cert["tracking_margin"], cert["switch_delay"],
         )
         self.contract_align = bool(contract_align)
+        self.tracking_align = bool(tracking_align)
         self._plan_cfg = (
             upstream_plan_config(self.cfg.plan, v_max=v_max, a_max=a_max)
             if self.contract_align
@@ -257,8 +268,8 @@ class DroneShadow:
         oracle = record_oracle_track_lag(
             now, state.t, state.p, cmd_p, self.start, self.goal, 0.0,
         )
-        if self.contract_align:
-            # 认证 FlightOracle.tracking_bound 不是上游 / PX4 的承诺。测量本身仍按 0.15 m 算，只是不算进 would_reject。
+        if self.contract_align and not self.tracking_align:
+            # SH3：契约对齐时从返回码里拿掉 TRACKING_BOUND。SH4 开关打开时码表仍保留 0.15 m 测量，由 codes_would_reject 忽略。
             oracle = tuple(c for c in oracle if c not in ALIGN_DROP_TICK)
         return tuple(dict.fromkeys((*self.selection, *oracle)))
 
