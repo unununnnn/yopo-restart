@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 
 from .dynamics import State
-from .shadow import DroneShadow, approved_pva
+from .shadow import DroneShadow, approved_pva, codes_would_reject
 
 ENV_RESULT_KEYS = (
     "shadow_env_evidence",
@@ -59,6 +59,8 @@ def bind_slot_shadow(slot, card, cfg, params: dict) -> None:
         slot.bridge.goal,
         params,
         scene_obstacles(card, cfg),
+        contract_align=bool(getattr(cfg, "shadow_contract_align", False)),
+        tracking_align=bool(getattr(cfg, "shadow_tracking_align", False)),
     )
 
 
@@ -132,6 +134,12 @@ def annotate_result(session, payload: dict) -> None:
     research = bool(getattr(cfg, "shadow_env_evidence", False) or getattr(cfg, "fleet_shadow", False))
     if research and session.shadow:
         payload["shadow_attribution"] = attribution(session._shadow_ticks)
+    if bool(getattr(cfg, "shadow_contract_align", False)):
+        payload["shadow_contract_align"] = True
+        payload["upstream_deviation"] = True
+    if bool(getattr(cfg, "shadow_tracking_align", False)):
+        payload["shadow_tracking_align"] = True
+        payload["upstream_deviation"] = True
     if not bool(getattr(cfg, "shadow_env_evidence", False)):
         return
     payload["shadow_env_evidence"] = True
@@ -186,7 +194,9 @@ def _tick(session, slot, body: State, cmd_p, now: float) -> None:
         {
             "uav": slot.bridge.drone_id,
             "t": float(now),
-            "would_reject": bool(codes),
+            "would_reject": codes_would_reject(
+                codes, tracking_align=bool(getattr(session.cfg, "shadow_tracking_align", False)),
+            ),
             "reject_codes": list(codes),
         }
     )

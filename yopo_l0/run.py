@@ -81,6 +81,10 @@ def main(argv=None):
         "--shadow-contract-align", action="store_true",
         help="研究开关，默认关。打开后按上游轨迹语义修正影子盾误报契约码，只记录，不改批准动作。打开即偏离上游",
     )
+    ap.add_argument(
+        "--shadow-tracking-align", action="store_true",
+        help="研究开关，默认关。打开后 0.15 m 的 TRACKING_BOUND 仍记录，但不计入 would_reject。不放宽阈值。打开即偏离上游",
+    )
     a = ap.parse_args(_normalize_shadow(argv))
     card = load_card(a.scene)
     out = run(card, RunConfig(
@@ -93,6 +97,7 @@ def main(argv=None):
         geometric_fallback=a.geometric_fallback,
         shadow_env_evidence=bool(a.shadow_env_evidence),
         shadow_contract_align=bool(a.shadow_contract_align),
+        shadow_tracking_align=bool(a.shadow_tracking_align),
     ))
     d = write(out, a.out or f"out/{card.name}/seed{a.seed}")
     print(json.dumps(out.result, ensure_ascii=False))

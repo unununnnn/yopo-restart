@@ -226,6 +226,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=_env_flag("YOPO_FLEET_SHADOW"),
         help="crossing / switch / formation 也记影子盾（只读，默认关）",
     )
+    ap.add_argument(
+        "--shadow-contract-align",
+        action="store_true",
+        default=_env_flag("YOPO_SHADOW_CONTRACT_ALIGN"),
+        help="研究开关，默认关。打开后按上游轨迹语义修正影子盾误报契约码（偏离上游）",
+    )
+    ap.add_argument(
+        "--shadow-tracking-align",
+        action="store_true",
+        default=_env_flag("YOPO_SHADOW_TRACKING_ALIGN"),
+        help="研究开关，默认关。打开后 0.15 m 的 TRACKING_BOUND 仍记录，但不计入 would_reject（偏离上游）",
+    )
     # 票 B2：交叉卡规划净空归因。都默认关。
     ap.add_argument(
         "--plan-diag",
@@ -303,6 +315,12 @@ def main(argv: list[str] | None = None) -> int:
             plan["fleet_shadow"] = bool(args.fleet_shadow or args.shadow_env_evidence)
         if args.shadow_env_evidence:
             plan["shadow_env_evidence"] = True
+            plan["upstream_deviation"] = True
+        if args.shadow_contract_align:
+            plan["shadow_contract_align"] = True
+            plan["upstream_deviation"] = True
+        if args.shadow_tracking_align:
+            plan["shadow_tracking_align"] = True
             plan["upstream_deviation"] = True
         plan["b2"] = {"plan_diag": bool(args.plan_diag), "deviations": list(b2_deviations), "fix": dict(args.b2_fix_cfg)}
         _write(args.out, plan)
@@ -431,6 +449,8 @@ def _run_ros(args, card, positioning: str, policy: str) -> int:  # pragma: no co
             plan_timeout_s=plan_timeout_s,
             shadow_env_evidence=bool(args.shadow_env_evidence),
             fleet_shadow=bool(args.fleet_shadow),
+            shadow_contract_align=bool(args.shadow_contract_align),
+            shadow_tracking_align=bool(args.shadow_tracking_align),
             setpoint_lead_s=float(getattr(args, "b2_fix_cfg", {}).get("setpoint_lead_s", 0.0)),
             setpoint_gain_p=float(getattr(args, "b2_fix_cfg", {}).get("setpoint_gain_p", 0.0)),
             setpoint_gain_v=float(getattr(args, "b2_fix_cfg", {}).get("setpoint_gain_v", 0.0)),

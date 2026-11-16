@@ -25,8 +25,10 @@ AGENT_DELAY_S="${YOPO_AGENT_DELAY_S:-0}"
 # 票 SH2：影子盾环境证据和编队类影子，默认关。
 SHADOW_ENV_EVIDENCE="${YOPO_SHADOW_ENV_EVIDENCE:-0}"
 FLEET_SHADOW="${YOPO_FLEET_SHADOW:-0}"
+SHADOW_CONTRACT_ALIGN="${YOPO_SHADOW_CONTRACT_ALIGN:-0}"
+SHADOW_TRACKING_ALIGN="${YOPO_SHADOW_TRACKING_ALIGN:-0}"
 usage() {
-  echo "用法：$0 [--scene 场景卡] [--n 1|2|3] [--policy upstream|formation|crossing|switch] [--positioning default|rtk] [--seed N] [--image 镜像] [--lockstep] [--agent-delay-s 秒] [--shadow-env-evidence] [--fleet-shadow] [--dry-run]"
+  echo "用法：$0 [--scene 场景卡] [--n 1|2|3] [--policy upstream|formation|crossing|switch] [--positioning default|rtk] [--seed N] [--image 镜像] [--lockstep] [--agent-delay-s 秒] [--shadow-env-evidence] [--fleet-shadow] [--shadow-contract-align] [--shadow-tracking-align] [--dry-run]"
 }
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -61,6 +63,8 @@ while [[ $# -gt 0 ]]; do
     --agent-delay-s=*) AGENT_DELAY_S="${1#*=}"; shift ;;
     --shadow-env-evidence) SHADOW_ENV_EVIDENCE=1; shift ;;
     --fleet-shadow) FLEET_SHADOW=1; shift ;;
+    --shadow-contract-align) SHADOW_CONTRACT_ALIGN=1; shift ;;
+    --shadow-tracking-align) SHADOW_TRACKING_ALIGN=1; shift ;;
     --dry-run) DRY=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) usage >&2; exit 2 ;;
@@ -88,6 +92,14 @@ esac
 case "$FLEET_SHADOW" in
   0|1) ;;
   *) echo "未知 YOPO_FLEET_SHADOW=$FLEET_SHADOW（只要 0 或 1）" >&2; exit 2 ;;
+esac
+case "$SHADOW_CONTRACT_ALIGN" in
+  0|1) ;;
+  *) echo "未知 YOPO_SHADOW_CONTRACT_ALIGN=$SHADOW_CONTRACT_ALIGN（只要 0 或 1）" >&2; exit 2 ;;
+esac
+case "$SHADOW_TRACKING_ALIGN" in
+  0|1) ;;
+  *) echo "未知 YOPO_SHADOW_TRACKING_ALIGN=$SHADOW_TRACKING_ALIGN（只要 0 或 1）" >&2; exit 2 ;;
 esac
 if ! [[ "$AGENT_DELAY_S" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
   echo "--agent-delay-s 要非负数，收到 $AGENT_DELAY_S" >&2
@@ -131,8 +143,8 @@ choose_runtime_image() {
 }
 RUNTIME_IMAGE="$(choose_runtime_image)"
 if [[ "$DRY" == "1" ]]; then
-  printf 'planner=yopo-l0\nscene=%s\nn=%s\npolicy=%s\npositioning=%s\nseed=%s\nimage=%s\nlockstep=%s\nagent_delay_s=%s\nshadow_env_evidence=%s\nfleet_shadow=%s\n' \
-    "$SCENE" "$N" "$POLICY" "$POSITIONING" "$SEED" "$RUNTIME_IMAGE" "$LOCKSTEP" "$AGENT_DELAY_S" "$SHADOW_ENV_EVIDENCE" "$FLEET_SHADOW"
+  printf 'planner=yopo-l0\nscene=%s\nn=%s\npolicy=%s\npositioning=%s\nseed=%s\nimage=%s\nlockstep=%s\nagent_delay_s=%s\nshadow_env_evidence=%s\nfleet_shadow=%s\nshadow_contract_align=%s\nshadow_tracking_align=%s\n' \
+    "$SCENE" "$N" "$POLICY" "$POSITIONING" "$SEED" "$RUNTIME_IMAGE" "$LOCKSTEP" "$AGENT_DELAY_S" "$SHADOW_ENV_EVIDENCE" "$FLEET_SHADOW" "$SHADOW_CONTRACT_ALIGN" "$SHADOW_TRACKING_ALIGN"
   exit 0
 fi
 python3 "$SITL_DIR/fleet.py" layout --n "$N" --format json >/dev/null
@@ -197,6 +209,7 @@ if "${DOCKER[@]}" ps -q -f "name=^${NAME}$" | grep -q .; then
     -e YOPO_L0_SEED="$SEED" -e YOPO_POSITIONING="$POSITIONING" \
     -e YOPO_SITL_LOCKSTEP="$LOCKSTEP" -e YOPO_AGENT_DELAY_S="$AGENT_DELAY_S" \
     -e YOPO_SHADOW_ENV_EVIDENCE="$SHADOW_ENV_EVIDENCE" -e YOPO_FLEET_SHADOW="$FLEET_SHADOW" \
+    -e YOPO_SHADOW_CONTRACT_ALIGN="$SHADOW_CONTRACT_ALIGN" -e YOPO_SHADOW_TRACKING_ALIGN="$SHADOW_TRACKING_ALIGN" \
     -e YOPO_B2_PLAN_DIAG="${YOPO_B2_PLAN_DIAG:-}" -e YOPO_B2_SAFE_RADIUS="${YOPO_B2_SAFE_RADIUS:-}" -e YOPO_B2_FIX="${YOPO_B2_FIX:-}" \
     -e YOPO_SITL_WALL_TIMEOUT="${YOPO_SITL_WALL_TIMEOUT:-900}" \
     "${cache_env[@]}" \
@@ -231,6 +244,7 @@ set +e
   -e YOPO_L0_SEED="$SEED" \
   -e YOPO_SITL_LOCKSTEP="$LOCKSTEP" -e YOPO_AGENT_DELAY_S="$AGENT_DELAY_S" \
   -e YOPO_SHADOW_ENV_EVIDENCE="$SHADOW_ENV_EVIDENCE" -e YOPO_FLEET_SHADOW="$FLEET_SHADOW" \
+  -e YOPO_SHADOW_CONTRACT_ALIGN="$SHADOW_CONTRACT_ALIGN" -e YOPO_SHADOW_TRACKING_ALIGN="$SHADOW_TRACKING_ALIGN" \
   -e YOPO_B2_PLAN_DIAG="${YOPO_B2_PLAN_DIAG:-}" -e YOPO_B2_SAFE_RADIUS="${YOPO_B2_SAFE_RADIUS:-}" -e YOPO_B2_FIX="${YOPO_B2_FIX:-}" \
   -e YOPO_SITL_WALL_TIMEOUT="${YOPO_SITL_WALL_TIMEOUT:-900}" \
   -e YOPO_POSITIONING="$POSITIONING" \

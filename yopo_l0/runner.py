@@ -51,7 +51,7 @@ from .policy import (
 from .scene import SceneCard
 from .depth_noise import D435Rig, d435_from_task
 from .sensor import CameraConfig, DepthCamera
-from .shadow import DroneShadow, aggregate, aggregate_drones, approved_pva, gate_status
+from .shadow import DroneShadow, aggregate, aggregate_drones, approved_pva, codes_would_reject, gate_status
 
 WALL_FIELDS = frozenset({"wall_time_s", PLAN_WALL_FIELD})  # 确定性比较时排除的字段（整回路墙钟、单次规划墙钟）
 REPO = Path(__file__).resolve().parents[1]
@@ -80,6 +80,9 @@ class RunConfig:
     # 研究开关，默认关。打开后按上游轨迹语义过滤误报契约码，只记录，不改批准动作、不改冻结判据。
     # 关着影子仍用认证默认限幅和 SafetyGate。打开即偏离上游。
     shadow_contract_align: bool = False
+    # 研究开关，默认关。打开后 0.15 m 的 TRACKING_BOUND 仍记录，但不把它当成计划危险打进 would_reject。
+    # 不放宽 FlightOracle.tracking_bound。打开即偏离上游。
+    shadow_tracking_align: bool = False
 
 
 @dataclass
@@ -265,6 +268,7 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
                     d["id"], start, goal, dict(c.get("policy_params", {})),
                     card.obstacles if cfg.shadow_env_evidence else None,
                     contract_align=bool(cfg.shadow_contract_align),
+                    tracking_align=bool(cfg.shadow_tracking_align),
                     a_max=a_max,
                 ) if cfg.shadow else None
             ),
@@ -429,7 +433,9 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
                     "cmd_v": [float(x) for x in np.asarray(cmd_v, dtype=float)],
                     "cmd_a": [float(x) for x in np.asarray(cmd_a, dtype=float)],
                     # 关：null。开：空列表表示查了且不拒。
-                    "would_reject": None if codes is None else bool(codes),
+                    "would_reject": None if codes is None else codes_would_reject(
+                        codes, tracking_align=bool(cfg.shadow_tracking_align),
+                    ),
                     "reject_codes": None if codes is None else list(codes),
                 }
                 if fleet is not None:
@@ -596,6 +602,11 @@ def run(card: SceneCard, cfg: RunConfig, *, bridge=None) -> RunOutput:
     if cfg.shadow_contract_align:
         # 研究开关。关时不加这些字段，契约检查仍按认证默认。打开即偏离上游。
         result["shadow_contract_align"] = True
+        result["upstream_deviation"] = True
+
+    if cfg.shadow_tracking_align:
+        # 研究开关。关时不加这些字段，跟踪码仍按 0.15 m 记。打开即偏离上游。
+        result["shadow_tracking_align"] = True
         result["upstream_deviation"] = True
 
     if cfg.shadow_env_evidence:
