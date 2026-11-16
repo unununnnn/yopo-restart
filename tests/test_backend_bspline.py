@@ -13,6 +13,7 @@ from yopo_l0.backend.bspline import (
     _basis,
     _boundary_controls,
     _cost_grad,
+    _eval_cap,
     _sample_layout,
     _sdf_obstacle,
     min_signed_distance,
@@ -182,13 +183,24 @@ def test_cylinder_penalty_increases_clearance():
 
 
 def test_iteration_cap_and_time_budget():
+    """迭代上限和评估次数预算要真的截断求解，不靠墙钟上限。
+
+    以前断言 ``cut["time_ms"] < 50.0``。``time_ms`` 是墙钟。#144 第一次合入时，
+    同机 SITL 把负载抬到约 13，这一项在预算已经按评估次数截断之后仍然超时。
+    缺省 ``budget`` 是 ``"evals"``：``time_budget_s=1e-4`` 折成 1 次评估（下限）。
+    本测试只断言迭代数不超过 ``max_iterations``，以及 1 次评估的预算会置位
+    ``budget_cut``。墙钟预算由 ``test_l0_det_budget.py`` 用假时钟覆盖，
+    不用紧的墙钟阈值。
+    """
     traj = _line()
     cyl = Cylinder("trunk", (0.0, 0.15), 0.45, 0.0, 4.0)
     _out, capped = refine_yopo(traj, _cfg(max_iterations=2, time_budget_s=1.0), (cyl,))
     assert capped["iterations"] <= 2
-    _out, cut = refine_yopo(traj, _cfg(max_iterations=8, time_budget_s=1e-4), (cyl,))
+    tight = _cfg(max_iterations=8, time_budget_s=1e-4)
+    assert tight.budget == "evals"
+    assert _eval_cap(tight) == 1
+    _out, cut = refine_yopo(traj, tight, (cyl,))
     assert cut["budget_cut"] is True
-    assert cut["time_ms"] < 50.0
 
 
 def test_failure_returns_the_original_object(monkeypatch):

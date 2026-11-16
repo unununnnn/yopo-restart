@@ -119,6 +119,11 @@ if [[ -z "$SCENE" ]]; then
     exit 2
   fi
 fi
+# 自定容器名必须带自己的网络。缺省则本趟稍后自建隔离网。
+# 检查放在选镜像、碰容器之前，方便无镜像时也能挡住这条路径。
+if ! sitl_custom_name_needs_network; then
+  exit 2
+fi
 SITL_YOPO_IMAGE="$(bash "$SITL_DIR/build_yopo_image.sh" --print-image)"
 tag_exists() { "${DOCKER[@]}" image inspect "$1" >/dev/null 2>&1; }
 choose_runtime_image() {
@@ -204,7 +209,6 @@ if "${DOCKER[@]}" ps -q -f "name=^${NAME}$" | grep -q .; then
     -e YOPO_L0_SEED="$SEED" -e YOPO_POSITIONING="$POSITIONING" \
     -e YOPO_SITL_LOCKSTEP="$LOCKSTEP" -e YOPO_AGENT_DELAY_S="$AGENT_DELAY_S" \
     -e YOPO_SHADOW_ENV_EVIDENCE="$SHADOW_ENV_EVIDENCE" -e YOPO_FLEET_SHADOW="$FLEET_SHADOW" \
-  -e YOPO_SHADOW_CONTRACT_ALIGN="$SHADOW_CONTRACT_ALIGN" -e YOPO_SHADOW_TRACKING_ALIGN="$SHADOW_TRACKING_ALIGN" \
     -e YOPO_SHADOW_CONTRACT_ALIGN="$SHADOW_CONTRACT_ALIGN" -e YOPO_SHADOW_TRACKING_ALIGN="$SHADOW_TRACKING_ALIGN" \
     -e YOPO_B2_PLAN_DIAG="${YOPO_B2_PLAN_DIAG:-}" -e YOPO_B2_SAFE_RADIUS="${YOPO_B2_SAFE_RADIUS:-}" -e YOPO_B2_FIX="${YOPO_B2_FIX:-}" \
     -e YOPO_SITL_WALL_TIMEOUT="${YOPO_SITL_WALL_TIMEOUT:-900}" \
@@ -222,21 +226,25 @@ mkdir -p "$RUN"
 "${DOCKER[@]}" rm -f "$NAME" >/dev/null 2>&1 || true
 shm=1g
 [[ "$N" != "1" ]] && shm=2g
-set +e
-# YOPO_SITL_DOCKER_NETWORK（缺省空 = docker 默认网桥）：自定容器名并排跑时必须给一个自己的网络。
+# 票 SITL-NET：没给 YOPO_SITL_DOCKER_NETWORK 时为这一趟自建隔离网（yopo-sitl-<id>）。
+# 用户指定的网络只连接、不删除。成功或失败都在 EXIT 时删掉自建网络。
 # 同一网桥上两个容器的 DDS 和 gz-transport 组播会互相发现（话题名、世界名相同），里程计和世界步进会串。
-net_args=()
-[[ -n "${YOPO_SITL_DOCKER_NETWORK:-}" ]] && net_args=(--network "$YOPO_SITL_DOCKER_NETWORK")
-if [[ -n "${YOPO_SITL_CONTAINER_NAME:-}" && -z "${YOPO_SITL_DOCKER_NETWORK:-}" ]]; then
-  echo "YOPO_SITL_CONTAINER_NAME 要和 YOPO_SITL_DOCKER_NETWORK 一起给：默认网桥上会和别的仿真串话" >&2
-  exit 2
+SITL_RUN_NETWORK=""
+SITL_RUN_NETWORK_OWNED=0
+trap 'sitl_cleanup_run_network || true' EXIT
+if ! sitl_prepare_run_network; then
+  exit 3
 fi
+printf 'network=%s\nowned=%s\n' "$SITL_RUN_NETWORK" "$SITL_RUN_NETWORK_OWNED" > "$RUN/docker_network.txt"
+net_args=(--network "$SITL_RUN_NETWORK")
+set +e
 "${DOCKER[@]}" run --rm --name "$NAME" "${net_args[@]}" \
   -e ROS_DOMAIN_ID=0 -e YOPO_SITL_N="$N" -e YOPO_SITL_MISSION=1 \
   -e YOPO_SITL_PLANNER=yopo-l0 -e YOPO_L0_SCENE="$SCENE" -e YOPO_L0_POLICY="$POLICY" \
   -e YOPO_L0_SEED="$SEED" \
   -e YOPO_SITL_LOCKSTEP="$LOCKSTEP" -e YOPO_AGENT_DELAY_S="$AGENT_DELAY_S" \
   -e YOPO_SHADOW_ENV_EVIDENCE="$SHADOW_ENV_EVIDENCE" -e YOPO_FLEET_SHADOW="$FLEET_SHADOW" \
+  -e YOPO_SHADOW_CONTRACT_ALIGN="$SHADOW_CONTRACT_ALIGN" -e YOPO_SHADOW_TRACKING_ALIGN="$SHADOW_TRACKING_ALIGN" \
   -e YOPO_B2_PLAN_DIAG="${YOPO_B2_PLAN_DIAG:-}" -e YOPO_B2_SAFE_RADIUS="${YOPO_B2_SAFE_RADIUS:-}" -e YOPO_B2_FIX="${YOPO_B2_FIX:-}" \
   -e YOPO_SITL_WALL_TIMEOUT="${YOPO_SITL_WALL_TIMEOUT:-900}" \
   -e YOPO_POSITIONING="$POSITIONING" \
@@ -249,4 +257,5 @@ rc=$?
 set -e
 chown_out "$RUN"
 echo "run_dir $RUN rc=$rc"
+echo "sitl_network $SITL_RUN_NETWORK owned=$SITL_RUN_NETWORK_OWNED"
 exit "$rc"

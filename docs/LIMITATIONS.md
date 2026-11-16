@@ -103,13 +103,22 @@ L0 **不等价于** L1，也不是实飞：
    - [S6](research/s6-sitl-upstream-m0.md)（[#128](https://github.com/unununnnn/yopo-restart/pull/128)）：同一张 M0 卡 `g2-pillar`，L0 / SITL 都是 10/10 到达、碰撞 0；去掉起飞交接后，SITL 到达仍比 L0 慢约 1.9–2.9 s；影子拒绝率两边都是 1.000。
    - [S5b](research/s5b-sitl-formation-verify.md)（[#134](https://github.com/unununnnn/yopo-restart/pull/134)）：编队保持 seeds 0–4，L0 / SITL 都是 15/15 到达、碰撞 0；队形 p95 从 0.027 m 升到 0.310–0.361 m。
    - [S7](research/s7-sitl-crossing-switch.md)（[#139](https://github.com/unununnnn/yopo-restart/pull/139)）：变阵 5/5，交叉卡 `crossing-pillars-sitl80` 自由跑 0/5（两臂合计 0/10），碰撞 0，RTF 最低 0.4382，机间时间戳极差最大 251.063 s。
-   - [B1](research/b1-sitl-lockstep.md)（[#142](https://github.com/unununnnn/yopo-restart/pull/142)）：锁步交叉 4/5（12/15 到达，碰撞 1），三机里程计仿真时差 0.012–0.016 s；变阵仍是 5/5，队形 p95 中位 0.178 m。剩下的失败是规划轨迹擦柱，PLAN 段最小净空 −0.010 m。
+   - [B1](research/b1-sitl-lockstep.md)（[#142](https://github.com/unununnnn/yopo-restart/pull/142)）：锁步交叉 4/5（12/15 到达，碰撞 1），三机里程计仿真时差 0.012–0.016 s；变阵仍是 5/5，队形 p95 中位 0.178 m。B1 写过剩下的失败是规划轨迹擦柱、PLAN 段最小净空 −0.010 m；[B2](research/b2-sitl-plan-clearance.md) 更正：这个字段量的是 PLAN 段里程计位置离柱面的净空，不是规划轨迹。缺省失败趟的设定点全程净空 ≥ 0.47 m，撞柱那一拍 0.81–1.10 m。
+   - [B2](research/b2-sitl-plan-clearance.md)（[#144](https://github.com/unununnnn/yopo-restart/pull/144)，`f957d0c`）：锁步交叉补到 seeds 0–9 是 7/10（21/30 到达，碰撞 3）。失败发生在 PLAN 起算 1.68–2.18 s、刚加速到 5.24–5.47 m/s 时：规划器给出约 1 m 的反向横移，PX4 机体几乎没有横向动作，直线撞柱。根因是 PX4 起步跟踪滞后，加上规划器从已提交计划取起点、不看真实状态。规划时横向跟踪误差 p95 在 SITL 是 0.40–0.66 m，L0 约 0.06 m。本票的修复候选都没有好过缺省，开关默认关。
+   - [B3](research/b3-sitl-launch-tracking.md)（[#148](https://github.com/unununnnn/yopo-restart/pull/148)，`14c22f0`）：起步限加速 3 m/s²、持续 1.5 s 的候选 (a) 是 8/10（24/30 到达，碰撞 2），缺省 7/10；到达中位数 10.49 s（缺省 14.02 s），横向跟踪 p95 中位数 0.72 → 0.65 m。锁步下同 seed 会翻，8/10 对 7/10 只差一趟，在噪声内；更能说明 (a) 起作用的是失败样子变了（推迟到 PLAN 后 2.6–3.1 s，设定点离柱面 0.15–0.19 m，有一趟 −0.17 m）。按真实状态重规划的候选 (b) 不推荐：0.5 m 档是 4/10，比缺省差。(a) 在 L0 `crossing-pillars` 的 seed 1、6、9 上编队误差 p95 是 6.13 / 6.29 / 6.13 m，越过冻结线 6.0 m，开关默认关。
+   - [B4](research/b4-center-launch-ramp.md)（[#150](https://github.com/unununnnn/yopo-restart/pull/150)，`48cd746`）：(a)+中心斜坡让 L0 `crossing-pillars` 10/10 过冻结线，编队误差 p95 最大 4.31 m（缺省 4.61 m，(a) 单独开时 6.29 m）。锁步 SITL 两批是 8/10、7/10（合计 15/20），横向跟踪 p95 中位数 0.81、0.98 m。剩下的失败仍是计划贴柱（设定点净空 0.10–0.25 m）。中心斜坡仍默认关。
+   - [B5](research/b5-a-rerun-ramp-ref.md)（[#151](https://github.com/unununnnn/yopo-restart/pull/151)，`5b5e942`）：(a) 又跑一批仍是 8/10，两批合计 16/20（50/60 到达，碰撞 3），横向跟踪 p95 中位数 0.65、0.63 m。参考斜坡（`ref_ramp_mps2`）让 L0 `crossing-pillars` 10/10 过冻结线，编队误差 p95 最大 4.41 m，但只改了编队误差的量尺，不改飞行（到达时间、最小障碍距离和最小机间距离与 (a) 逐位相同），默认关。B5 补记：B4 里「中心斜坡让横向跟踪变差」站不住，因为同一份 (a) 规划不同批次的横向跟踪 p95 中位数本身在 0.63–0.88 m 波动（0.65、0.63、0.88 m）；B4 两批的 0.81、0.98 m 落在这个范围内。中心斜坡仍默认关。
 2. **M4 的 ROS 2 全档全 seed 矩阵已跑完。** [M4-ROS2](research/m4-ros2-matrix.md)（[#129](https://github.com/unununnnn/yopo-restart/pull/129)）：六档 × seeds 0–4，30/30 到达，碰撞 0，队形 p95 0.066 m，最小机间 2.980 m，到达时间 20.13 s，与进程内一致。
 3. **一阶 SO3 已在冻结套件上测过，默认仍是点质量、`a_max=6`。** [E-SO3b](research/e-so3b-suite.md)（[#130](https://github.com/unununnnn/yopo-restart/pull/130)）：13 行里破了 1 行，M4 六机稀疏到达 59/60（点质量 60/60），碰撞 0。不改默认动力学；若以后打开，到达和净空要重测，不能沿用冻结表里的秒数和米数。
 4. **六机林带短前缀已测，不写进场景卡，开关保持默认关。** [ADR 0015](adr/0015-ghost-brake-stops.md) 写过的「只修自检、门控仍开时 50 s 内飞不完」，已由短前缀量过：
    - [E-PG3](research/e-pg3-leader-prefix.md)（[#131](https://github.com/unununnnn/yopo-restart/pull/131)）：0.7 s 短前缀两张六机林带都是 60/60 到达，障碍和机间碰撞 0，平均到达 medium 42.71 s、sparse 36.84 s。
    - [E-PG4](research/e-pg4-prefix-suite.md)（[#137](https://github.com/unununnnn/yopo-restart/pull/137)）：同一档在 M2 `crossing-forest`（medium）破门，到达 24/30（点质量 30/30），碰撞 2（点质量 0）。
-5. **影子盾环境证据已接入（默认关），环境码不是缺地图。** [SH1](research/sh1-shadow-env-evidence.md)（[#133](https://github.com/unununnnn/yopo-restart/pull/133)）：打开 `shadow_env_evidence` 后，三张卡的环境拒绝率都变成 0；`would_reject` 只有 formation-hold 从 1.000 降到 0.028，g2-pillar 和 crossing-pillars 仍是 1.000，剩下的是计划契约码。开关还没接到 `sitl_bridge`。
+5. **影子盾环境证据已接入，并接到了 SITL；契约码多数是误报。** 研究开关都默认关。
+   - [SH1](research/sh1-shadow-env-evidence.md)（[#133](https://github.com/unununnnn/yopo-restart/pull/133)）：打开 `shadow_env_evidence` 后，三张卡的环境拒绝率都变成 0；`would_reject` 只有 formation-hold 从 1.000 降到 0.028，g2-pillar 和 crossing-pillars 仍是 1.000，剩下的是计划契约码。当时开关还没接到 `sitl_bridge`。
+   - [SH2](research/sh2-sitl-shadow-evidence.md) 随 [#147](https://github.com/unununnnn/yopo-restart/pull/147)（`c37ce78`）合入，[#146](https://github.com/unununnnn/yopo-restart/pull/146) 已关：开关接到 `sitl_bridge`。L0 上结论与 SH1 一致。
+   - [SH2b](research/sh2-sitl-shadow-evidence.md)（[#149](https://github.com/unununnnn/yopo-restart/pull/149)，`c929491`）：被串话污染的 4 趟在隔离网络上重跑，4/4 成功到达、碰撞 0，结论不变。锁步交叉 seeds 0–4 合计：开证据后环境拒绝率 0.931→0.013，`would_reject` 仍是 0.997，主要靠契约码和 `TRACKING_BOUND`（0.15 m）打满。
+   - [SH3](research/sh3-contract-codes.md)（[#147](https://github.com/unununnnn/yopo-restart/pull/147)）：契约码多数是误报（把已经在飞的上游多项式按认证 `Plan` 语义再包一层）。修正开关 `shadow_contract_align` 默认关；打开后 L0 上 g2-pillar 的 `would_reject` 从 1.000 降到 0.0114，crossing-pillars 从 1.000 降到 0.0176。对齐后不再把 `TRACKING_BOUND` 算进 `would_reject`，阈值 0.15 m 本身不改。
+
 6. **打开后段之后的评估次数缺省已改为 20。** 研究开关仍默认关。
    - [E-B2q](research/e-b2q-evals-diag.md)（[#136](https://github.com/unununnnn/yopo-restart/pull/136)）：密林 10 次是 12/30、截断 130/362，20 次是 21/30、截断 0/418；014 对向 10 次是 8/30、截断 470/1293，20 次是 20/30、截断 0。
    - [E-B2r](research/e-b2r-evals-default.md)（[#140](https://github.com/unununnnn/yopo-restart/pull/140)）：把缺省从 10 改成 20，重跑与 E-B2q 的 20 次臂相同（密林 21/30，014 对向 20/30，截断都是 0）。
@@ -121,9 +130,10 @@ L0 **不等价于** L1，也不是实飞：
 
 ### 下一步
 
-1. **B2：锁步交叉卡的规划净空。** B1 锁步交叉剩下的失败是代理规划出来的轨迹擦到柱子，PLAN 段最小净空是 −0.010 m（加延迟臂还有 −0.015 m）。要和 L0 的同一张卡对照。
-2. **SH2：拒绝码归因。** 把 `shadow_env_evidence` 接到 `sitl_bridge`，并统计各类拒绝原因各占多少。
-3. **锁步下电池模拟报 unhealthy（不改 `BAT_` 参数）。** B1 第二版 10 趟三机交叉里有 5 趟出现 `Battery unhealthy`，没有一趟触发 failsafe。修它要改 PX4 或镜像。
-4. **限速 2.5 m/s 作为候选对照臂。** 按 D9：继续用更多种子或更多场景做配对确认，先不改库默认。
-5. **学生网络线暂停。** D6e 到 D9 的收益都在训练噪声范围内，人手先放到方向 B。
-6. **实飞仍不在范围内。** 不要把 L0 或 SITL 的到达率读成实飞。
+1. **(a) 是目前真正改善 SITL 交叉的手段（7/10 → 两批合计 16/20，即约 70%→80%），但不能默认开；两种斜坡也保持默认关。** (a) 把失败从「起步横移跟不上」变成「计划贴柱」。但它在 L0 `crossing-pillars` 的 seed 1、6、9 上编队误差 p95 越过冻结线 6.0 m，不能默认开。中心斜坡改规划时刻表，参考斜坡只改编队误差的量尺、不改飞行，两个都默认关。
+2. **(a) 之后剩下的 SITL 失败主要是计划贴柱太近。** B3 里这些失败在 PLAN 后 2.6–3.1 s，设定点离柱面 0.15–0.19 m，有一趟 −0.17 m；B4 是 0.10–0.25 m。
+3. **`TRACKING_BOUND` 0.15 m 仍把 SITL 的 `would_reject` 打满。** SH2 开证据后环境拒绝率降到 0.013，`would_reject` 仍是 0.997，开臂 9759 个 tick 里有 6445 次 `TRACKING_BOUND`。这是 PX4 跟踪，不是环境。SH3 在 L0 上不再把该码算进 `would_reject`，但 0.15 m 阈值本身不改，也还没有在 SITL 上重测对齐开关。
+4. **锁步下电池模拟报 unhealthy（不改 `BAT_` 参数）。** B1 第二版 10 趟三机交叉里有 5 趟出现 `Battery unhealthy`，没有一趟触发 failsafe。修它要改 PX4 或镜像。
+5. **学生网络线暂停。** D6e 到 D9 的收益都在训练噪声范围内，人手先放到方向 B。限速 2.5 m/s 仍只是 D9 的候选对照臂，不改库默认。
+6. **高负载下，计时测试和 6 机林带同 seed 会偶发不一致。** B3 合入前回归里，`tests/test_l0_six_batch.py::test_repeated_seed_stays_deterministic_with_tier_metadata`（`formation-6-open` 0.3 s）在负载下报过一次不一致，单独重跑和整套 L0 pytest 重跑都通过。B5 第一次回归的批跑失败，唯一原因是 `crossing-6-forest` seed 0 同 seed 重跑不一致（当时同机在跑 SITL，该卡单趟墙钟 234.9 s）；低负载下单独重跑这张卡一致，第二次整套回归以它为准并通过。原因还没有查。
+7. **实飞仍不在范围内。** 不要把 L0 或 SITL 的到达率读成实飞。
