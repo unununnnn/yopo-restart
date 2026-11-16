@@ -226,8 +226,14 @@ def compact_row(
     lock = result.get("lockstep") or {}
     ticks = attr.get("ticks")
     would = attr.get("would_reject")
-    if would is None and ticks is not None and result.get("shadow_reject_rate") is not None:
-        would = int(round(float(result["shadow_reject_rate"]) * int(ticks)))
+    rate = attr.get("would_reject_rate", result.get("shadow_reject_rate"))
+    # shadow_reject_rate 走 shadow.aggregate，只看 tick.would_reject，是跟踪对齐下的准数。
+    official = result.get("shadow_reject_rate")
+    if official is not None and ticks:
+        rate = float(official)
+        would = int(round(rate * int(ticks)))
+    elif would is None and ticks is not None and rate is not None:
+        would = int(round(float(rate) * int(ticks)))
     return {
         "layer": "sitl-lockstep",
         "scene": scene,
@@ -257,8 +263,8 @@ def compact_row(
         "result_shadow_contract_align": bool(result.get("shadow_contract_align", False)),
         "result_shadow_tracking_align": bool(result.get("shadow_tracking_align", False)),
         "ticks": ticks,
-        "would_reject": attr.get("would_reject", would),
-        "would_reject_rate": attr.get("would_reject_rate", result.get("shadow_reject_rate")),
+        "would_reject": would,
+        "would_reject_rate": rate,
         "env_reject": attr.get("env_reject"),
         "env_reject_rate": attr.get("env_reject_rate"),
         "histogram": hist,

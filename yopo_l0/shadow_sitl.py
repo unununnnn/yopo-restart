@@ -96,7 +96,11 @@ def attribution(ticks: list[dict]) -> dict:
     env_only = non_env = 0
     for tick in ticks:
         codes = [str(c) for c in (tick.get("reject_codes") or [])]
-        wr = bool(tick.get("would_reject")) or bool(codes)
+        # 跟踪对齐时 tick.would_reject 已忽略单独的 TRACKING_BOUND；不能再用「有码就拒」把测量打回去。
+        if "would_reject" in tick:
+            wr = bool(tick.get("would_reject"))
+        else:
+            wr = bool(codes)
         fams: set[str] = set()
         for code in codes:
             hist[code] = hist.get(code, 0) + 1

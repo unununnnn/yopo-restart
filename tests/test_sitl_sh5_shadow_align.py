@@ -194,6 +194,7 @@ def test_compact_row_and_aggregate_four_arms(tmp_path):
     off["shadow_env_evidence"] = False
     off["shadow_contract_align"] = False
     off["shadow_tracking_align"] = False
+    off["shadow_reject_rate"] = 1.0
     off["shadow_attribution"] = {
         "ticks": 1000,
         "would_reject": 1000,
@@ -244,3 +245,23 @@ def test_parse_launcher_output_extracts_run_dir_and_network():
     assert run_dir.endswith("20261116T010000-yopo-n3")
     assert network == "yopo-sitl-20261116T010000-1-2"
     assert sh5.parse_launcher_output("nope\n") == (None, None)
+
+
+def test_attribution_respects_tracking_align_would_reject():
+    from yopo_l0.shadow_sitl import attribution
+
+    ticks = [
+        {"uav": "uav0", "would_reject": False, "reject_codes": ["TRACKING_BOUND"]},
+        {"uav": "uav0", "would_reject": True, "reject_codes": ["ENV:OCCUPIED", "TRACKING_BOUND"]},
+        {"uav": "uav0", "would_reject": False, "reject_codes": []},
+        {"uav": "uav0", "would_reject": True, "reject_codes": ["TRANSITION:MOTION_KINEMATICS"]},
+    ]
+    attr = attribution(ticks)
+    assert attr["ticks"] == 4
+    assert attr["would_reject"] == 2
+    assert attr["would_reject_rate"] == 0.5
+    assert attr["tracking_bound_count"] if False else attr["histogram"]["TRACKING_BOUND"] == 2
+    assert attr["env_reject"] == 1
+    # 缺 would_reject 字段时，仍按是否有码计算（兼容旧日志）。
+    legacy = attribution([{"reject_codes": ["TRACKING_BOUND"]}])
+    assert legacy["would_reject"] == 1
