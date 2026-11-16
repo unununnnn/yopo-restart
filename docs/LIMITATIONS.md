@@ -134,7 +134,7 @@ L0 **不等价于** L1，也不是实飞：
 1. **(a) 是目前真正改善 SITL 交叉的手段（7/10 → 两批合计 16/20，即约 70%→80%），但不能默认开；两种斜坡也保持默认关。** (a) 把失败从「起步横移跟不上」变成「计划贴柱」。但它在 L0 `crossing-pillars` 的 seed 1、6、9 上编队误差 p95 越过冻结线 6.0 m，不能默认开。中心斜坡改规划时刻表，参考斜坡只改编队误差的量尺、不改飞行，两个都默认关。
 2. **(a) 之后剩下的 SITL 失败主要是计划贴柱太近。** B3 里这些失败在 PLAN 后 2.6–3.1 s，设定点离柱面 0.15–0.19 m，有一趟 −0.17 m；B4 是 0.10–0.25 m。
 3. **`TRACKING_BOUND` 0.15 m 仍把 SITL 的 `would_reject` 打满。** SH2 开证据后环境拒绝率降到 0.013，`would_reject` 仍是 0.997，开臂 9759 个 tick 里有 6445 次 `TRACKING_BOUND`。这是 PX4 跟踪，不是环境。SH3 在 L0 上不再把该码算进 `would_reject`，但 0.15 m 阈值本身不改，也还没有在 SITL 上重测对齐开关。
-4. **锁步下电池模拟报 unhealthy（不改 `BAT_` 参数）。** B1 第二版 10 趟三机交叉里有 5 趟出现 `Battery unhealthy`，没有一趟触发 failsafe。修它要改 PX4 或镜像。
+4. **锁步下电池模拟报 unhealthy（不改 `BAT_` 参数）。** [BAT1](research/bat1-lockstep-battery.md) 已诊断：B1 第二版 10 趟三机交叉仍是 5/10 出现 `Battery unhealthy`、0 趟 failsafe。根因是部分 PX4 实例解锁后停止发布 `battery_status`，指挥官按仿真钟 5 s 超时；电压始终 16.2 V，自由跑也会出现。要修仍需改 PX4 或镜像。
 5. **学生网络线暂停。** D6e 到 D9 的收益都在训练噪声范围内，人手先放到方向 B。限速 2.5 m/s 仍只是 D9 的候选对照臂，不改库默认。
 6. **高负载下，计时测试和 6 机林带同 seed 会偶发不一致。** B3 合入前回归里，`tests/test_l0_six_batch.py::test_repeated_seed_stays_deterministic_with_tier_metadata`（`formation-6-open` 0.3 s）在负载下报过一次不一致，单独重跑和整套 L0 pytest 重跑都通过。B5 第一次回归的批跑失败，唯一原因是 `crossing-6-forest` seed 0 同 seed 重跑不一致（当时同机在跑 SITL，该卡单趟墙钟 234.9 s）；低负载下单独重跑这张卡一致，第二次整套回归以它为准并通过。原因还没有查。
 7. **实飞仍不在范围内。** 不要把 L0 或 SITL 的到达率读成实飞。
