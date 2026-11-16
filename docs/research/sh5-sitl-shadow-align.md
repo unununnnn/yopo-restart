@@ -10,6 +10,8 @@
 
 到达和碰撞在同一张卡、同一个种子的不同趟之间仍会翻，不能写成开关的效果。缺省 3/5（9/15 到达，碰撞 2），开证据 2/5（6/15，碰撞 3），契约对齐 3/5（9/15，碰撞 2），再加跟踪对齐 3/5（11/15，碰撞 1）。这和票 SH2、B1 以后锁步交叉卡「同 seed 会翻」是同一类噪声。
 
+时间允许时补跑了 `g2-pillar-sitl80` seeds 0–4（单机、policy `upstream`）。四臂都是 5/5 到达、碰撞 0。缺省环境拒绝率 1.000，开证据后是 0；`would_reject` 在缺省和只开证据时仍是 1.000，契约对齐后降到 0.0125（只剩 `LAG_VIOLATION` 21 次，`TRACKING_BOUND` 从码表拿掉），三个开关一起开时 0.15 m 超界回到直方图（1115 次），`would_reject` 是 0.0655，全部来自 `LAG_VIOLATION`（108 次），跟踪超界没有计入会拒。沿路径落后超过 1.5 m 按票 SH4 不是误报。两臂 `LAG_VIOLATION` 次数不同，是锁步同 seed 轨迹起伏，不是跟踪开关注入了新的拒绝。
+
 本票修了一处只影响报告的归因：`shadow_sitl.attribution` 在 tick 已经带 `would_reject` 时，不再用「有拒绝码就拒」把仍记在码表里的 `TRACKING_BOUND` 打回去。`result.shadow_reject_rate`（`shadow.aggregate`）本来就只看 `tick.would_reject`。默认关时两条路径数字相同，行为不变。
 
 `px4_parameters_written` 全程是空列表。锁步 `clock_ahead` 都是 0。每趟都走官方启动脚本自建的 `yopo-sitl-…` 隔离网。
@@ -77,6 +79,47 @@ scripts/sitl/run_yopo_l0_sitl.sh --n 3 --scene scenes/crossing-pillars-sitl80.js
 | 4 | env_contract_tracking | SUCCESS | 3/3 | 0 | 2901 | 0.0128 | 0.0000 | 1328 | `MOTION_KINEMATICS` 37 |
 
 短路程失败趟（大约 250–330 tick）在契约对齐之后，直方图经常是空的，或只剩跟踪超界且会拒为 0：影子在这些 tick 上没有记到 `ENV:OCCUPIED`，撞柱是 PX4 跟踪和规划滞后，不是本票要改的设定点。这不能读成「对齐开关放过了穿柱」。成功飞完的趟里，穿柱或超上游限幅仍然留下 `ENV:OCCUPIED` 或 `TRANSITION:MOTION_KINEMATICS`，并计入 `would_reject`。
+
+
+## 锁步 SITL：g2-pillar-sitl80 seeds 0–4
+
+单机，policy `upstream`。镜像、隔离网络和「不写 PX4 参数」与交叉卡相同。四臂都开 `fleet_shadow`。全部 5/5 成功到达，碰撞 0，`clock_ahead` 都是 0，`px4_parameters_written` 都是空列表。
+
+### 各臂合计
+
+| 臂 | 成功趟 | 到达 | 碰撞 | tick | would_reject | env 拒绝率 | `TRACKING_BOUND` | 开臂主要剩余码 |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| default | 5/5 | 5/5 | 0 | 1658 | 1.0000 | 1.0000 | 1135 | `ENV:UNKNOWN` 1658，`TIME:SWITCH_NOT_IN_FUTURE` 1123，`TRANSITION:HEAD_DISCONTINUITY` 1123，`TRACKING_BOUND` 1135，`TRANSITION:TERMINAL_NOT_HOLDABLE` 535，`LAG_VIOLATION` 50 |
+| env | 5/5 | 5/5 | 0 | 1670 | 1.0000 | 0.0000 | 1199 | `TIME:SWITCH_NOT_IN_FUTURE` 1140，`TRANSITION:HEAD_DISCONTINUITY` 1140，`TRACKING_BOUND` 1199，`TRANSITION:TERMINAL_NOT_HOLDABLE` 530，`LAG_VIOLATION` 53 |
+| env_contract | 5/5 | 5/5 | 0 | 1684 | 0.0125 | 0.0000 | 0 | `LAG_VIOLATION` 21 |
+| env_contract_tracking | 5/5 | 5/5 | 0 | 1649 | 0.0655 | 0.0000 | 1115 | `LAG_VIOLATION` 108，`TRACKING_BOUND` 1115 |
+
+开证据后环境码清零，与票 SH1 / SH3 的 L0 g2 一致。契约对齐把 `TIME` / `HEAD` / `TERMINAL_NOT_HOLDABLE` 和码表里的 `TRACKING_BOUND` 拿掉，会拒率从 1.000 降到 0.0125。再开跟踪对齐后，0.15 m 超界重新出现在直方图，但 `would_reject` 等于 `LAG_VIOLATION` 的票数（108 / 1649），没有把跟踪超界算进去。这张卡在 SITL 上留下的真拒绝是沿路径落后，不是 L0 上那 60 个 `MOTION_KINEMATICS`。
+
+### 逐趟
+
+| seed | 臂 | 结果 | would_reject | env 拒绝率 | `TRACKING_BOUND` | tick | 开臂直方图 |
+|---:|---|---|---:|---:|---:|---:|---|
+| 0 | default | SUCCESS 1/1 | 1.0000 | 1.0000 | 257 | 333 | 环境码和契约码打满 |
+| 0 | env | SUCCESS 1/1 | 1.0000 | 0.0000 | 214 | 335 | 环境码 0 |
+| 0 | env_contract | SUCCESS 1/1 | 0.0000 | 0.0000 | 0 | 339 | 空 |
+| 0 | env_contract_tracking | SUCCESS 1/1 | 0.0871 | 0.0000 | 256 | 333 | `LAG_VIOLATION` 29，`TRACKING_BOUND` 256 |
+| 1 | default | SUCCESS 1/1 | 1.0000 | 1.0000 | 229 | 327 | 环境码和契约码打满 |
+| 1 | env | SUCCESS 1/1 | 1.0000 | 0.0000 | 231 | 336 | 另有 `LAG_VIOLATION` 19 |
+| 1 | env_contract | SUCCESS 1/1 | 0.0303 | 0.0000 | 0 | 330 | `LAG_VIOLATION` 10 |
+| 1 | env_contract_tracking | SUCCESS 1/1 | 0.0725 | 0.0000 | 221 | 331 | `LAG_VIOLATION` 24，`TRACKING_BOUND` 221 |
+| 2 | default | SUCCESS 1/1 | 1.0000 | 1.0000 | 257 | 335 | 环境码和契约码打满 |
+| 2 | env | SUCCESS 1/1 | 1.0000 | 0.0000 | 241 | 331 | 另有 `LAG_VIOLATION` 24 |
+| 2 | env_contract | SUCCESS 1/1 | 0.0000 | 0.0000 | 0 | 334 | 空 |
+| 2 | env_contract_tracking | SUCCESS 1/1 | 0.0826 | 0.0000 | 222 | 327 | `LAG_VIOLATION` 27，`TRACKING_BOUND` 222 |
+| 3 | default | SUCCESS 1/1 | 1.0000 | 1.0000 | 223 | 333 | 另有 `LAG_VIOLATION` 25 |
+| 3 | env | SUCCESS 1/1 | 1.0000 | 0.0000 | 285 | 337 | 环境码 0 |
+| 3 | env_contract | SUCCESS 1/1 | 0.0000 | 0.0000 | 0 | 333 | 空 |
+| 3 | env_contract_tracking | SUCCESS 1/1 | 0.0395 | 0.0000 | 171 | 329 | `LAG_VIOLATION` 13，`TRACKING_BOUND` 171 |
+| 4 | default | SUCCESS 1/1 | 1.0000 | 1.0000 | 169 | 330 | 另有 `LAG_VIOLATION` 25 |
+| 4 | env | SUCCESS 1/1 | 1.0000 | 0.0000 | 228 | 331 | 另有 `LAG_VIOLATION` 10 |
+| 4 | env_contract | SUCCESS 1/1 | 0.0316 | 0.0000 | 0 | 348 | `LAG_VIOLATION` 11 |
+| 4 | env_contract_tracking | SUCCESS 1/1 | 0.0456 | 0.0000 | 245 | 329 | `LAG_VIOLATION` 15，`TRACKING_BOUND` 245 |
 
 ## pytest
 
