@@ -30,3 +30,64 @@ sitl_running_names() {
   "${DOCKER[@]}" ps --format '{{.Names}}' 2>/dev/null \
     | grep -E '^yopo-restart-s(1-sitl|itl-n[0-9]+)$' || true
 }
+
+# 票 SITL-NET：缺省为这一趟建隔离 docker 网络（前缀 yopo-sitl-），
+# 避免和别的仿真在默认网桥上串话（DDS / gz-transport 组播）。
+# YOPO_SITL_DOCKER_NETWORK 已给则用用户的网络，不创建、不删除。
+# 自定容器名却没给网络：调用方应直接退出，这里不建网。
+SITL_NET_PREFIX="yopo-sitl-"
+SITL_RUN_NETWORK=""
+SITL_RUN_NETWORK_OWNED=0
+
+sitl_custom_name_needs_network() {
+  if [[ -n "${YOPO_SITL_CONTAINER_NAME:-}" && -z "${YOPO_SITL_DOCKER_NETWORK:-}" ]]; then
+    echo "YOPO_SITL_CONTAINER_NAME 要和 YOPO_SITL_DOCKER_NETWORK 一起给：默认网桥上会和别的仿真串话" >&2
+    return 2
+  fi
+  return 0
+}
+
+sitl_prepare_run_network() {
+  SITL_RUN_NETWORK=""
+  SITL_RUN_NETWORK_OWNED=0
+  if [[ -n "${YOPO_SITL_DOCKER_NETWORK:-}" ]]; then
+    SITL_RUN_NETWORK="$YOPO_SITL_DOCKER_NETWORK"
+    return 0
+  fi
+  local i name
+  for i in 1 2 3; do
+    name="${SITL_NET_PREFIX}$(date +%Y%m%dT%H%M%S)-$$-${RANDOM}"
+    if "${DOCKER[@]}" network create --driver bridge "$name" >/dev/null; then
+      SITL_RUN_NETWORK="$name"
+      SITL_RUN_NETWORK_OWNED=1
+      return 0
+    fi
+  done
+  echo "无法创建隔离网络 ${SITL_NET_PREFIX}<id>" >&2
+  return 3
+}
+
+sitl_cleanup_run_network() {
+  local name="${SITL_RUN_NETWORK:-}" owned="${SITL_RUN_NETWORK_OWNED:-0}"
+  SITL_RUN_NETWORK_OWNED=0
+  if [[ "$owned" != 1 || -z "$name" ]]; then
+    return 0
+  fi
+  # 只删本趟自建、且带 yopo-sitl- 前缀的网络。不删用户指定的，也不扫别人的。
+  case "$name" in
+    "${SITL_NET_PREFIX}"*) ;;
+    *) return 0 ;;
+  esac
+  local i
+  for i in 1 2 3 4 5; do
+    if "${DOCKER[@]}" network rm "$name" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.1
+  done
+  if [[ -n "${NAME:-}" ]]; then
+    "${DOCKER[@]}" network disconnect -f "$name" "$NAME" >/dev/null 2>&1 || true
+  fi
+  "${DOCKER[@]}" network rm "$name" >/dev/null 2>&1 || true
+  return 0
+}
