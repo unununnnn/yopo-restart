@@ -125,6 +125,23 @@ def test_wall_cap_writes_a_plan_and_still_exits_zero(tmp_path, monkeypatch):
     assert all(row["batching_plan"]["wall_time_s"] == 14.0 for row in saved)
 
 
+def test_six_drone_det_cards_do_not_use_wall_budget():
+    """B3/B5 在高负载下看到的同 seed 不一致，不是后段墙钟预算造成的。
+
+    ``formation-6-open``（本文件的短时确定性测试）和 ``crossing-6-forest``
+    （B5 批跑 seed 0）都没有打开后段，也没有打开几何回退。缺省预算是按评估
+    次数，不读墙钟。比较时已经去掉 ``wall_time_s``、``plan_wall_ms``、
+    ``batching_plan`` 和几何回退的 ``check_time_ms``。因此不要为了让测试常绿
+    把硬断言拿掉。调查记录见 ``docs/research/t1-load-tolerant-timing.md``。
+    """
+    from yopo_l0.backend.config import config_from_params
+
+    for rel in (CARD, "scenes/crossing-6-forest.json"):
+        raw = json.loads((ROOT / rel).read_text())
+        assert config_from_params(raw.get("policy_params"), a_max=6.0) is None, rel
+        assert not (raw.get("geometric_fallback") or {}).get("enabled"), rel
+
+
 def test_repeated_seed_stays_deterministic_with_tier_metadata(tmp_path):
     out = tmp_path / "det"
     rc = batch_main([
